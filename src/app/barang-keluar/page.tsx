@@ -70,8 +70,71 @@ const isTextInputTarget = (target: EventTarget | null) => {
   return Boolean(target.closest("input, textarea, [contenteditable='true']"));
 };
 
-const normalizeKodeBarang = (code: string) => code.trim().toUpperCase();
+const ADMIN_LOCATION = "KP Tasikmalaya";
+
+const normalizeKodeBarang = (code?: string | null) => (code || "").trim().toUpperCase();
 const normalizeStatus = (status: string) => status.trim().toLocaleLowerCase("id-ID");
+const normalizeText = (text?: string | null) => (text || "").trim().toLocaleLowerCase("id-ID");
+const normalizeOwner = (owner?: string | null) => normalizeText(owner || ADMIN_LOCATION);
+const isOutsideStatus = (status: string) => {
+  const normalizedStatus = normalizeStatus(status);
+  return normalizedStatus === "keluar";
+};
+
+const getEntryDateTime = (item: InventoryItem) => {
+  const parsedTime = Date.parse(item.tanggalMasuk);
+  return Number.isFinite(parsedTime) ? parsedTime : Number.MAX_SAFE_INTEGER;
+};
+
+const compareFifoItems = (a: InventoryItem, b: InventoryItem) => {
+  const dateDiff = getEntryDateTime(a) - getEntryDateTime(b);
+  if (dateDiff !== 0) return dateDiff;
+
+  return normalizeKodeBarang(a.serialNumber).localeCompare(normalizeKodeBarang(b.serialNumber));
+};
+
+const isSameFifoGroup = (item: InventoryItem, referenceItem: InventoryItem) =>
+  normalizeText(item.merek) === normalizeText(referenceItem.merek) &&
+  normalizeText(item.kategori) === normalizeText(referenceItem.kategori) &&
+  normalizeOwner(item.mitra) === normalizeOwner(referenceItem.mitra);
+
+const getQueuedSerialNumbers = (items: BarangKeluarItem[]) =>
+  new Set(items.map((item) => normalizeKodeBarang(item.nomor)).filter(Boolean));
+
+const findOlderFifoItem = (
+  items: InventoryItem[],
+  requestedItem: InventoryItem,
+  queuedSerialNumbers: Set<string>
+) => {
+  const requestedSerial = normalizeKodeBarang(requestedItem.serialNumber);
+  const requestedEntryTime = getEntryDateTime(requestedItem);
+
+  return items
+    .filter((item) => {
+      const itemSerial = normalizeKodeBarang(item.serialNumber);
+      return (
+        itemSerial &&
+        itemSerial !== requestedSerial &&
+        !queuedSerialNumbers.has(itemSerial) &&
+        !isOutsideStatus(item.status) &&
+        isSameFifoGroup(item, requestedItem) &&
+        getEntryDateTime(item) < requestedEntryTime
+      );
+    })
+    .sort(compareFifoItems)[0];
+};
+
+const formatTanggalMasuk = (tanggal: string) => {
+  if (!tanggal) return "tanggal masuk belum tersedia";
+
+  const [datePart] = tanggal.split("T");
+  return datePart || tanggal;
+};
+
+const getFifoToastDescription = (olderItem: InventoryItem) =>
+  `Scan ${olderItem.serialNumber} terlebih dahulu (masuk ${formatTanggalMasuk(
+    olderItem.tanggalMasuk
+  )}, lokasi ${olderItem.lokasiPenyimpanan || "-"}).`;
 
 function EmptyScanTableState() {
   return (
@@ -262,8 +325,8 @@ export default function BarangKeluarPage() {
     }
 
     // Periksa apakah kode yang discan ada di data master (SQLite)
-    const matchedItem = dbItems.find((d) =>
-      d.serialNumber && String(d.serialNumber).toUpperCase() === trimmedKode.toUpperCase()
+    const matchedItem = dbItems.find(
+      (item) => normalizeKodeBarang(item.serialNumber) === normalizeKodeBarang(trimmedKode)
     );
 
     if (!matchedItem) {
@@ -275,9 +338,21 @@ export default function BarangKeluarPage() {
       return;
     }
 
-    if (normalizeStatus(matchedItem.status) === "keluar" || normalizeStatus(matchedItem.status) === "diluar") {
+    if (isOutsideStatus(matchedItem.status)) {
       toast.error("Barang ini sudah berada di luar dan tidak dapat dikeluarkan kembali.", {
         description: `Status saat ini: ${matchedItem.status}`,
+      });
+      updateKodeBarang("");
+      focusKodeBarangInput();
+      return;
+    }
+
+    const queuedSerialNumbers = getQueuedSerialNumbers(barangKeluar);
+    const olderFifoItem = findOlderFifoItem(dbItems, matchedItem, queuedSerialNumbers);
+
+    if (olderFifoItem) {
+      toast.error("FIFO aktif: keluarkan barang yang lebih lama terlebih dahulu.", {
+        description: getFifoToastDescription(olderFifoItem),
       });
       updateKodeBarang("");
       focusKodeBarangInput();
@@ -411,26 +486,24 @@ export default function BarangKeluarPage() {
       const resLatestItems = await fetch(`${getBaseUrl()}/items`, { method: "GET", headers: getHeaders() });
       const rawLatestItems = await resLatestItems.json();
       const latestItems: InventoryItem[] = Array.isArray(rawLatestItems.data || rawLatestItems) ? (rawLatestItems.data || rawLatestItems) : [];
+      const latestVisibleItems =
+        user?.role === "mitra"
+          ? latestItems.filter(
+            (item) => normalizeOwner(item.mitra) === normalizeOwner(user.displayName)
+          )
+          : latestItems;
+      const findLatestSessionItem = (nomor: string) =>
+        latestVisibleItems.find(
+          (dbItem) => normalizeKodeBarang(dbItem.serialNumber) === normalizeKodeBarang(nomor)
+        );
 
       const invalidItem = barangKeluar.find((item) => {
-        const latestItem = latestItems.find(
-          (dbItem) =>
-            normalizeKodeBarang(dbItem.serialNumber) === normalizeKodeBarang(item.nomor) &&
-            (user?.role !== "mitra" ||
-              dbItem.mitra?.trim().toLowerCase() ===
-              user.displayName.trim().toLowerCase())
-        );
-        return !latestItem || normalizeStatus(latestItem.status) === "keluar" || normalizeStatus(latestItem.status) === "diluar";
+        const latestItem = findLatestSessionItem(item.nomor);
+        return !latestItem || isOutsideStatus(latestItem.status);
       });
 
       if (invalidItem) {
-        const latestItem = latestItems.find(
-          (dbItem) =>
-            normalizeKodeBarang(dbItem.serialNumber) === normalizeKodeBarang(invalidItem.nomor) &&
-            (user?.role !== "mitra" ||
-              dbItem.mitra?.trim().toLowerCase() ===
-              user.displayName.trim().toLowerCase())
-        );
+        const latestItem = findLatestSessionItem(invalidItem.nomor);
 
         toast.error(
           latestItem
@@ -438,23 +511,49 @@ export default function BarangKeluarPage() {
             : "Data barang tidak lagi ditemukan di data master.",
           { description: invalidItem.nomor }
         );
-        setDbItems(latestItems);
+        setDbItems(latestVisibleItems);
         return;
       }
 
-      for (const item of barangKeluar) {
-        const originalItem = latestItems.find(
-          (dbItem) =>
-            normalizeKodeBarang(dbItem.serialNumber) === normalizeKodeBarang(item.nomor) &&
-            (user?.role !== "mitra" ||
-              dbItem.mitra?.trim().toLowerCase() ===
-              user.displayName.trim().toLowerCase())
-        )!;
+      const queuedSerialNumbers = getQueuedSerialNumbers(barangKeluar);
+      const fifoInvalidItem = barangKeluar.find((item) => {
+        const latestItem = findLatestSessionItem(item.nomor);
+        return latestItem
+          ? Boolean(findOlderFifoItem(latestVisibleItems, latestItem, queuedSerialNumbers))
+          : false;
+      });
+
+      if (fifoInvalidItem) {
+        const latestItem = findLatestSessionItem(fifoInvalidItem.nomor);
+        const olderFifoItem = latestItem
+          ? findOlderFifoItem(latestVisibleItems, latestItem, queuedSerialNumbers)
+          : undefined;
+
+        toast.error("FIFO aktif: masih ada barang lama yang harus keluar lebih dulu.", {
+          description: olderFifoItem
+            ? getFifoToastDescription(olderFifoItem)
+            : fifoInvalidItem.nomor,
+        });
+        setDbItems(latestVisibleItems);
+        return;
+      }
+
+      const fifoSortedBarangKeluar = [...barangKeluar].sort((a, b) => {
+        const itemA = findLatestSessionItem(a.nomor);
+        const itemB = findLatestSessionItem(b.nomor);
+
+        if (!itemA || !itemB) return 0;
+
+        return compareFifoItems(itemA, itemB);
+      });
+
+      for (const item of fifoSortedBarangKeluar) {
+        const originalItem = findLatestSessionItem(item.nomor)!;
         const originalLoc = originalItem.lokasiPenyimpanan || "-";
         const updatedItem: InventoryItem = {
           ...originalItem,
-          status: "Diluar",
-          lokasiPenyimpanan: "Diluar",
+          status: "Keluar",
+          lokasiPenyimpanan: "Keluar",
           tanggalKeluar: sessionDate,
           mitra: item.mitra,
         };
@@ -475,6 +574,7 @@ export default function BarangKeluarPage() {
           merek: item.merek,
           asal: originalLoc,
           tujuan: item.mitra,
+          mitra: item.mitra,
           keterangan:
             user?.role === "mitra" ? keterangan.trim() : null,
         };

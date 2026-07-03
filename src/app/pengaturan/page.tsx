@@ -3,16 +3,11 @@ import { useAuth } from "@/lib/auth"
 import { toast } from "sonner"
 import { invoke } from "@tauri-apps/api/core"
 import {
-  Shield,
   RefreshCw,
   LogOut,
-  User,
   Cloud,
   Lock,
-  Unlock,
-  Server,
-  Folder,
-  Save
+  Unlock
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
