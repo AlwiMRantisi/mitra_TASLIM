@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Archive, BadgeCheck, Boxes, PackageMinus, ScanLine, X, Loader2 } from "lucide-react";
+import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -586,7 +587,29 @@ export default function BarangKeluarPage() {
         if (!resAddTrx.ok) throw new Error(`Gagal mencatat transaksi ${item.nomor}`);
       }
       toast.success(`${barangKeluar.length} barang keluar berhasil disimpan.`);
-      setBarangKeluar([]); // Clear local state after saving
+
+      if (user?.role === "mitra" && barangKeluar.length > 0) {
+        const notificationId = `permintaan-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+        const requestCount = barangKeluar.length;
+        const title = `Permintaan barang mitra ${user.displayName}`;
+        const message = `${user.displayName} mengajukan permintaan ${requestCount} barang keluar.${keterangan ? ` Keterangan: ${keterangan}` : ""}`;
+
+        try {
+          await invoke("add_notification", {
+            notification: {
+              id: notificationId,
+              title,
+              message,
+              type: "info",
+              date: new Date().toISOString(),
+              isRead: false,
+            },
+          });
+        } catch (notificationError) {
+          console.error("Gagal membuat notifikasi permintaan:", notificationError);
+        }
+      }
+
       setKeterangan("");
 
       // Refresh DB Items after update
