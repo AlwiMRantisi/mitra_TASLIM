@@ -578,7 +578,8 @@ export default function MitraPage() {
                     <span className="text-muted-foreground">{partner.code}</span>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="secondary" className="font-normal">{partner.partnerType}</Badge>
+                    <Badge variant="secondary" className="font-normal">{partner.partnerType === "AKTIVASI" ? "Aktivasi" : "Gangguan"}
+                    </Badge>
                   </TableCell>
                   <TableCell>
                     <span className="block max-w-[130px] truncate">{partner.contactPerson}</span>
