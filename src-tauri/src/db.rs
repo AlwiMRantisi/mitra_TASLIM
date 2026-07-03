@@ -336,6 +336,8 @@ pub fn init_db(db_path: PathBuf) -> Result<Connection> {
         [],
     )?;
 
+    
+
     Ok(conn)
 }
 

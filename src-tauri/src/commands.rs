@@ -1286,7 +1286,7 @@ pub fn get_notifications(state: State<DbState>) -> Result<Vec<Notification>, Str
     let conn = state.0.lock().unwrap();
     let mut stmt = conn
         .prepare(
-            "SELECT id, title, message, type, date, is_read FROM notifications ORDER BY date DESC",
+            "SELECT id, title, message, type, date, is_read FROM notifications ORDER BY datetime(date) DESC, rowid DESC",
         )
         .map_err(|e| e.to_string())?;
 
