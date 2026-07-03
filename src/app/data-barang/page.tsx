@@ -84,7 +84,7 @@ const getHeaders = () => {
   return headers;
 };
 
-import type { StatusUnit, BarangUnit, RiwayatUnit, CategoryDefinition, StorageLocationOption } from "@/types/inventory"
+import type { StatusUnit, BarangUnit, RiwayatUnit, StorageLocationOption } from "@/types/inventory"
 import type { Transaction } from "@/types/transaction"
 import type { DeleteDialogState } from "@/types/ui"
 
@@ -139,7 +139,6 @@ export default function DataBarangPage() {
     }
   }, [searchParams])
   const [dbCategories, setDbCategories] = useState<string[]>([])
-  const [categoryDefinitions, setCategoryDefinitions] = useState<CategoryDefinition[]>([])
   const [dbLocations, setDbLocations] = useState<StorageLocationOption[]>([])
 
   const loadData = async () => {
@@ -216,12 +215,6 @@ export default function DataBarangPage() {
       }))
 
       setDbCategories(categories.map(c => c.name))
-      setCategoryDefinitions(
-        categories.map((category) => ({
-          name: category.name,
-          safetyStock: Math.max(0, Number(category.safetyStock ?? 5)),
-        }))
-      )
 
       const resLoc = await fetch(`${getBaseUrl()}/locations`, { method: "GET", headers: getHeaders() })
       const rawLoc = await resLoc.json()
@@ -592,53 +585,6 @@ export default function DataBarangPage() {
       return matchesSearch && matchesStatus
     })
   }, [barangList, searchTerm, filterStatus])
-
-  const availableStockByCategory = useMemo(() => {
-    const stock = new Map<string, number>()
-
-    barangList.forEach((item) => {
-      if (item.status.trim().toLowerCase() !== "tersedia") return
-
-      const key = item.kategori.trim().toLowerCase()
-      stock.set(key, (stock.get(key) || 0) + 1)
-    })
-
-    return stock
-  }, [barangList])
-
-  const getSafetyStockInfo = (categoryName: string) => {
-    const normalizedCategory = categoryName.trim().toLowerCase()
-    const category = categoryDefinitions.find(
-      (item) => item.name.trim().toLowerCase() === normalizedCategory
-    )
-    const safetyStock = category?.safetyStock ?? 5
-    const available = availableStockByCategory.get(normalizedCategory) || 0
-
-    if (available === 0) {
-      return {
-        label: "Habis",
-        available,
-        safetyStock,
-        className: "border-rose-500/30 bg-rose-500/10 text-rose-500",
-      }
-    }
-
-    if (available <= safetyStock) {
-      return {
-        label: "Menipis",
-        available,
-        safetyStock,
-        className: "border-amber-500/30 bg-amber-500/10 text-amber-500",
-      }
-    }
-
-    return {
-      label: "Aman",
-      available,
-      safetyStock,
-      className: "border-emerald-500/30 bg-emerald-500/10 text-emerald-500",
-    }
-  }
 
   const hasActiveFilter = searchTerm.trim().length > 0 || filterStatus !== "all"
   const totalPages = Math.max(1, Math.ceil(filteredBarang.length / pageSize))

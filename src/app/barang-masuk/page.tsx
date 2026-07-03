@@ -97,10 +97,20 @@ const isValidMitraInboundSource = (
 ) => {
   const owner = normalizeOwner(item.mitra);
   const status = normalizeStatus(item.status);
+  const location = normalizeStatus(item.lokasiPenyimpanan || "");
+  const isOutbound =
+    status === "keluar" ||
+    status === "diluar" ||
+    location === "keluar" ||
+    location === "diluar";
 
   return (
-    ((owner === normalizeOwner(ADMIN_LOCATION) || owner === normalizeOwner("KP Tasikmalaya")) && (status === "masuk" || status === "tersedia")) ||
-    (owner === normalizeOwner(mitraName) && (status === "keluar" || status === "diluar"))
+    isOutbound &&
+    (owner === normalizeOwner(mitraName) ||
+      owner === normalizeOwner(ADMIN_LOCATION) ||
+      owner === normalizeOwner("KP Tasikmalaya") ||
+      owner === normalizeOwner("KP") ||
+      owner === "")
   );
 };
 
@@ -128,6 +138,9 @@ const getRecommendedLocation = (
 
   return mixedLocation?.name || availableLocations[0]?.name || "";
 };
+
+const getMitraDefaultLocation = (mitraName: string): LokasiOption =>
+  `Gudang ${mitraName.trim() || "Mitra"}`;
 
 function EmptyScanTableState() {
   return (
@@ -160,12 +173,26 @@ export default function BarangMasukPage() {
   const [dbBrands, setDbBrands] = useState<BrandDefinition[]>([]);
   const [dbCategories, setDbCategories] = useState<string[]>([]);
   const [dbLocations, setDbLocations] = useState<LocationDefinition[]>([]);
-  const [dbItems, setDbItems] = useState<InventoryItem[]>([]);
+  const [, setDbItems] = useState<InventoryItem[]>([]);
   const [dbPartners, setDbPartners] = useState<Partner[]>([]);
-  const [asalBarang, setAsalBarang] = useState<string>("SBU Regional Jawa Barat");
   const [asalBarangManual, setAsalBarangManual] = useState<boolean>(false);
+  const [asalBarang, setAsalBarang] = useState<string>("SBU Regional Jawa Barat");
   const [kondisiBarang, setKondisiBarang] = useState<string>("Baru");
   const [isSaving, setIsSaving] = useState(false);
+
+  const refreshInventoryItems = useCallback(async () => {
+    try {
+      const resItems = await fetch(`${getBaseUrl()}/items`, { method: "GET", headers: getHeaders() });
+      const rawItems = await resItems.json();
+      const items = Array.isArray(rawItems.data || rawItems) ? (rawItems.data || rawItems) : [];
+      setDbItems(items);
+      return items as InventoryItem[];
+    } catch (error) {
+      console.error("Gagal memperbarui data barang dari server:", error);
+      toast.error("Gagal memperbarui data barang dari server.");
+      return [] as InventoryItem[];
+    }
+  }, []);
 
   // Fetch brands, categories, and locations from database
   useEffect(() => {
@@ -207,10 +234,7 @@ export default function BarangMasukPage() {
           setKategoriBarang(categoryNames[0]);
         }
 
-        const resItems = await fetch(`${getBaseUrl()}/items`, { method: "GET", headers: getHeaders() });
-        const rawItems = await resItems.json();
-        const items = rawItems.data || rawItems;
-        setDbItems(Array.isArray(items) ? items : []);
+        const items = await refreshInventoryItems();
 
         const resLoc = await fetch(`${getBaseUrl()}/locations`, { method: "GET", headers: getHeaders() });
         const rawLoc = await resLoc.json();
@@ -270,8 +294,24 @@ export default function BarangMasukPage() {
         toast.error("Gagal memuat data barang masuk.");
       }
     };
-    fetchData();
-  }, [user]);
+    void fetchData();
+  }, [refreshInventoryItems, user]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void refreshInventoryItems();
+      }
+    };
+
+    window.addEventListener("focus", handleVisibilityChange);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("focus", handleVisibilityChange);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [refreshInventoryItems]);
 
   const detectedBrand = detectBrandFromCode(kodeBarang, dbBrands);
   const totalKuotaTersedia = Object.values(kuota).reduce((total, value) => total + value, 0);
@@ -314,7 +354,7 @@ export default function BarangMasukPage() {
     }
   }, [kodeBarang, dbPartners, asalBarangManual]);
 
-  const handleSubmit = useCallback((kodeOverride = kodeBarang) => {
+  const handleSubmit = useCallback(async (kodeOverride = kodeBarang) => {
     const trimmedKode = kodeOverride.trim();
     if (!trimmedKode) return;
 
@@ -331,7 +371,8 @@ export default function BarangMasukPage() {
       return;
     }
 
-    const existingItem = dbItems.find(
+    const latestItems = await refreshInventoryItems();
+    const existingItem = latestItems.find(
       (item) => normalizeKodeBarang(item.serialNumber) === normalizeKodeBarang(trimmedKode)
     );
 
@@ -349,8 +390,14 @@ export default function BarangMasukPage() {
       existingItem &&
       !isValidMitraInboundSource(existingItem, user.displayName)
     ) {
+      console.debug("Barang ditolak untuk Mitra - pemeriksaan detail:", {
+        kode: trimmedKode,
+        existingItem,
+        isValid: isValidMitraInboundSource(existingItem, user.displayName),
+      });
+
       toast.error("Barang tidak dapat diterima oleh Mitra.", {
-        description: `${trimmedKode} harus tersedia di KP atau sudah dikeluarkan dari KP untuk Mitra ini.`,
+        description: `${trimmedKode} harus sudah di-scan keluar dari KP terlebih dahulu sebelum diterima kembali oleh Mitra. (Cek console untuk detail)`,
       });
       updateKodeBarang("");
       focusKodeBarangInput();
@@ -362,9 +409,14 @@ export default function BarangMasukPage() {
       detectBrandFromCode(trimmedKode, dbBrands) ||
       merekFallback;
     let recommendedLocation = getRecommendedLocation(itemBrand, dbLocations, kuota);
+    const isMitraUser = user?.role === "mitra";
+
+    if (isMitraUser && !recommendedLocation && existingItem) {
+      recommendedLocation = getMitraDefaultLocation(user.displayName);
+    }
 
     if (
-      user?.role !== "mitra" &&
+      !isMitraUser &&
       existingItem &&
       normalizeStatus(existingItem.status) !== "keluar" &&
       normalizeStatus(existingItem.status) !== "diluar"
@@ -405,11 +457,13 @@ export default function BarangMasukPage() {
       status: "Valid",
       existingItemId: existingItem?.id,
       source:
-        normalizeOwner(existingItem?.mitra) === normalizeOwner(ADMIN_LOCATION) || normalizeOwner(existingItem?.mitra) === normalizeOwner("KP Tasikmalaya")
+        user?.role === "mitra" && existingItem && isValidMitraInboundSource(existingItem, user.displayName)
           ? "KP"
-          : existingItem
-            ? "Mitra"
-            : "Baru",
+          : normalizeOwner(existingItem?.mitra) === normalizeOwner(ADMIN_LOCATION) || normalizeOwner(existingItem?.mitra) === normalizeOwner("KP Tasikmalaya")
+            ? "KP"
+            : existingItem
+              ? "Mitra"
+              : "Baru",
       asal: asalBarang,
       kondisi: kondisiBarang,
     };
@@ -418,10 +472,14 @@ export default function BarangMasukPage() {
     setBarangMasuk((current) => [newItem, ...current]);
     // (reverted) no temporary DB registration - keep local UI state only
     // Kurangi kuota lokasi yang dipilih
-    setKuota((current) => ({
-      ...current,
-      [recommendedLocation]: current[recommendedLocation] - 1,
-    }));
+    setKuota((current) => {
+      if (!(recommendedLocation in current)) return current;
+
+      return {
+        ...current,
+        [recommendedLocation]: current[recommendedLocation] - 1,
+      };
+    });
 
     updateKodeBarang("");
     setMerekFallback("");
@@ -432,8 +490,8 @@ export default function BarangMasukPage() {
   }, [
     barangMasuk,
     dbBrands,
-    dbItems,
     dbLocations,
+    refreshInventoryItems,
     focusKodeBarangInput,
     kategoriBarang,
     kodeBarang,
@@ -466,7 +524,7 @@ export default function BarangMasukPage() {
       inputRef.current?.focus();
 
       if (event.key === "Enter") {
-        handleSubmit(kodeBarangRef.current);
+        void handleSubmit(kodeBarangRef.current);
         return;
       }
 
@@ -489,10 +547,14 @@ export default function BarangMasukPage() {
     const itemToDelete = barangMasuk.find((item) => item.id === id);
     if (itemToDelete) {
       // Tambah kembali kuota lokasi
-      setKuota((current) => ({
-        ...current,
-        [itemToDelete.lokasi]: current[itemToDelete.lokasi] + 1,
-      }));
+      setKuota((current) => {
+        if (!(itemToDelete.lokasi in current)) return current;
+
+        return {
+          ...current,
+          [itemToDelete.lokasi]: current[itemToDelete.lokasi] + 1,
+        };
+      });
     }
     setBarangMasuk((current) => current.filter((item) => item.id !== id));
   };
@@ -504,7 +566,7 @@ export default function BarangMasukPage() {
     const oldLokasi = itemToUpdate.lokasi;
 
     // Check if kuota lokasi baru tersedia
-    if (newLokasi !== oldLokasi && kuota[newLokasi] <= 0) {
+    if (newLokasi !== oldLokasi && (kuota[newLokasi] ?? Number.POSITIVE_INFINITY) <= 0) {
       toast.error("Kuota lokasi sudah penuh.", {
         description: newLokasi,
       });
@@ -522,8 +584,8 @@ export default function BarangMasukPage() {
     if (newLokasi !== oldLokasi) {
       setKuota((current) => ({
         ...current,
-        [oldLokasi]: current[oldLokasi] + 1,
-        [newLokasi]: current[newLokasi] - 1,
+        ...(oldLokasi in current ? { [oldLokasi]: current[oldLokasi] + 1 } : {}),
+        ...(newLokasi in current ? { [newLokasi]: current[newLokasi] - 1 } : {}),
       }));
     }
   };
@@ -583,7 +645,7 @@ export default function BarangMasukPage() {
         toast.error(
           user?.role === "mitra"
             ? existingItem
-              ? "Barang tidak lagi tersedia untuk diterima dari KP."
+              ? "Barang belum di-scan keluar dari KP sehingga belum bisa diterima oleh Mitra."
               : "Barang tidak ditemukan di data KP."
             : existingItem
               ? normalizeStatus(existingItem.status) !== "keluar" && normalizeStatus(existingItem.status) !== "diluar"
@@ -781,39 +843,40 @@ export default function BarangMasukPage() {
             <CardContent className="flex flex-1 flex-col gap-4">
               {user?.role === "mitra" && (
                 <div className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-xs leading-5 text-sky-600 dark:text-sky-400">
-                  Barang Mitra harus sudah terdaftar di KP. Serial number baru hanya
-                  dapat didaftarkan oleh Admin.
+                  Untuk mitra, barang hanya bisa diterima setelah statusnya sudah keluar dari KP, seperti alur masuk kembali milik mitra.
                 </div>
               )}
 
-              <div className="flex flex-col gap-3">
-                <Label htmlFor="asal-barang">Asal Barang</Label>
-                <Select
-                  value={asalBarang}
-                  onValueChange={(value) => {
-                    setAsalBarang(value);
-                    setAsalBarangManual(true);
-                    focusKodeBarangInput();
-                  }}
-                >
-                  <SelectTrigger id="asal-barang" className="w-full">
-                    <SelectValue placeholder="Pilih asal barang..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="SBU Regional Jawa Barat">SBU Regional Jawa Barat</SelectItem>
-                    {dbPartners.map((partner) => (
-                      <SelectItem key={partner.id} value={partner.name}>
-                        {partner.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {!asalBarangManual && detectMitraFromSN(kodeBarang, dbPartners) && (
-                  <p className="text-xs text-sky-600 dark:text-sky-400">
-                    Terdeteksi otomatis dari SN
-                  </p>
-                )}
-              </div>
+              {user?.role !== "mitra" && (
+                <div className="flex flex-col gap-3">
+                  <Label htmlFor="asal-barang">Asal Barang</Label>
+                  <Select
+                    value={asalBarang}
+                    onValueChange={(value) => {
+                      setAsalBarang(value);
+                      setAsalBarangManual(true);
+                      focusKodeBarangInput();
+                    }}
+                  >
+                    <SelectTrigger id="asal-barang" className="w-full">
+                      <SelectValue placeholder="Pilih asal barang..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="SBU Regional Jawa Barat">SBU Regional Jawa Barat</SelectItem>
+                      {dbPartners.map((partner) => (
+                        <SelectItem key={partner.id} value={partner.name}>
+                          {partner.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {!asalBarangManual && detectMitraFromSN(kodeBarang, dbPartners) && (
+                    <p className="text-xs text-sky-600 dark:text-sky-400">
+                      Terdeteksi otomatis dari SN
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div className="flex flex-col gap-3">
                 <Label htmlFor="kondisi-barang">Kategori / Kondisi</Label>
@@ -843,7 +906,7 @@ export default function BarangMasukPage() {
                   onKeyDown={(event) => {
                     if (event.key === "Enter") {
                       event.preventDefault();
-                      handleSubmit();
+                      void handleSubmit();
                     }
                   }}
                   placeholder="Masukkan kode barang atau serial number"
@@ -874,7 +937,7 @@ export default function BarangMasukPage() {
                   onKeyDown={(event) => {
                     if (event.key === "Enter") {
                       event.preventDefault();
-                      handleSubmit();
+                      void handleSubmit();
                     }
                   }}
                   placeholder="Masukkan kode barang atau serial number"
@@ -940,7 +1003,7 @@ export default function BarangMasukPage() {
 
           {inputMode === "manual" ? (
             <CardFooter className="mt-auto justify-end gap-2">
-              <Button className="w-full gap-2 sm:w-auto" size="lg" onClick={() => handleSubmit()}>
+              <Button className="w-full gap-2 sm:w-auto" size="lg" onClick={() => void handleSubmit()}>
                 <PackagePlus className="size-4" />
                 Simpan barang masuk
               </Button>
@@ -1003,7 +1066,7 @@ export default function BarangMasukPage() {
                             value={item.lokasi}
                             onValueChange={(value) => {
                               const selectedLokasi = value as LokasiOption;
-                              if (kuota[selectedLokasi] <= 0) {
+                              if ((kuota[selectedLokasi] ?? Number.POSITIVE_INFINITY) <= 0) {
                                 toast.error("Kuota lokasi sudah penuh dan tidak dapat dipilih.", {
                                   description: selectedLokasi,
                                 });
@@ -1019,6 +1082,11 @@ export default function BarangMasukPage() {
                             </SelectTrigger>
                             <SelectContent>
                               <SelectGroup>
+                                {!dbLocations.some((lokasi) => lokasi.name === item.lokasi) && (
+                                  <SelectItem value={item.lokasi}>
+                                    {item.lokasi}
+                                  </SelectItem>
+                                )}
                                 {dbLocations.map((lokasi) => {
                                   const isDisabled = kuota[lokasi.name] <= 0;
                                   return (
