@@ -123,8 +123,16 @@ const buildDailyTransactionData = (
 
 export function ChartAreaInteractive({
     transactions,
+    showMitraFilter = false,
+    mitraOptions = [],
+    selectedMitra = "all",
+    onMitraChange,
 }: {
     transactions: ChartTransaction[]
+    showMitraFilter?: boolean
+    mitraOptions?: string[]
+    selectedMitra?: string
+    onMitraChange?: (value: string) => void
 }) {
     const isMobile = useIsMobile()
     const [timeRange, setTimeRange] = React.useState("90d")
@@ -161,7 +169,29 @@ export function ChartAreaInteractive({
                         {totalTransaksi} transaksi
                     </span>
                 </CardDescription>
-                <CardAction>
+                <CardAction className="flex flex-wrap items-center justify-end gap-2">
+                    <div>{showMitraFilter ? (
+                        <Select
+                            value={selectedMitra}
+                            onValueChange={(value) => onMitraChange?.(value)}
+                        >
+                            <SelectTrigger
+                                className="hidden min-w-[200px] @[767px]/card:flex"
+                                size="sm"
+                                aria-label="Filter Mitra"
+                            >
+                                <SelectValue placeholder="Semua Mitra" />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl">
+                                {mitraOptions.map((mitra) => (
+                                    <SelectItem key={mitra} value={mitra} className="rounded-lg">
+                                        {mitra === "all" ? "Semua Mitra" : mitra}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    ) : null}
+                    </div>
                     <ToggleGroup
                         type="single"
                         value={timeRange}
@@ -171,9 +201,9 @@ export function ChartAreaInteractive({
                         variant="outline"
                         className="hidden *:data-[slot=toggle-group-item]:px-4! @[767px]/card:flex"
                     >
-                        <ToggleGroupItem value="90d">3 bulan</ToggleGroupItem>
-                        <ToggleGroupItem value="30d">30 hari</ToggleGroupItem>
                         <ToggleGroupItem value="7d">7 hari</ToggleGroupItem>
+                        <ToggleGroupItem value="30d">30 hari</ToggleGroupItem>
+                        <ToggleGroupItem value="90d">3 bulan</ToggleGroupItem>
                     </ToggleGroup>
                     <Select value={timeRange} onValueChange={setTimeRange}>
                         <SelectTrigger
@@ -184,14 +214,14 @@ export function ChartAreaInteractive({
                             <SelectValue placeholder="3 bulan" />
                         </SelectTrigger>
                         <SelectContent className="rounded-xl">
-                            <SelectItem value="90d" className="rounded-lg">
-                                3 bulan
+                            <SelectItem value="7d" className="rounded-lg">
+                                7 hari
                             </SelectItem>
                             <SelectItem value="30d" className="rounded-lg">
                                 30 hari
                             </SelectItem>
-                            <SelectItem value="7d" className="rounded-lg">
-                                7 hari
+                            <SelectItem value="90d" className="rounded-lg">
+                                3 bulan
                             </SelectItem>
                         </SelectContent>
                     </Select>

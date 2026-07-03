@@ -89,8 +89,8 @@ export function Notifications() {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative group rounded-full">
-          <Bell className="size-[1.15rem] text-muted-foreground transition-all group-hover:text-foreground group-hover:scale-110" />
+        <Button variant="ghost" size="icon" className="relative group rounded-full cursor-pointer">
+          <Bell className="size-[1.15rem] text-muted-foreground transition-all group-hover:text-foreground" />
           {unreadCount > 0 && (
             <span className="absolute top-1.5 right-1.5 flex h-2 w-2 rounded-full bg-red-500 ring-2 ring-background">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75"></span>
