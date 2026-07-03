@@ -8,11 +8,21 @@ import type { Transaction, DashboardTransaction } from "@/types/transaction"
 import type { InventoryItem, Category } from "@/types/inventory"
 import type { InventoryStats, SafetyStockAlert } from "@/types/dashboard"
 
+/**
+ * Helper: Mengembalikan Base URL untuk pemanggilan API.
+ * 
+ * @returns {string} String URL API Backend.
+ */
 const getBaseUrl = () => {
     const baseUrl = import.meta.env.URL || import.meta.env.VITE_URL || "http://172.168.9.139:3000/";
     return baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
 };
 
+/**
+ * Helper: Menyusun header HTTP secara otomatis beserta Authorization token.
+ * 
+ * @returns {Record<string, string>} Object header HTTP.
+ */
 const getHeaders = () => {
     const token = localStorage.getItem("arxiva-auth-token");
     const headers: Record<string, string> = {
@@ -27,6 +37,14 @@ const getHeaders = () => {
 const DASHBOARD_TRANSACTION_LIMIT = 6
 const DASHBOARD_REFRESH_INTERVAL = 5000
 
+/**
+ * Komponen DashboardPage
+ * 
+ * Halaman utama (dashboard) yang menampilkan metrik inventaris, status rak, dan riwayat transaksi terbaru.
+ * Terdapat pembatasan hak akses berbasis `role` pengguna (Admin/Mitra).
+ *
+ * @returns {JSX.Element} Antarmuka halaman Dashboard.
+ */
 export default function DashboardPage() {
     const { user } = useAuth()
     const [transactions, setTransactions] = useState<DashboardTransaction[]>([])
@@ -41,7 +59,13 @@ export default function DashboardPage() {
     })
     const isFetchingRef = useRef(false)
 
+    /**
+     * Memanggil API untuk menarik data transaksi, item, dan kategori.
+     * Logika ini dipadatkan dengan Promise.all agar eksekusi jaringan berjalan paralel.
+     * Menggunakan useCallback untuk mencegah re-rendering atau re-creation fungsi tanpa alasan.
+     */
     const fetchDashboardData = useCallback(async () => {
+        // Cegah pengambilan data bersamaan (race conditions) jika sedang mengambil data
         if (isFetchingRef.current) return
 
         isFetchingRef.current = true
@@ -62,6 +86,8 @@ export default function DashboardPage() {
                 name: c.nama || c.name || "",
                 safetyStock: c.safetyStock !== undefined ? c.safetyStock : (c.safety_stock || 5),
             }))
+
+            // Filtering Akses: Jika user = 'mitra', ia hanya boleh melihat data transaksinya sendiri
             const visibleTransactions = transactionData.filter(
                 (transaction) =>
                     user?.role !== "mitra" ||
@@ -107,12 +133,14 @@ export default function DashboardPage() {
                 ).length,
             })
 
+            // Algoritma Perhitungan Safety Stock (Kategori yang menipis)
             const availableByCategory = new Map<string, number>()
             const ownedCategories = new Set<string>()
             visibleItems.forEach((item) => {
                 const categoryKey = item.kategori.trim().toLowerCase()
                 ownedCategories.add(categoryKey)
 
+                // Hanya hitung item yang berstatus 'tersedia' untuk pengecekan safety stock
                 if (item.status.trim().toLowerCase() === "tersedia") {
                     availableByCategory.set(
                         categoryKey,
@@ -163,6 +191,11 @@ export default function DashboardPage() {
         }
     }, [user])
 
+    /**
+     * Effect hook untuk inisialisasi awal dan auto-refresh.
+     * Menggunakan event listener visibilitychange untuk menghindari auto-refresh yang tidak
+     * perlu saat user membuka tab browser lain.
+     */
     useEffect(() => {
         const handleVisibilityChange = () => {
             if (document.visibilityState === "visible") {

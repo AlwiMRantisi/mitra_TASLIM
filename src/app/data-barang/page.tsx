@@ -68,11 +68,21 @@ import { saveExportFile } from "@/lib/export-file"
 import * as XLSX from "xlsx"
 import { useAuth } from "@/lib/auth"
 
+/**
+ * Helper: Mengembalikan Base URL untuk pemanggilan API.
+ * 
+ * @returns {string} String URL API Backend.
+ */
 const getBaseUrl = () => {
   const baseUrl = import.meta.env.URL || import.meta.env.VITE_URL || "http://172.168.9.139:3000/";
   return baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
 };
 
+/**
+ * Helper: Menyusun header HTTP secara otomatis beserta Authorization token.
+ * 
+ * @returns {Record<string, string>} Object header HTTP.
+ */
 const getHeaders = () => {
   const token = localStorage.getItem("arxiva-auth-token");
   const headers: Record<string, string> = {
@@ -125,6 +135,14 @@ function EmptyBarangTableState({
   )
 }
 
+/**
+ * Komponen DataBarangPage
+ * 
+ * Modul utama untuk melihat, menyaring (filter), mengedit, dan mengekspor seluruh data Inventaris.
+ * Bertindak sebagai "Source of Truth" visual untuk Master Data Items.
+ * 
+ * @returns {JSX.Element} Antarmuka halaman master data barang.
+ */
 export default function DataBarangPage() {
   const { user } = useAuth()
   const isMobile = useIsMobile()
@@ -141,6 +159,10 @@ export default function DataBarangPage() {
   const [dbCategories, setDbCategories] = useState<string[]>([])
   const [dbLocations, setDbLocations] = useState<StorageLocationOption[]>([])
 
+  /**
+   * Fungsi sentral untuk mengambil seluruh data pendukung (Items, Transactions, Categories, Locations).
+   * Dilengkapi dengan mekanisme 'Legacy Migration' untuk memperbaiki konsistensi data lama.
+   */
   const loadData = async () => {
     try {
       const resItems = await fetch(`${getBaseUrl()}/items`, { method: "GET", headers: getHeaders() })
@@ -148,6 +170,7 @@ export default function DataBarangPage() {
       const rawItems = await resItems.json()
       const data: BarangUnit[] = rawItems.data || rawItems
 
+      // Terapkan filter Role-Based Access Control
       const visibleData =
         user?.role === "mitra"
           ? data.filter(
@@ -156,6 +179,8 @@ export default function DataBarangPage() {
               user.displayName.trim().toLowerCase()
           )
           : data
+          
+      // Normalisasi nama mitra (khusus admin)
       const normalizedData = visibleData.map((item) => ({
         ...item,
         mitra: !item.mitra || item.mitra === "KP" || item.mitra === "Administrator Utama" || item.mitra === "admin" ? ADMIN_LOCATION : item.mitra,
@@ -166,6 +191,7 @@ export default function DataBarangPage() {
       }))
       setBarangList(normalizedData)
 
+      // Backward Compatibility: Update item lama yang berstatus "Diluar" namun lokasinya bukan "Diluar"
       const legacyExitedItems = visibleData.filter(
         (item) =>
           item.status === "Diluar" &&
@@ -191,6 +217,7 @@ export default function DataBarangPage() {
         }
       }
 
+      // Ambil Riwayat Transaksi (Untuk sidebar Detail Item)
       const resTrx = await fetch(`${getBaseUrl()}/transactions`, { method: "GET", headers: getHeaders() })
       const rawTrx = await resTrx.json()
       const transactionData: Transaction[] = rawTrx.data || rawTrx
@@ -205,6 +232,7 @@ export default function DataBarangPage() {
           : transactionData
       )
 
+      // Ambil Kategori untuk filter & form
       const resCat = await fetch(`${getBaseUrl()}/categories`, { method: "GET", headers: getHeaders() })
       const rawCat = await resCat.json()
       const categoriesList = rawCat.data || rawCat
@@ -216,6 +244,7 @@ export default function DataBarangPage() {
 
       setDbCategories(categories.map(c => c.name))
 
+      // Ambil struktur Rak & Kardus
       const resLoc = await fetch(`${getBaseUrl()}/locations`, { method: "GET", headers: getHeaders() })
       const rawLoc = await resLoc.json()
       const locationsData = rawLoc.data || rawLoc
@@ -573,6 +602,9 @@ export default function DataBarangPage() {
     }
   }
 
+  /**
+   * Menggabungkan filter teks dan status dropdown. Di-memoize untuk performa tabel.
+   */
   const filteredBarang = useMemo(() => {
     return barangList.filter(b => {
       const matchesSearch =
@@ -651,6 +683,10 @@ export default function DataBarangPage() {
     return date.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })
   }
 
+  /**
+   * Mengekspor data tabel yang saat ini ditampilkan ke format Excel (.xlsx).
+   * Memanfaatkan pustaka 'xlsx' dan utilitas saveExportFile.
+   */
   const handleExportExcel = async () => {
     if (filteredBarang.length === 0) {
       toast.error("Tidak ada data barang yang dapat diekspor.")
@@ -714,6 +750,12 @@ export default function DataBarangPage() {
     }
   }
 
+  /**
+   * Menyaring seluruh riwayat transaksi (dari tabel 'transactions')
+   * yang memiliki SN (Serial Number) sama persis dengan barang yang
+   * sedang dibuka di panel Detail (Drawer/Sheet).
+   * Data diurutkan dari yang terbaru (descending).
+   */
   const recentRiwayat = useMemo<RiwayatUnit[]>(() => {
     if (!detailBarang) return []
 

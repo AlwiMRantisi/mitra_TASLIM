@@ -5,11 +5,21 @@ import {
   Plus, Edit, Trash2, Search, Shapes, MoreVertical, ShieldAlert, Loader2
 } from "lucide-react";
 
+/**
+ * Helper: Mengembalikan Base URL untuk pemanggilan API.
+ * 
+ * @returns {string} String URL API Backend.
+ */
 const getBaseUrl = () => {
   const baseUrl = import.meta.env.URL || import.meta.env.VITE_URL || "http://172.168.9.139:3000/";
   return baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
 };
 
+/**
+ * Helper: Menyusun header HTTP secara otomatis beserta Authorization token.
+ * 
+ * @returns {Record<string, string>} Object header HTTP.
+ */
 const getHeaders = () => {
   const token = localStorage.getItem("arxiva-auth-token");
   const headers: Record<string, string> = {
@@ -41,6 +51,15 @@ import { toast } from "sonner";
 
 import type { Kategori } from "@/types/inventory";
 
+/**
+ * Komponen KategoriBarangPage
+ * 
+ * Halaman untuk mengelola Master Data Kategori. Memungkinkan pengguna
+ * untuk melihat, mencari, menambah, mengedit, dan menghapus kategori.
+ * Termasuk pengaturan threshold 'Safety Stock' per kategori.
+ * 
+ * @returns {JSX.Element} Antarmuka halaman manajemen kategori.
+ */
 export default function KategoriBarangPage() {
   const [categories, setCategories] = useState<Kategori[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -61,6 +80,10 @@ export default function KategoriBarangPage() {
   const [nameError, setNameError] = useState("");
   const [safetyStockError, setSafetyStockError] = useState("");
 
+  /**
+   * Mengambil data seluruh kategori dari API Backend.
+   * Melakukan standarisasi format payload balikan agar sesuai dengan interface UI.
+   */
   const loadCategories = async () => {
     try {
       const response = await fetch(`${getBaseUrl()}/categories`, {
@@ -71,6 +94,8 @@ export default function KategoriBarangPage() {
         throw new Error("Gagal mengambil data kategori");
       }
       const data = await response.json();
+      
+      // Standarisasi response (mengingat format backend kadang bisa bervariasi)
       const categoriesList = data.data || data.categories || data;
       setCategories(Array.isArray(categoriesList) ? categoriesList.map((c: any) => ({
         ...c,
@@ -117,6 +142,10 @@ export default function KategoriBarangPage() {
     setIsSheetOpen(true);
   };
 
+  /**
+   * Menyimpan data form ke API Backend (Berfungsi untuk Tambah & Edit).
+   * Melakukan validasi *duplicate name* di sisi klien sebelum memanggil API.
+   */
   const handleSave = async () => {
     if (isSaving) return;
     const normalizedName = name.trim();
@@ -131,6 +160,7 @@ export default function KategoriBarangPage() {
       return;
     }
 
+    // Cek duplikasi: Cegah pembuatan kategori dengan nama yang sama persis
     const duplicateCategory = categories.some(
       (category) =>
         category.id !== editId &&

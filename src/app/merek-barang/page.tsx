@@ -4,11 +4,21 @@ import { useState, useMemo, useEffect } from "react";
 import {
   Plus, Edit, Trash2, Search, CircleStar, MoreVertical, Loader2
 } from "lucide-react";
+/**
+ * Helper: Mengembalikan Base URL untuk pemanggilan API.
+ * 
+ * @returns {string} String URL API Backend.
+ */
 const getBaseUrl = () => {
   const baseUrl = import.meta.env.URL || import.meta.env.VITE_URL || "http://172.168.9.139:3000/";
   return baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
 };
 
+/**
+ * Helper: Menyusun header HTTP secara otomatis beserta Authorization token.
+ * 
+ * @returns {Record<string, string>} Object header HTTP.
+ */
 const getHeaders = () => {
   const token = localStorage.getItem("arxiva-auth-token");
   const headers: Record<string, string> = {
@@ -40,6 +50,15 @@ import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Merek } from "@/types/inventory";
 
+/**
+ * Komponen MerekBarangPage
+ * 
+ * Halaman untuk mengelola Master Data Merek Barang. Memungkinkan pengguna
+ * untuk melihat, mencari, menambah, mengedit, dan menghapus merek.
+ * Terintegrasi dengan data kategori untuk dropdown pilihan.
+ * 
+ * @returns {JSX.Element} Antarmuka halaman manajemen merek.
+ */
 export default function MerekBarangPage() {
   const [brands, setBrands] = useState<Merek[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -86,6 +105,9 @@ export default function MerekBarangPage() {
     }
   };
 
+  /**
+   * Mengambil data seluruh merek dari API Backend.
+   */
   const loadBrands = async () => {
     try {
       const response = await fetch(`${getBaseUrl()}/brands`, {
@@ -96,6 +118,8 @@ export default function MerekBarangPage() {
         throw new Error("Gagal mengambil data merek");
       }
       const data = await response.json();
+      
+      // Standarisasi field nama dari backend
       const brandsList = data.data || data.brands || data;
       setBrands(Array.isArray(brandsList) ? brandsList.map((b: any) => ({
         ...b,
@@ -140,9 +164,15 @@ export default function MerekBarangPage() {
     setIsSheetOpen(true);
   };
 
+  /**
+   * Menyimpan data form Merek ke API Backend (Berfungsi untuk Tambah & Edit).
+   * Melakukan validasi duplikasi untuk nama dan identifier.
+   */
   const handleSave = async () => {
     if (isSaving) return;
     const trimmedName = name.trim();
+    
+    // Auto-generate identifier dari 3 huruf pertama jika kosong
     const normalizedIdentifier =
       identifier.trim().toUpperCase() ||
       trimmedName.slice(0, 3).toUpperCase();
@@ -155,6 +185,7 @@ export default function MerekBarangPage() {
       errors.identifier = "Identifier merek wajib diisi.";
     }
 
+    // Cek duplikasi nama merek di sisi klien
     const duplicateName = brands.some(
       (brand) =>
         brand.id !== editId &&
@@ -164,6 +195,7 @@ export default function MerekBarangPage() {
       errors.name = "Nama merek sudah terdaftar.";
     }
 
+    // Cek duplikasi identifier di sisi klien (harus unik untuk print barcode/QR dll)
     const duplicateIdentifier = brands.some(
       (brand) =>
         brand.id !== editId &&

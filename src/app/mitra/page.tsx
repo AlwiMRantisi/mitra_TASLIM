@@ -63,11 +63,21 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 
+/**
+ * Helper: Mengembalikan Base URL untuk pemanggilan API.
+ * 
+ * @returns {string} String URL API Backend.
+ */
 const getBaseUrl = () => {
   const baseUrl = import.meta.env.URL || import.meta.env.VITE_URL;
   return baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
 };
 
+/**
+ * Helper: Menyusun header HTTP secara otomatis beserta Authorization token.
+ * 
+ * @returns {Record<string, string>} Object header HTTP.
+ */
 const getHeaders = () => {
   const token = localStorage.getItem("arxiva-auth-token");
   const headers: Record<string, string> = {
@@ -147,6 +157,15 @@ const initialForm = {
   confirmPassword: "",
 }
 
+/**
+ * Komponen MitraPage
+ * 
+ * Halaman untuk mengelola data akun pengguna dengan role MITRA.
+ * Merupakan perpaduan antara manajemen identitas profil entitas bisnis 
+ * sekaligus manajemen kredensial login.
+ * 
+ * @returns {JSX.Element} Antarmuka halaman manajemen mitra.
+ */
 export default function MitraPage() {
   const [partners, setPartners] = useState<Partner[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -164,6 +183,11 @@ export default function MitraPage() {
   const [isDeleting, setIsDeleting] = useState(false)
   const [togglingId, setTogglingId] = useState<string | null>(null)
 
+  /**
+   * Mengambil data seluruh pengguna (role: MITRA) dari backend.
+   * Melakukan pemetaan struktur objek dari backend agar sesuai dengan 
+   * interface Partner yang digunakan tabel di frontend.
+   */
   const loadPartners = useCallback(async () => {
     setIsLoading(true)
     try {
@@ -175,6 +199,8 @@ export default function MitraPage() {
         throw new Error("Gagal memuat data mitra")
       }
       const data = await response.json()
+      
+      // Standarisasi field user & profile
       const usersList = data.data || data.users || data
       const partnersList: Partner[] = (Array.isArray(usersList) ? usersList : []).filter((u: any) => u.role === "MITRA").map((u: any) => ({
         id: String(u.id),
@@ -203,10 +229,15 @@ export default function MitraPage() {
 
   const hasActiveFilter = searchQuery.trim() !== "" || typeFilter !== "all" || statusFilter !== "all"
 
+  /**
+   * Memoization hasil filtering.
+   * Melakukan filter ganda: Pencarian teks (multi-kolom) + Filter Dropdown (Jenis & Status).
+   */
   const filteredPartners = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
 
     return partners.filter((partner) => {
+      // Fitur multi-search
       const matchesSearch =
         !query ||
         partner.code?.toLowerCase().includes(query) ||
@@ -264,6 +295,11 @@ export default function MitraPage() {
     setIsSheetOpen(true)
   }
 
+  /**
+   * Menyimpan data mitra ke API Backend.
+   * Jika sukses, secara implisit backend akan membuat kredensial login (user account)
+   * selain profil mitranya.
+   */
   const handleSave = async () => {
     if (isSaving) return
     const errors: Record<string, string> = {}
@@ -302,6 +338,7 @@ export default function MitraPage() {
       errors.confirmPassword = "Konfirmasi password tidak sama."
     }
 
+    // Validasi duplikasi Nama Mitra
     const hasDuplicateName = partners.some(
       (partner) =>
         partner.name.trim().toLowerCase() === normalizedName.toLowerCase() &&
@@ -310,6 +347,8 @@ export default function MitraPage() {
     if (hasDuplicateName) {
       errors.name = "Nama mitra sudah terdaftar."
     }
+    
+    // Validasi duplikasi Username login
     const hasDuplicateUsername = partners.some(
       (partner) =>
         partner.username?.trim().toLowerCase() ===

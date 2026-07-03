@@ -14,6 +14,14 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useAuth } from "@/lib/auth"
 
+/**
+ * Halaman Utama Login (LoginPage)
+ * 
+ * Komponen ini menangani antarmuka autentikasi pengguna. Menghubungkan form login
+ * ke fungsi `login` dari context autentikasi global (`useAuth`).
+ *
+ * @returns {JSX.Element} Antarmuka halaman login.
+ */
 export default function LoginPage() {
   const { login, user } = useAuth()
   const navigate = useNavigate()
@@ -27,7 +35,14 @@ export default function LoginPage() {
     return <Navigate to="/" replace />
   }
 
+  /**
+   * Menangani aksi submit pada form login.
+   * Melakukan validasi input dasar, menampilkan loading state, dan memanggil fungsi autentikasi.
+   * 
+   * @param {FormEvent<HTMLFormElement>} event - Event default dari form HTML
+   */
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    // Mencegah reload halaman secara default
     event.preventDefault()
     setErrorMessage("")
 
@@ -38,9 +53,13 @@ export default function LoginPage() {
 
     setIsSubmitting(true)
     try {
+      // Memanggil fungsi login dari AuthContext (API Call)
       await login(username.trim(), password)
+      
+      // Jika berhasil, arahkan pengguna kembali ke halaman utama (dashboard)
       navigate("/", { replace: true })
     } catch (error) {
+      // Tangkap dan tampilkan error kembalian dari API ke pengguna
       setErrorMessage(
         typeof error === "string"
           ? error

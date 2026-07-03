@@ -47,6 +47,14 @@ const getHeaders = () => {
 
 const KATEGORI_OPTIONS = ["Masuk", "Keluar", "Rusak"]
 
+/**
+ * Komponen DataTransaksiPage
+ * 
+ * Halaman untuk melihat log riwayat seluruh transaksi barang (Masuk, Keluar, Rusak, Hilang).
+ * Menyediakan fungsi filtering canggih, bulk delete, dan eksport data ke Excel.
+ *
+ * @returns {JSX.Element} Antarmuka halaman riwayat transaksi.
+ */
 export default function DataTransaksiPage() {
   const { user } = useAuth()
   const [searchTerm, setSearchTerm] = useState("")
@@ -56,6 +64,10 @@ export default function DataTransaksiPage() {
   const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
+  /**
+   * Mengambil seluruh data riwayat transaksi dari backend.
+   * Melakukan *client-side filtering* berdasarkan `role` jika user adalah 'mitra'.
+   */
   const fetchTransactions = async () => {
     try {
       const res = await fetch(`${getBaseUrl()}/transactions`, {
@@ -67,6 +79,8 @@ export default function DataTransaksiPage() {
       }
       const rawTrx = await res.json();
       const data: Transaction[] = rawTrx.data || rawTrx;
+      
+      // Jika user adalah mitra, sembunyikan transaksi mitra lain
       setTransactions(
         user?.role === "mitra"
           ? data.filter(
@@ -148,17 +162,20 @@ export default function DataTransaksiPage() {
   }));
 
   const filteredData = flattenedData.filter((item) => {
+    // Implementasi multi-search: mencari pada Nomor, Serial Number, dan Keterangan PA
     const matchesSearch = item.nomor.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.sn.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.keterangan.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesKategori = filterKategori === "all" || item.kategori === filterKategori;
     return matchesSearch && matchesKategori;
   }).sort((a, b) => {
+    // Pengurutan secara default (Terbaru ke Terlama)
     const timeA = a.createdAt ? new Date(a.createdAt).getTime() : new Date(a.tanggal).getTime();
     const timeB = b.createdAt ? new Date(b.createdAt).getTime() : new Date(b.tanggal).getTime();
     if (timeB !== timeA) {
-      return timeB - timeA; // Dari yang terbaru ke terlama
+      return timeB - timeA; 
     }
+    // Fallback sort jika tanggal presisi sama persis
     return b.id.toString().localeCompare(a.id.toString());
   });
   const hasActiveFilter = searchTerm.length > 0 || filterKategori !== "all";

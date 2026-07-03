@@ -36,11 +36,21 @@ import type { BrandOption, BrandDefinition, KategoriOption, LokasiOption, Locati
 import type { BarangMasukItem } from "@/types/transaction";
 import type { Partner } from "@/types/partner";
 
+/**
+ * Helper: Mengembalikan Base URL untuk pemanggilan API.
+ * 
+ * @returns {string} String URL API Backend.
+ */
 const getBaseUrl = () => {
   const baseUrl = import.meta.env.URL || import.meta.env.VITE_URL || "http://172.168.9.139:3000/";
   return baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
 };
 
+/**
+ * Helper: Menyusun header HTTP secara otomatis beserta Authorization token.
+ * 
+ * @returns {Record<string, string>} Object header HTTP.
+ */
 const getHeaders = () => {
   const token = localStorage.getItem("arxiva-auth-token");
   const headers: Record<string, string> = {
@@ -54,6 +64,14 @@ const getHeaders = () => {
 
 const ADMIN_LOCATION = "KP Tasikmalaya";
 
+/**
+ * Mendeteksi merek barang secara otomatis berdasarkan awalan (prefix) kode serial number.
+ * Berguna saat memasukkan barang baru yang belum pernah terdaftar sebelumnya.
+ * 
+ * @param {string} code - Serial number yang di-scan.
+ * @param {BrandDefinition[]} brands - Daftar referensi merek (master data).
+ * @returns {BrandOption} Nama merek yang terdeteksi, atau string kosong jika tidak ada yang cocok.
+ */
 const detectBrandFromCode = (code: string, brands: BrandDefinition[]): BrandOption => {
   if (!code) return "";
   const normalizedCode = code.trim().toUpperCase();
@@ -69,6 +87,10 @@ const detectBrandFromCode = (code: string, brands: BrandDefinition[]): BrandOpti
   return matchedByName?.name || "";
 };
 
+/**
+ * Mengecek apakah event berasal dari elemen input teks, textarea, atau konten editable.
+ * Berguna agar global keyboard listener (scanner) tidak membajak input pengguna saat mengetik.
+ */
 const detectMitraFromSN = (sn: string, partners: Partner[]): string => {
   if (!sn) return "";
   const normalizedSN = sn.trim().toUpperCase();
@@ -81,7 +103,6 @@ const detectMitraFromSN = (sn: string, partners: Partner[]): string => {
 
 const isTextInputTarget = (target: EventTarget | null) => {
   if (!(target instanceof HTMLElement)) return false;
-
   return Boolean(target.closest("input, textarea, [contenteditable='true']"));
 };
 
@@ -91,6 +112,15 @@ const normalizeStatus = (status: string) => status.trim().toLocaleLowerCase("id-
 const normalizeOwner = (owner?: string | null) =>
   (owner || "").trim().toLocaleLowerCase("id-ID");
 
+/**
+ * Memvalidasi apakah Mitra diizinkan untuk menerima/memasukkan barang ini.
+ * Mitra hanya bisa menerima barang yang didistribusikan oleh KP, atau barang
+ * miliknya sendiri yang sedang berada "diluar".
+ * 
+ * @param {InventoryItem} item - Data inventaris barang.
+ * @param {string} mitraName - Nama Mitra yang sedang login.
+ * @returns {boolean} True jika diizinkan, false sebaliknya.
+ */
 const isValidMitraInboundSource = (
   item: InventoryItem,
   mitraName: string
@@ -160,6 +190,15 @@ function EmptyScanTableState() {
   );
 }
 
+/**
+ * Komponen BarangMasukPage
+ * 
+ * Modul operasional Gudang untuk mencatat penerimaan barang masuk.
+ * Menangani pembuatan inventaris baru (untuk Admin/KP) dan 
+ * penerimaan distribusi (untuk Mitra) dengan deteksi cerdas merek & lokasi rak.
+ * 
+ * @returns {JSX.Element} Antarmuka halaman barang masuk.
+ */
 export default function BarangMasukPage() {
   const { user } = useAuth();
   const [kodeBarang, setKodeBarang] = useState("");
@@ -343,6 +382,13 @@ export default function BarangMasukPage() {
     }
   }, [detectedBrand]);
 
+  /**
+   * Menangani aksi submit (scan/input manual) kode barang.
+   * Melakukan validasi kompleks seperti rekomendasi lokasi otomatis
+   * berdasarkan sisa kuota dan aturan merek rak.
+   * 
+   * @param {string} kodeOverride - Kode serial number yang akan disubmit.
+   */
   // Auto-detect mitra dari SN dan set asal barang otomatis
   useEffect(() => {
     if (asalBarangManual) return;
@@ -358,6 +404,7 @@ export default function BarangMasukPage() {
     const trimmedKode = kodeOverride.trim();
     if (!trimmedKode) return;
 
+    // Validasi duplikasi pada sesi saat ini
     const isDuplicate = barangMasuk.some(
       (item) => normalizeKodeBarang(item.nomor) === normalizeKodeBarang(trimmedKode)
     );
@@ -404,10 +451,13 @@ export default function BarangMasukPage() {
       return;
     }
 
+    // Tentukan Merek untuk rekomendasi lokasi
     const itemBrand =
       existingItem?.merek ||
       detectBrandFromCode(trimmedKode, dbBrands) ||
       merekFallback;
+
+    // Rekomendasi Lokasi Otomatis (Smart Routing)
     let recommendedLocation = getRecommendedLocation(itemBrand, dbLocations, kuota);
     const isMitraUser = user?.role === "mitra";
 
@@ -468,18 +518,11 @@ export default function BarangMasukPage() {
       kondisi: kondisiBarang,
     };
 
-    // Add to local UI list
     setBarangMasuk((current) => [newItem, ...current]);
-    // (reverted) no temporary DB registration - keep local UI state only
-    // Kurangi kuota lokasi yang dipilih
-    setKuota((current) => {
-      if (!(recommendedLocation in current)) return current;
-
-      return {
-        ...current,
-        [recommendedLocation]: current[recommendedLocation] - 1,
-      };
-    });
+    setKuota((current) => ({
+      ...current,
+      [recommendedLocation]: current[recommendedLocation] - 1,
+    }));
 
     updateKodeBarang("");
     setMerekFallback("");
@@ -504,18 +547,24 @@ export default function BarangMasukPage() {
     asalBarangManual,
   ]);
 
-  // Arahkan input keyboard/scanner ke field Kode/SN walaupun fokus sedang di area lain.
+  /**
+   * Mengarahkan input keyboard atau barcode scanner ke field Kode/SN secara otomatis.
+   * Listener global ini memungkinkan user melakukan "blind scan".
+   */
   useEffect(() => {
     const handleWindowKeyDown = (event: KeyboardEvent) => {
+      // Abaikan shortcut sistem (Ctrl/Cmd/Alt)
       if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || event.isComposing) {
         return;
       }
 
+      // Pastikan hanya tombol karakter tunggal, backspace, atau enter yang ditangkap
       const isSupportedKey = event.key.length === 1 || event.key === "Backspace" || event.key === "Enter";
       if (!isSupportedKey || isTextInputTarget(event.target)) {
         return;
       }
 
+      // Hindari saat select dropdown terbuka
       if (document.querySelector("[data-slot='select-content']")) {
         return;
       }
@@ -590,6 +639,10 @@ export default function BarangMasukPage() {
     }
   };
 
+  /**
+   * Memvalidasi seluruh transaksi di sesi saat ini ke database dan melakukan update/insert status inventaris.
+   * Menyimpan histori ('transactions') dan membuat/mengubah item ('items') menjadi berstatus "Tersedia".
+   */
   const handleValidateAll = async () => {
     if (isSaving) return;
     setIsSaving(true);
@@ -597,6 +650,7 @@ export default function BarangMasukPage() {
       const sessionDate = new Date().toISOString().slice(0, 10);
       const dateStr = sessionDate.replace(/-/g, "");
 
+      // Mendapatkan nomor urut transaksi harian
       const resTrx = await fetch(`${getBaseUrl()}/transactions`, { method: "GET", headers: getHeaders() });
       const rawTrx = await resTrx.json();
       const txs = rawTrx.data || rawTrx;

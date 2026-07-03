@@ -75,6 +75,10 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
+/**
+ * Zod schema defining the structure of a row in the data table.
+ * Used for validation and type inference across the application.
+ */
 export const schema = z.object({
   no: z.number().optional(),
   id: z.union([z.string(), z.number()]),
@@ -93,6 +97,11 @@ export const schema = z.object({
   keterangan: z.string().optional(),
 })
 
+/**
+ * Column definitions for the React Table.
+ * Configures headers, cells, accessors, and custom rendering (e.g., badges for status).
+ * @type {ColumnDef<z.infer<typeof schema>>[]}
+ */
 const columns: ColumnDef<z.infer<typeof schema>>[] = [
   {
     id: "select",
@@ -261,6 +270,13 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
   },
 ]
 
+/**
+ * A wrapper for TableRow that makes it draggable using @dnd-kit.
+ * Applies transform and transition styles based on the drag state.
+ * 
+ * @param {Object} props - Component props.
+ * @param {Row<z.infer<typeof schema>>} props.row - The table row instance from tanstack/react-table.
+ */
 function DraggableRow({ row }: { row: Row<z.infer<typeof schema>> }) {
   const { transform, transition, setNodeRef, isDragging } = useSortable({
     id: row.original.id,
@@ -287,6 +303,12 @@ function DraggableRow({ row }: { row: Row<z.infer<typeof schema>> }) {
   )
 }
 
+/**
+ * Renders an empty state for the table when there is no data or no filter results.
+ * 
+ * @param {Object} props - Component props.
+ * @param {boolean} props.isFiltered - Indicates if a filter is currently active (changes the text/icon).
+ */
 function EmptyTableState({
   isFiltered,
 }: {
@@ -317,6 +339,22 @@ function EmptyTableState({
   )
 }
 
+/**
+ * Highly reusable Data Table component featuring sorting, filtering, selection, 
+ * pagination, and drag-and-drop row reordering. Built on top of @tanstack/react-table and @dnd-kit.
+ *
+ * @param {Object} props - The component props.
+ * @param {z.infer<typeof schema>[]} props.data - The array of data objects to be displayed.
+ * @param {boolean} [props.showTitle] - Whether to show the table title.
+ * @param {boolean} [props.showViewButton] - Whether to show the view toggle button.
+ * @param {boolean} [props.showSelection=true] - Whether to show the row selection checkboxes.
+ * @param {boolean} [props.showActions=true] - Whether to show the actions column (e.g., Delete).
+ * @param {boolean} [props.showPagination=true] - Whether to display pagination controls at the bottom.
+ * @param {boolean} [props.isFiltered=false] - Whether the parent component is currently filtering data.
+ * @param {string} [props.resetPaginationKey] - A key to trigger a reset of pagination to page 1 when changed.
+ * @param {(selectedIds: string[]) => void} [props.onSelectionChange] - Callback fired when row selection changes.
+ * @param {(id: string) => void} [props.onDeleteRow] - Callback fired when a row's delete action is clicked.
+ */
 export function DataTable({
   data: initialData,
   showSelection = true,

@@ -35,11 +35,21 @@ import type { LokasiOption, InventoryItem, KodeBarangUpdate } from "@/types/inve
 import type { Partner } from "@/types/partner";
 import type { BarangKeluarItem } from "@/types/transaction";
 
+/**
+ * Helper: Mengembalikan Base URL untuk pemanggilan API.
+ * 
+ * @returns {string} String URL API Backend.
+ */
 const getBaseUrl = () => {
   const baseUrl = import.meta.env.URL || import.meta.env.VITE_URL || "http://172.168.9.139:3000/";
   return baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
 };
 
+/**
+ * Helper: Menyusun header HTTP secara otomatis beserta Authorization token.
+ * 
+ * @returns {Record<string, string>} Object header HTTP.
+ */
 const getHeaders = () => {
   const token = localStorage.getItem("arxiva-auth-token");
   const headers: Record<string, string> = {
@@ -51,9 +61,12 @@ const getHeaders = () => {
   return headers;
 };
 
+/**
+ * Mengecek apakah event berasal dari elemen input teks, textarea, atau konten editable.
+ * Berguna agar global keyboard listener (scanner) tidak membajak input pengguna saat mereka mengetik manual.
+ */
 const isTextInputTarget = (target: EventTarget | null) => {
   if (!(target instanceof HTMLElement)) return false;
-
   return Boolean(target.closest("input, textarea, [contenteditable='true']"));
 };
 
@@ -141,6 +154,15 @@ function EmptyScanTableState() {
   );
 }
 
+/**
+ * Komponen BarangKeluarPage
+ * 
+ * Modul operasional Gudang untuk mencatat pengeluaran barang.
+ * Mendukung input via Barcode Scanner (auto) dan input manual.
+ * Terintegrasi penuh dengan pengecekan master data, status inventaris, dan limit kuota.
+ * 
+ * @returns {JSX.Element} Antarmuka halaman barang keluar.
+ */
 export default function BarangKeluarPage() {
   const { user } = useAuth();
   const [kodeBarang, setKodeBarang] = useState("");
@@ -260,6 +282,12 @@ export default function BarangKeluarPage() {
     inputRef.current?.focus();
   }, []);
 
+  /**
+   * Menangani aksi submit (scan/input manual) kode barang.
+   * Melakukan serangkaian validasi (keberadaan di master data, status saat ini, dan duplikasi sesi).
+   * 
+   * @param {string} kodeOverride - Kode serial number spesifik (jika ada) untuk di-submit.
+   */
   const handleSubmit = useCallback((kodeOverride = kodeBarang) => {
     const trimmedKode = kodeOverride.trim();
     if (!trimmedKode) return;
@@ -368,13 +396,19 @@ export default function BarangKeluarPage() {
     user,
   ]);
 
-  // Arahkan input keyboard/scanner ke field Kode/SN walaupun fokus sedang di area lain.
+  /**
+   * Mengarahkan input keyboard atau barcode scanner ke field Kode/SN secara otomatis.
+   * Listener global ini memungkinkan user melakukan "blind scan" tanpa harus
+   * secara eksplisit mengklik kolom input terlebih dahulu.
+   */
   useEffect(() => {
     const handleWindowKeyDown = (event: KeyboardEvent) => {
+      // Abaikan shortcut sistem (Ctrl/Cmd/Alt)
       if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || event.isComposing) {
         return;
       }
 
+      // Pastikan hanya tombol karakter tunggal, backspace, atau enter yang ditangkap
       const isSupportedKey = event.key.length === 1 || event.key === "Backspace" || event.key === "Enter";
       if (!isSupportedKey || isTextInputTarget(event.target)) {
         return;
@@ -419,6 +453,10 @@ export default function BarangKeluarPage() {
     setBarangKeluar((current) => current.filter((item) => item.id !== id));
   };
 
+  /**
+   * Memvalidasi seluruh transaksi di sesi saat ini ke database dan melakukan update status inventaris.
+   * Transaksi dicatat pada histori ('transactions') dan status item ('items') diubah menjadi "Diluar".
+   */
   const handleValidateAll = async () => {
     if (isSaving) return;
     if (user?.role === "mitra" && !keterangan.trim()) {
@@ -431,6 +469,7 @@ export default function BarangKeluarPage() {
       const sessionDate = new Date().toISOString().slice(0, 10);
       const dateStr = sessionDate.replace(/-/g, "");
 
+      // Mendapatkan nomor urut (sequence) transaksi harian
       const resTrx = await fetch(`${getBaseUrl()}/transactions`, { method: "GET", headers: getHeaders() });
       const rawTrx = await resTrx.json();
       const txs = rawTrx.data || rawTrx;

@@ -18,11 +18,25 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 
 const GOOGLE_CLIENT_ID = import.meta.env.GOOGLE_CLIENT_ID || "847352193552-odl1tr4a71os3eddiftnu9en4ncg7mqg.apps.googleusercontent.com";
 
+/**
+ * Helper: Mengembalikan Base URL untuk pemanggilan API.
+ * 
+ * @returns {string} String URL API Backend.
+ */
 const getBaseUrl = () => {
   const baseUrl = import.meta.env.URL || import.meta.env.VITE_URL || "http://172.168.9.139:3000/";
   return baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
 };
 
+/**
+ * Komponen PengaturanPage
+ * 
+ * Halaman pengaturan global aplikasi. Menangani integrasi pihak ketiga seperti
+ * koneksi Google OAuth2 dan konfigurasi ID folder Google Drive.
+ * Fitur-fitur ini umumnya dibatasi hanya untuk role Admin.
+ * 
+ * @returns {JSX.Element} Antarmuka halaman pengaturan.
+ */
 export default function PengaturanPage() {
   const { user } = useAuth()
   const isAdmin = user?.role?.toLowerCase() === "admin";
@@ -39,6 +53,9 @@ export default function PengaturanPage() {
   const [isInputActive, setIsInputActive] = useState(false)
 
   useEffect(() => {
+    /**
+     * Memeriksa status koneksi Google dari backend.
+     */
     const fetchGoogleStatus = async () => {
       try {
         const token = localStorage.getItem("arxiva-auth-token");
@@ -60,6 +77,9 @@ export default function PengaturanPage() {
       }
     };
 
+    /**
+     * Mengambil konfigurasi ID Folder root Google Drive yang tersimpan di sistem.
+     */
     const fetchDriveFolderId = async () => {
       try {
         const token = localStorage.getItem("arxiva-auth-token");
@@ -86,6 +106,10 @@ export default function PengaturanPage() {
     fetchDriveFolderId();
   }, [user]);
 
+  /**
+   * Menyimpan konfigurasi ID Folder Drive ke backend.
+   * Hanya Admin yang diizinkan untuk mengubah pengaturan sistem ini.
+   */
   const handleSaveDriveFolderId = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isAdmin) {
@@ -118,6 +142,10 @@ export default function PengaturanPage() {
     }
   };
 
+  /**
+   * Memulai alur otentikasi Google OAuth2.
+   * Menggabungkan panggilan sistem operasi Tauri (membuka browser) dengan API Express (tukar kode).
+   */
   const handleConnectGoogle = async () => {
     if (!isAdmin) {
       toast.error("Hanya Admin yang diizinkan untuk menghubungkan akun Google.");
@@ -127,14 +155,16 @@ export default function PengaturanPage() {
     toast.info("Membuka browser untuk otentikasi Google...");
 
     try {
-      // Step 1: Call Rust command to open browser & capture OAuth code
+      // Langkah 1: Memanggil fungsi Rust (Tauri API) untuk membuka browser default 
+      // dan menangkap kode otorisasi OAuth dari callback URL lokal.
       const code = await invoke<string>("google_oauth_login", {
         clientId: GOOGLE_CLIENT_ID,
       });
 
       toast.info("Menukar kode otorisasi...");
 
-      // Step 2: Send code to Express.js backend to exchange for tokens
+      // Langkah 2: Mengirim kode otorisasi tersebut ke backend Node.js.
+      // Backend akan menukarnya dengan Access Token & Refresh Token via Google API.
       const token = localStorage.getItem("arxiva-auth-token");
       const res = await fetch(`${getBaseUrl()}/auth/google/exchange`, {
         method: "POST",

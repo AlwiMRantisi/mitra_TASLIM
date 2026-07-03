@@ -9,11 +9,21 @@ import QRCode from "qrcode";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { useNavigate } from "react-router-dom";
 
+/**
+ * Helper: Mengembalikan Base URL untuk pemanggilan API.
+ * 
+ * @returns {string} String URL API Backend.
+ */
 const getBaseUrl = () => {
   const baseUrl = import.meta.env.URL || import.meta.env.VITE_URL ;
   return baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
 };
 
+/**
+ * Helper: Menyusun header HTTP secara otomatis beserta Authorization token.
+ * 
+ * @returns {Record<string, string>} Object header HTTP.
+ */
 const getHeaders = () => {
   const token = localStorage.getItem("arxiva-auth-token");
   const headers: Record<string, string> = {
@@ -47,6 +57,15 @@ import { toast } from "sonner";
 import type { StorageLocation } from "@/types/inventory";
 import type { SheetMode } from "@/types/ui";
 
+/**
+ * Komponen LokasiBarangPage
+ * 
+ * Halaman kompleks untuk manajemen struktur fisik gudang (Rak, Kardus, dan Level).
+ * Dilengkapi dengan Kalkulator Grid otomatis dan fitur pembuatan (Generate) QR Code
+ * menggunakan API Sistem Operasi dari Tauri.
+ * 
+ * @returns {JSX.Element} Antarmuka halaman lokasi barang.
+ */
 export default function LokasiBarangPage() {
   const navigate = useNavigate();
   const [locations, setLocations] = useState<StorageLocation[]>([]);
@@ -114,6 +133,11 @@ export default function LokasiBarangPage() {
     loadBrands();
   }, []);
 
+  /**
+   * Menghitung statistik global gudang (Total Rak, Kapasitas, dsb.)
+   * Di-memoize agar perhitungan (loop bersarang) tidak dijalankan ulang 
+   * kecuali ada perubahan pada data `locations`.
+   */
   const stats = useMemo(() => {
     let totalRak = 0;
     let totalKardus = 0;
@@ -123,6 +147,7 @@ export default function LokasiBarangPage() {
     locations.forEach(loc => {
       if (loc.type === "Rak") {
         totalRak++;
+        // Hitung akumulasi dari setiap anak (Level) rak
         loc.levels?.forEach(lvl => {
           maxCapacity += lvl.capacity;
           usedCapacity += lvl.usedCapacity;
@@ -183,11 +208,16 @@ export default function LokasiBarangPage() {
     }
   };
 
+  /**
+   * Menyimpan data hierarki lokasi ke API Backend.
+   * Mendukung berbagai mode form: Tambah Rak, Tambah Level, Edit Kardus, dll.
+   */
   const handleSave = async () => {
     if (isSaving) return;
     setIsSaving(true);
     try {
       if (sheetMode === "add-rak") {
+        // Otomatis men-generate N jumlah anak level berdasarkan input locLevelsCount
         const payload = {
           name: locName || "Rak Baru",
           type: "Rak",
@@ -377,6 +407,14 @@ export default function LokasiBarangPage() {
     }
   };
 
+  /**
+   * Meng-generate QR Code dan menyimpannya secara lokal.
+   * Jika dijalankan via Tauri, akan memanggil fungsi OS (Rust) agar disimpan di path fisik.
+   * Jika di Web Browser biasa, akan memicu unduhan HTML5 biasa.
+   * 
+   * @param {string | null | undefined} url - Link Google Spreadsheet tujuan.
+   * @param {string} locationName - Label nama lokasi yang akan dicetak di bawah QR.
+   */
   const handleDownloadQrCode = async (url: string | null | undefined, locationName: string) => {
     if (!url) {
       toast.error("Link spreadsheet belum tersedia untuk lokasi ini.");
@@ -384,7 +422,7 @@ export default function LokasiBarangPage() {
     }
 
     try {
-      // Generate QR Code data URL
+      // Generate QR Code data URL via library qrcode
       const qrDataUrl = await QRCode.toDataURL(url, {
         width: 300,
         margin: 2,
@@ -394,14 +432,14 @@ export default function LokasiBarangPage() {
         },
       });
 
-      // Create an image object to load the QR code
+      // Siapkan objek gambar canvas untuk menggabungkan teks dan QR
       const img = new Image();
       img.src = qrDataUrl;
       await new Promise((resolve) => {
         img.onload = resolve;
       });
 
-      // Create canvas with extra space for text
+      // Konfigurasi tata letak Canvas
       const canvas = document.createElement("canvas");
       const ctx = canvas.getContext("2d")!;
       const width = 340;
@@ -409,25 +447,26 @@ export default function LokasiBarangPage() {
       canvas.width = width;
       canvas.height = height;
 
-      // Fill background
+      // Background Putih
       ctx.fillStyle = "#ffffff";
       ctx.fillRect(0, 0, width, height);
 
-      // Draw QR Code
+      // Render QR Code
       ctx.drawImage(img, 20, 20, 300, 300);
 
-      // Draw Location Name text
+      // Render Teks Nama Lokasi
       ctx.fillStyle = "#000000";
       ctx.font = "bold 44px sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(locationName, width / 2, 345);
 
-      // Create download link
+      // Ekstrak hasil render menjadi base64 string
       const downloadUrl = canvas.toDataURL("image/png");
       const filename = `${locationName.replace(/[^a-zA-Z0-9]/g, "_")}.png`;
 
       if (isTauri()) {
+        // Alur Desktop (Tauri): Minta Rust untuk menyimpan buffer secara langsung
         const base64Data = downloadUrl.replace(/^data:image\/png;base64,/, "");
         const binaryString = window.atob(base64Data);
         const len = binaryString.length;
@@ -442,6 +481,7 @@ export default function LokasiBarangPage() {
         });
         toast.success(`Berhasil menyimpan QR Code ke folder ${savedPath}`);
       } else {
+        // Alur Web Browser Konvensional
         const link = document.createElement("a");
         link.href = downloadUrl;
         link.download = filename;
