@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
-import { DataTable } from "@/components/data-table"
+import { DataTable } from "@/components/transaction-table"
 import { Card } from "@/components/ui/card"
-import { Download, Plus, Search, Trash2, Loader2 } from "lucide-react"
+import { Download, Plus, Search, Trash2, Loader2, AreaChart } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Link } from "react-router-dom"
@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,6 +29,13 @@ import {
 import { useAuth } from "@/lib/auth"
 import type { Transaction } from "@/types/transaction"
 import type { DeleteDialogState } from "@/types/ui"
+import type { DashboardRequest } from "@/components/transaction-table"
+import requestsData from "@/data/request.json"
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter, DrawerClose } from "@/components/ui/drawer"
+import { useIsMobile } from "@/hooks/use-mobile"
+import { Separator } from "@/components/ui/separator"
+import { Badge } from "@/components/ui/badge"
+import { Label } from "@/components/ui/label"
 
 const getBaseUrl = () => {
   const baseUrl = import.meta.env.URL || import.meta.env.VITE_URL || "http://172.168.9.139:3000/";
@@ -63,6 +71,8 @@ export default function DataTransaksiPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [selectedRequest, setSelectedRequest] = useState<DashboardRequest | null>(null)
+  const isMobile = useIsMobile()
 
   /**
    * Mengambil seluruh data riwayat transaksi dari backend.
@@ -79,7 +89,7 @@ export default function DataTransaksiPage() {
       }
       const rawTrx = await res.json();
       const data: Transaction[] = rawTrx.data || rawTrx;
-      
+
       // Jika user adalah mitra, sembunyikan transaksi mitra lain
       setTransactions(
         user?.role === "mitra"
@@ -173,7 +183,7 @@ export default function DataTransaksiPage() {
     const timeA = a.createdAt ? new Date(a.createdAt).getTime() : new Date(a.tanggal).getTime();
     const timeB = b.createdAt ? new Date(b.createdAt).getTime() : new Date(b.tanggal).getTime();
     if (timeB !== timeA) {
-      return timeB - timeA; 
+      return timeB - timeA;
     }
     // Fallback sort jika tanggal presisi sama persis
     return b.id.toString().localeCompare(a.id.toString());
@@ -324,16 +334,34 @@ export default function DataTransaksiPage() {
           </div>
         </div>
       </Card>
-      <DataTable
-        data={filteredData}
-        isFiltered={hasActiveFilter}
-        resetPaginationKey={`${searchTerm}|${filterKategori}`}
-        showSelection={user?.role === "admin"}
-        showActions={user?.role === "admin"}
-        onSelectionChange={
-          user?.role === "admin" ? setSelectedIds : undefined
-        }
-        onDeleteRow={user?.role === "admin" ? handleDeleteRow : undefined}
+      <Tabs defaultValue="Semua" className="w-full">
+        <TabsList className="**:data-[slot=badge]:size-5 **:data-[slot=badge]:rounded-full **:data-[slot=badge]:bg-muted-foreground/30 **:data-[slot=badge]:px-1 @4xl/main:flex">
+          <TabsTrigger value="Menunggu">
+            Menunggu <Badge variant="secondary">3</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="Disetujui">Disetujui</TabsTrigger>
+          <TabsTrigger value="Siap">Siap</TabsTrigger>
+          <TabsTrigger value="Diterima">Diterima</TabsTrigger>
+          <TabsTrigger value="Selesai">Selesai</TabsTrigger>
+          <TabsTrigger value="Ditolak">Ditolak</TabsTrigger>
+        </TabsList>
+
+        {["Menunggu", "Disetujui", "Siap", "Diterima", "Selesai", "Ditolak"].map(status => (
+          <TabsContent key={status} value={status} className="mt-0">
+            <DataTable
+              data={requestsData.filter(req => req.status.toLowerCase() === status.toLowerCase())}
+              onRowClick={(item) => setSelectedRequest(item)}
+            />
+          </TabsContent>
+        ))}
+      </Tabs>
+
+      {/* Request Detail Drawer */}
+      <RequestDetailDrawer
+        item={selectedRequest}
+        open={selectedRequest !== null}
+        onClose={() => setSelectedRequest(null)}
+        isMobile={isMobile}
       />
 
       <AlertDialog open={deleteDialog !== null} onOpenChange={(open) => !open && !isDeleting && setDeleteDialog(null)}>
@@ -358,5 +386,112 @@ export default function DataTransaksiPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  )
+}
+
+/**
+ * Drawer detail permintaan. Menampilkan informasi lengkap dari sebuah request.
+ */
+function RequestDetailDrawer({
+  item,
+  open,
+  onClose,
+  isMobile,
+}: {
+  item: DashboardRequest | null
+  open: boolean
+  onClose: () => void
+  isMobile: boolean
+}) {
+  if (!item) return null
+
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case "menunggu": return "bg-amber-500/10 text-amber-600 border-amber-500/20"
+      case "disetujui": return "bg-blue-500/10 text-blue-600 border-blue-500/20"
+      case "siap": return "bg-purple-500/10 text-purple-600 border-purple-500/20"
+      case "diterima":
+      case "selesai": return "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+      case "ditolak":
+      case "dibatalkan": return "bg-rose-500/10 text-rose-600 border-rose-500/20"
+      default: return "bg-muted text-muted-foreground"
+    }
+  }
+
+  return (
+    <Drawer direction={isMobile ? "bottom" : "right"} open={open} onOpenChange={(o) => !o && onClose()}>
+      <DrawerContent>
+        <DrawerHeader className="gap-1">
+          <DrawerTitle>{item.requestNumber}</DrawerTitle>
+          <DrawerDescription>
+            Detail Permintaan
+          </DrawerDescription>
+        </DrawerHeader>
+        <div className="flex flex-col gap-4 overflow-y-auto px-4 pb-4 text-sm">
+          {/* Info Umum */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-3">
+              <Label htmlFor="partner">Pemohon</Label>
+              <Input disabled id="partner" defaultValue={item.partner} />
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-muted-foreground">Status</span>
+              <Badge variant="outline" className={`w-fit ${getStatusColor(item.status)}`}>
+                {item.status}
+              </Badge>
+            </div>
+            <div className="flex flex-col col-span-2 gap-3">
+              <Label htmlFor="target">Tanggal Pengajuan</Label>
+              <Input disabled id="target" defaultValue={new Date(item.requestedAt).toLocaleDateString("id-ID", {
+                day: "numeric", month: "long", year: "numeric",
+                hour: "2-digit", minute: "2-digit",
+              })} />
+            </div>
+            <div className="flex flex-col col-span-2 gap-3">
+              <Label htmlFor="notes">Catatan</Label>
+              <Input disabled id="notes" defaultValue={item.notes !== "-" ? item.notes : "Tidak ada catatan"} />
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Daftar Item */}
+          <div className="flex flex-col gap-3">
+            <span className="text-sm font-medium text-muted-foreground">Daftar Barang</span>
+            {item.requestItems && item.requestItems.length > 0 ? (
+              <div className="rounded-lg border">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/50">
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">No</th>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Kategori</th>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Merek</th>
+                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Jumlah</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {item.requestItems.map((ri, idx) => (
+                      <tr key={ri.id} className="border-b last:border-b-0">
+                        <td className="px-3 py-2 text-muted-foreground">{idx + 1}</td>
+                        <td className="px-3 py-2 font-medium">{ri.category}</td>
+                        <td className="px-3 py-2">{ri.brand}</td>
+                        <td className="px-3 py-2 text-right font-medium">{ri.quantity}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-muted-foreground italic">Tidak ada item.</p>
+            )}
+          </div>
+        </div>
+        <DrawerFooter>
+          <DrawerClose asChild>
+            <Button variant="outline">Tutup</Button>
+          </DrawerClose>
+        </DrawerFooter>
+      </DrawerContent>
+    </Drawer>
   )
 }

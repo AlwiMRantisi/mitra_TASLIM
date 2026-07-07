@@ -1,6 +1,6 @@
 "use client"
 
-import { SquareArrowOutUpRight, TrendingUp } from "lucide-react"
+import { ArrowUpRight, SquareArrowOutUpRight, TrendingUp } from "lucide-react"
 import { Bar, BarChart, CartesianGrid, LabelList, XAxis, YAxis } from "recharts"
 
 import {
@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/card"
 import {
   ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
   type ChartConfig,
@@ -22,30 +24,34 @@ import { cn } from "@/lib/utils"
 export const description = "A stacked bar chart"
 
 const chartData = [
-  { branch: "Jakarta", desktop: 186, mobile: 80, tablet: 60 },
-  { branch: "Bandung", desktop: 305, mobile: 200, tablet: 95 },
-  { branch: "Palembang", desktop: 237, mobile: 120, tablet: 80 },
-  { branch: "Surabaya", desktop: 273, mobile: 190, tablet: 110 },
-  { branch: "Yogyakarta", desktop: 209, mobile: 130, tablet: 75 },
-  { branch: "Malang", desktop: 214, mobile: 140, tablet: 85 },
-  { branch: "Other", desktop: 170, mobile: 120, tablet: 90 },
+  { branch: "Jakarta", tersedia: 186, terpakai: 80 },
+  { branch: "Bandung", tersedia: 305, terpakai: 200 },
+  { branch: "Palembang", tersedia: 237, terpakai: 120 },
+  { branch: "Surabaya", tersedia: 273, terpakai: 190 },
+  { branch: "Yogyakarta", tersedia: 209, terpakai: 130 },
+  { branch: "Malang", tersedia: 214, terpakai: 140 },
+  // { branch: "Makassar", tersedia: 214, terpakai: 140, tablet: 85 },
+  { branch: "Ciamis", tersedia: 170, terpakai: 120 },
 
 ]
 
 const chartConfig = {
-  desktop: {
-    label: "Desktop",
+  tersedia: {
+    label: "Tersedia",
     color: "var(--chart-1)",
   },
-  mobile: {
-    label: "Mobile",
+  terpakai: {
+    label: "Terpakai",
     color: "var(--chart-2)",
-  },
-  tablet: {
-    label: "Tablet",
-    color: "var(--chart-3)",
-  },
+  }
 } satisfies ChartConfig
+
+const dataWithTotal = chartData
+  .map(item => ({
+    ...item,
+    total: item.tersedia + item.terpakai
+  }))
+  .sort((a, b) => a.tersedia - b.tersedia)
 
 export function ChartBarMixed({ className }: { className?: string }) {
   return (
@@ -55,15 +61,15 @@ export function ChartBarMixed({ className }: { className?: string }) {
           <CardTitle>Distribusi Unit</CardTitle>
           <CardDescription>Alokasi unit di berbagai lokasi</CardDescription>
         </div>
-        <div className="rounded-full p-2 cursor-pointer transition-colors duration-300 ease-in-out hover:bg-secondary">
-          <SquareArrowOutUpRight size={16} className="text-muted-foreground" />
+        <div className="rounded-full p-1.5 cursor-pointer transition-colors duration-300 ease-in-out bg-foreground">
+          <ArrowUpRight size={16} className="text-secondary" />
         </div>
       </CardHeader>
       <CardContent className="flex-1 pb-0">
-        <ChartContainer config={chartConfig} className="h-[300px] w-full">
+        <ChartContainer config={chartConfig} className="h-[250px] w-full">
           <BarChart
             accessibilityLayer
-            data={chartData}
+            data={dataWithTotal}
             layout="vertical"
             margin={{
               left: 20,
@@ -86,18 +92,29 @@ export function ChartBarMixed({ className }: { className?: string }) {
               tickMargin={10}
               axisLine={false}
               alignmentBaseline="after-edge"
+              tickFormatter={(value) =>
+                typeof value === "string" && value.length > 12
+                  ? `${value.substring(0, 12)}...`
+                  : value
+              }
             />
             <ChartTooltip
               cursor={false}
               content={<ChartTooltipContent hideLabel />}
             />
-            <Bar dataKey="desktop" stackId="a" fill="var(--color-mobile)" radius={8} stroke="var(--card)" strokeWidth={6} isAnimationActive={false} />
-            <Bar dataKey="mobile" stackId="a" fill="var(--color-desktop)" radius={8} stroke="var(--card)" strokeWidth={6} isAnimationActive={false}>
+            <ChartLegend
+              content={<ChartLegendContent />}
+              verticalAlign="bottom"
+              align="center"
+              wrapperStyle={{ bottom: 0 }}
+            />
+            <Bar dataKey="tersedia" stackId="a" fill="var(--color-tersedia)" radius={8} stroke="var(--card)" strokeWidth={6} isAnimationActive={false} />
+            <Bar dataKey="terpakai" stackId="a" fill="var(--color-terpakai)" radius={8} stroke="var(--card)" strokeWidth={6} isAnimationActive={false}>
               <LabelList
-                dataKey="mobile"
+                dataKey="total"
                 position="right"
                 offset={8}
-                className="fill-muted-foreground"
+                className="fill-foreground font-semibold"
                 fontSize={12}
               />
             </Bar>

@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts"
+import { Bar, BarChart, CartesianGrid, ReferenceLine, XAxis, YAxis } from "recharts"
 
 import { useIsMobile } from "@/hooks/use-mobile"
 import {
@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/card"
 import {
     ChartContainer,
+    ChartLegend,
+    ChartLegendContent,
     ChartTooltip,
     ChartTooltipContent,
     type ChartConfig,
@@ -30,23 +32,16 @@ import {
     ToggleGroupItem,
 } from "@/components/ui/toggle-group"
 
-export const description = "Grafik aktivitas transaksi barang"
-
 import type { ChartTransaction } from "@/types/transaction"
-import type { ChartDataPoint } from "@/types/dashboard"
 
 const chartConfig = {
     masuk: {
-        label: "Barang Masuk",
-        color: "oklch(0.696 0.17 162.48)",
+        label: "Receives",
+        color: "oklch(0.696 0.17 162.48)", // emerald/green
     },
     keluar: {
-        label: "Barang Keluar",
-        color: "oklch(0.685 0.169 237.323)",
-    },
-    rusak: {
-        label: "Rusak",
-        color: "oklch(0.645 0.246 16.439)",
+        label: "Orders",
+        color: "oklch(0.685 0.169 237.323)", // blue/negative color
     },
 } satisfies ChartConfig
 
@@ -74,7 +69,7 @@ const addDays = (date: Date, days: number) => {
 const buildDailyTransactionData = (
     transactions: ChartTransaction[],
     timeRange: string
-): ChartDataPoint[] => {
+) => {
     const rangeDays = getRangeDays(timeRange)
     const validDates = transactions
         .map((transaction) => transaction.tanggal)
@@ -86,7 +81,7 @@ const buildDailyTransactionData = (
         : new Date()
     const startDate = addDays(referenceDate, -(rangeDays - 1))
 
-    const points = new Map<string, ChartDataPoint>()
+    const points = new Map<string, { date: string; masuk: number; keluar: number }>()
     for (let day = 0; day < rangeDays; day += 1) {
         const date = addDays(startDate, day)
         const dateKey = toDateKey(date)
@@ -94,7 +89,6 @@ const buildDailyTransactionData = (
             date: dateKey,
             masuk: 0,
             keluar: 0,
-            rusak: 0,
         })
     }
 
@@ -112,16 +106,14 @@ const buildDailyTransactionData = (
         if (kategori === "masuk") {
             point.masuk += 1
         } else if (kategori === "keluar") {
-            point.keluar += 1
-        } else if (kategori === "rusak") {
-            point.rusak += 1
+            point.keluar -= 1 // Negative for outgoing
         }
     }
 
     return Array.from(points.values())
 }
 
-export function ChartAreaInteractive({
+export function ChartBarPositiveNegative({
     transactions,
     showMitraFilter = false,
     mitraOptions = [],
@@ -145,15 +137,33 @@ export function ChartAreaInteractive({
         }
     }, [isMobile])
 
-    const chartData = React.useMemo(
-        () => buildDailyTransactionData(transactions, timeRange),
-        [transactions, timeRange]
-    )
+    const chartData = React.useMemo(() => {
+        const rangeDays = getRangeDays(timeRange)
+        const referenceDate = new Date()
+        const startDate = addDays(referenceDate, -(rangeDays - 1))
+
+        const dummy = []
+        for (let day = 0; day < rangeDays; day += 1) {
+            const date = addDays(startDate, day)
+            const dateKey = toDateKey(date)
+
+            // Data dummy: Masuk (10 - 60), Keluar (-50 - -5)
+            const masuk = Math.floor(Math.random() * 50) + 10
+            const keluar = -(Math.floor(Math.random() * 45) + 5)
+
+            dummy.push({
+                date: dateKey,
+                masuk,
+                keluar,
+            })
+        }
+        return dummy
+    }, [timeRange])
 
     const totalTransaksi = React.useMemo(
         () =>
             chartData.reduce(
-                (total, item) => total + item.masuk + item.keluar + item.rusak,
+                (total, item) => total + item.masuk + Math.abs(item.keluar),
                 0
             ),
         [chartData]
@@ -162,13 +172,13 @@ export function ChartAreaInteractive({
     return (
         <Card className={`@container/card flex flex-col ${className || ""}`}>
             <CardHeader>
-                <CardTitle>Aktivitas Transaksi</CardTitle>
+                <CardTitle>Receives vs Orders</CardTitle>
                 <CardDescription>
                     <span className="hidden @[540px]/card:block">
-                        {totalTransaksi} transaksi dalam {getRangeDays(timeRange)} hari terakhir
+                        {totalTransaksi} aktivitas dalam {getRangeDays(timeRange)} hari terakhir
                     </span>
                     <span className="@[540px]/card:hidden">
-                        {totalTransaksi} transaksi
+                        {totalTransaksi} aktivitas
                     </span>
                 </CardDescription>
                 <CardAction className="flex flex-wrap items-center justify-end gap-2">
@@ -234,65 +244,19 @@ export function ChartAreaInteractive({
                     config={chartConfig}
                     className="aspect-auto h-[250px] w-full"
                 >
-                    <AreaChart data={chartData}>
-                        <defs>
-                            <linearGradient id="fillMasuk" x1="0" y1="0" x2="0" y2="1">
-                                <stop
-                                    offset="5%"
-                                    stopColor="var(--color-masuk)"
-                                    stopOpacity={0.65}
-                                />
-                                <stop
-                                    offset="95%"
-                                    stopColor="var(--color-masuk)"
-                                    stopOpacity={0.08}
-                                />
-                            </linearGradient>
-                            <linearGradient id="fillKeluar" x1="0" y1="0" x2="0" y2="1">
-                                <stop
-                                    offset="5%"
-                                    stopColor="var(--color-keluar)"
-                                    stopOpacity={0.55}
-                                />
-                                <stop
-                                    offset="95%"
-                                    stopColor="var(--color-keluar)"
-                                    stopOpacity={0.08}
-                                />
-                            </linearGradient>
-                            <linearGradient id="fillRusak" x1="0" y1="0" x2="0" y2="1">
-                                <stop
-                                    offset="5%"
-                                    stopColor="var(--color-rusak)"
-                                    stopOpacity={0.45}
-                                />
-                                <stop
-                                    offset="95%"
-                                    stopColor="var(--color-rusak)"
-                                    stopOpacity={0.06}
-                                />
-                            </linearGradient>
-                        </defs>
-                        <CartesianGrid vertical={false} />
-                        <YAxis
-                            type="number"
-                            tickLine={false}
-                            axisLine={false}
-                            tickMargin={8}
-                            width={48}
-                            domain={[0, "dataMax"]}
-                            tickFormatter={(value) =>
-                                typeof value === "number"
-                                    ? value.toLocaleString("id-ID")
-                                    : String(value)
-                            }
-                        />
+                    <BarChart
+                        data={chartData}
+                        stackOffset="sign"
+                        barCategoryGap={4}
+                        margin={{ top: 20, right: 12, left: 12, bottom: 0 }}
+                    >
+                        <CartesianGrid vertical={false} strokeDasharray="3 3" />
                         <XAxis
                             dataKey="date"
+                            type="category"
                             tickLine={false}
                             axisLine={false}
                             tickMargin={8}
-                            minTickGap={32}
                             tickFormatter={(value) => {
                                 const date = parseDateKey(value)
                                 return date.toLocaleDateString("id-ID", {
@@ -301,6 +265,7 @@ export function ChartAreaInteractive({
                                 })
                             }}
                         />
+                        <YAxis type="number" hide />
                         <ChartTooltip
                             cursor={false}
                             content={
@@ -316,28 +281,16 @@ export function ChartAreaInteractive({
                                 />
                             }
                         />
-                        <Area
-                            dataKey="masuk"
-                            type="linear"
-                            fill="url(#fillMasuk)"
-                            stroke="var(--color-masuk)"
-                            strokeWidth={2}
+                        <ChartLegend
+                            content={<ChartLegendContent />}
+                            verticalAlign="bottom"
+                            align="center"
+                            wrapperStyle={{ bottom: 0 }}
                         />
-                        <Area
-                            dataKey="keluar"
-                            type="linear"
-                            fill="url(#fillKeluar)"
-                            stroke="var(--color-keluar)"
-                            strokeWidth={2}
-                        />
-                        <Area
-                            dataKey="rusak"
-                            type="linear"
-                            fill="url(#fillRusak)"
-                            stroke="var(--color-rusak)"
-                            strokeWidth={2}
-                        />
-                    </AreaChart>
+                        <ReferenceLine y={0} stroke="var(--border)" />
+                        <Bar dataKey="masuk" stackId="a" fill="var(--color-masuk)" radius={[5, 5, 0, 0]} barSize={40} />
+                        <Bar dataKey="keluar" stackId="a" fill="var(--color-keluar)" radius={[5, 5, 0, 0]} barSize={40} />
+                    </BarChart>
                 </ChartContainer>
             </CardContent>
         </Card>

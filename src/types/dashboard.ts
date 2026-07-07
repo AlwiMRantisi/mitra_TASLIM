@@ -22,6 +22,8 @@ export type NotificationItem = {
   isRead: boolean;
   generated?: boolean;
   targetUrl?: string;
+  mitraName?: string;
+  mitraType?: string;
 };
 
 export type ChartDataPoint = {

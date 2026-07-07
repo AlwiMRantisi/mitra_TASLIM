@@ -31,6 +31,8 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { InventoryStats, NotificationItem, SafetyStockAlert } from "@/types/dashboard"
 import { ChartBarMixed } from "./bar-chart"
+import { DataTable } from "./transaction-table"
+import requestData from "@/data/request.json"
 
 const getBaseUrl = () => {
     const baseUrl = import.meta.env.URL || import.meta.env.VITE_URL || "http://172.168.9.139:3000/";
@@ -70,14 +72,52 @@ export function SectionCharts({
     safetyStockAlerts: SafetyStockAlert[]
 }) {
     const navigate = useNavigate()
-    const [items, setItems] = React.useState<NotificationItem[]>([])
+    const [items, setItems] = React.useState<NotificationItem[]>([
+        {
+            id: "dummy-1",
+            title: "Stok Barang Masuk",
+            message: "50 unit 'Kabel UTP' berhasil ditambahkan ke gudang utama.",
+            type: "success",
+            date: new Date().toISOString(),
+            isRead: false,
+            generated: false,
+        },
+        {
+            id: "dummy-2",
+            title: "Peringatan Safety Stock",
+            message: "Stok 'Router MikroTik' tersisa 5 unit (batas minimum 10).",
+            type: "warning",
+            date: new Date(Date.now() - 3600000).toISOString(),
+            isRead: true,
+            generated: false,
+            targetUrl: "/data-barang",
+        },
+        {
+            id: "dummy-3",
+            title: "Barang Keluar",
+            message: "10 unit 'Switch Hub' telah dikeluarkan untuk project Alpha.",
+            type: "info",
+            date: new Date(Date.now() - 7200000).toISOString(),
+            isRead: false,
+            generated: false,
+        },
+        {
+            id: "dummy-4",
+            title: "Barang Rusak",
+            message: "2 unit 'Monitor 24 inch' dilaporkan rusak.",
+            type: "error",
+            date: new Date(Date.now() - 86400000).toISOString(),
+            isRead: true,
+            generated: false,
+        }
+    ])
 
     const fetchNotifications = React.useCallback(async () => {
         if (isMitra) return
 
         try {
-            const data = await invoke<NotificationItem[]>("get_notifications")
-            setItems(data)
+            // const data = await invoke<NotificationItem[]>("get_notifications")
+            // setItems(data)
         } catch (error) {
             console.error("Failed to fetch notifications:", error)
         }
@@ -94,47 +134,43 @@ export function SectionCharts({
     const mitraNotifications = React.useMemo<NotificationItem[]>(
         () => [
             {
-                id: "mitra-tersedia",
-                title: "Barang tersedia",
-                message: `${stats.tersedia} unit milik ${displayName || "mitra"} saat ini berstatus Tersedia.`,
+                id: "log-1",
+                title: "PT Naratas",
+                message: "Router MikroTik RB750 (SN: 12345) dipindahkan dari KP Tasikmalaya ke PT Naratas.",
                 type: "success",
-                date: "",
+                date: new Date(Date.now() - 1800000).toISOString(),
                 isRead: true,
-                generated: true,
+                generated: false,
             },
             {
-                id: "mitra-diluar",
-                title: "Barang diluar",
-                message: `${stats.diluar} unit tercatat berstatus Diluar.`,
+                id: "log-2",
+                title: "PT Naratas",
+                message: "Switch Hub (SN: 54321) ditransfer dari KP Tasikmalaya ke PT Naratas.",
                 type: "info",
-                date: "",
+                date: new Date(Date.now() - 7200000).toISOString(),
                 isRead: true,
-                generated: true,
+                generated: false,
             },
-            ...(stats.rusak > 0
-                ? [{
-                    id: "mitra-rusak",
-                    title: "Perhatian barang rusak",
-                    message: `${stats.rusak} unit tercatat berstatus Rusak.`,
-                    type: "warning",
-                    date: "",
-                    isRead: true,
-                    generated: true,
-                }]
-                : []),
-            ...(stats.hilang > 0
-                ? [{
-                    id: "mitra-hilang",
-                    title: "Perhatian barang hilang",
-                    message: `${stats.hilang} unit tercatat berstatus Hilang.`,
-                    type: "error",
-                    date: "",
-                    isRead: true,
-                    generated: true,
-                }]
-                : []),
+            {
+                id: "log-3",
+                title: "PT Alpha Indonesia",
+                message: "Menerima 2 unit Monitor 24 inch dari KP Tasikmalaya (Rusak).",
+                type: "warning",
+                date: new Date(Date.now() - 86400000).toISOString(),
+                isRead: true,
+                generated: false,
+            },
+            {
+                id: "log-4",
+                title: "Penerimaan Barang",
+                message: "Batch baru: 50 unit Kabel UTP diterima di KP Tasikmalaya.",
+                type: "success",
+                date: new Date(Date.now() - 172800000).toISOString(),
+                isRead: true,
+                generated: false,
+            }
         ],
-        [displayName, stats]
+        []
     )
     const safetyStockNotifications = React.useMemo<NotificationItem[]>(
         () =>
@@ -153,12 +189,8 @@ export function SectionCharts({
             })),
         [safetyStockAlerts]
     )
-    const displayedNotifications = isMitra
-        ? [...safetyStockNotifications, ...mitraNotifications]
-        : [...safetyStockNotifications, ...items]
-    const unreadCount = isMitra
-        ? 0
-        : displayedNotifications.filter((n) => !n.isRead).length
+    const displayedNotifications = [...safetyStockNotifications, ...items]
+    const unreadCount = displayedNotifications.filter((n) => !n.isRead).length
 
     // Storage capacity from DB
     const [totalCapacity, setTotalCapacity] = React.useState(0)
@@ -221,7 +253,8 @@ export function SectionCharts({
         if (isMitra) return
 
         try {
-            await invoke("mark_notification_read", { id })
+            // await invoke("mark_notification_read", { id })
+            setItems(prev => prev.map(item => item.id === id ? { ...item, isRead: true } : item))
             fetchNotifications()
         } catch (error) {
             console.error("Failed to mark as read:", error)
@@ -233,7 +266,8 @@ export function SectionCharts({
         if (isMitra) return
 
         try {
-            await invoke("mark_all_notifications_read")
+            // await invoke("mark_all_notifications_read")
+            setItems(prev => prev.map(item => ({ ...item, isRead: true })))
             fetchNotifications()
         } catch (error) {
             console.error("Failed to mark all as read:", error)
@@ -245,27 +279,13 @@ export function SectionCharts({
         if (isMitra) return
 
         try {
-            await invoke("delete_notification", { id })
+            // await invoke("delete_notification", { id })
+            setItems(prev => prev.filter(item => item.id !== id))
             fetchNotifications()
         } catch (error) {
             console.error("Failed to delete notification:", error)
         }
     }
-
-    const getIconProps = (type: string) => {
-        switch (type) {
-            case "warning":
-                return { icon: AlertTriangle, color: "text-red-500", bg: "bg-red-500/10" }
-            case "success":
-                return { icon: Check, color: "text-emerald-500", bg: "bg-emerald-500/10" }
-            case "error":
-                return { icon: X, color: "text-red-600", bg: "bg-red-600/10" }
-            case "info":
-            default:
-                return { icon: Info, color: "text-blue-500", bg: "bg-blue-500/10" }
-        }
-    }
-
     const formatTime = (dateStr: string) => {
         const date = new Date(dateStr)
         return date.toLocaleString('id-ID', {
@@ -277,99 +297,60 @@ export function SectionCharts({
     }
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 px-4 lg:px-6">
-            {/* Card 1 */}
-            <ChartBarMixed className="col-span-2 h-full pb-0" />
+        <div className="flex flex-col gap-4 px-4 lg:px-6">
 
-            {/* Card 3 */}
-            <Card className="flex flex-col h-full">
-                <CardHeader className="items-center pb-0">
-                    <CardTitle>
-                        {isMitra ? "Komposisi Barang Mitra" : "Kapasitas Penyimpanan"}
-                    </CardTitle>
-                    <CardDescription>
-                        {isMitra ? displayName : "Kapasitas gudang aktif"}
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="flex-1 pb-0">
-                    <ChartContainer
-                        config={chartConfig}
-                        className="mx-auto aspect-square w-full max-w-[250px]"
-                        initialDimension={{ width: 250, height: 250 }}
-                    >
-                        <RadialBarChart
-                            data={chartData}
-                            startAngle={90}
-                            endAngle={-270}
-                            outerRadius={90}
-                            innerRadius={80}
-                        >
-                            <PolarGrid
-                                gridType="circle"
-                                radialLines={false}
-                                stroke="none"
-                                className="first:fill-muted last:fill-background"
-                                polarRadius={[90, 80]}
-                            />
-                            <PolarAngleAxis type="number" domain={[0, 100]} angleAxisId={0} tick={false} />
-                            <RadialBar dataKey="visitors" background cornerRadius={10} isAnimationActive={false} />
-                            <PolarRadiusAxis tick={false} tickLine={false} axisLine={false}>
-                                <Label
-                                    content={({ viewBox }) => {
-                                        if (viewBox && "cx" in viewBox && "cy" in viewBox) {
-                                            return (
-                                                <text
-                                                    x={viewBox.cx}
-                                                    y={viewBox.cy}
-                                                    textAnchor="middle"
-                                                    dominantBaseline="middle"
-                                                >
-                                                    <tspan
-                                                        x={viewBox.cx}
-                                                        y={viewBox.cy}
-                                                        className="fill-foreground text-4xl font-bold"
-                                                    >
-                                                        {capacityPercent}%
-                                                    </tspan>
-                                                    <tspan
-                                                        x={viewBox.cx}
-                                                        y={(viewBox.cy || 0) + 24}
-                                                        className="fill-muted-foreground"
-                                                    >
-                                                        {isMitra ? "Tersedia" : "Terisi"}
-                                                    </tspan>
-                                                </text>
-                                            )
-                                        }
-                                    }}
-                                />
-                            </PolarRadiusAxis>
-                        </RadialBarChart>
-                    </ChartContainer>
-                </CardContent>
-                <CardFooter className="flex-col gap-2 text-sm bg-card mt-auto">
-                    <div className="grid grid-cols-3 gap-2 w-full">
-                        <div className="flex flex-col text-center">
-                            <p className="text-muted-foreground font-normal text-xs">
-                                {isMitra ? "Total" : "Kapasitas"}
-                            </p>
-                            <p className="font-bold text-md">{displayedTotal}</p>
+            {/* Main Charts */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:h-[380px]">
+
+                {/* Card 1: Tabel Permintaan */}
+                <DataTable data={requestData.filter(req => req.status.toLowerCase() === 'menunggu')} className="flex-1 w-full lg:col-span-2" />
+
+                {/* Card 2: Update Terbaru / Log Sistem */}
+                <Card className="flex flex-col h-full lg:col-span-1">
+                    <CardHeader className="flex flex-row items-center justify-between pb-4">
+                        <div className="space-y-1">
+                            <CardTitle>Latest Updates</CardTitle>
+                            <CardDescription>
+                                Histori perpindahan aset antar cabang dan mitra
+                            </CardDescription>
                         </div>
-                        <div className="flex flex-col text-center">
-                            <p className="text-muted-foreground font-normal text-xs">
-                                {isMitra ? "Tersedia" : "Digunakan"}
-                            </p>
-                            <p className="font-bold text-md">{displayedUsed}</p>
-                        </div>
-                        <div className="flex flex-col text-center">
-                            <p className="text-muted-foreground font-normal text-xs">
-                                {isMitra ? "Diluar" : "Tersisa"}
-                            </p>
-                            <p className="font-bold text-md">{displayedRemaining}</p>
-                        </div>
-                    </div>
-                </CardFooter>
-            </Card>
+                    </CardHeader>
+                    <CardContent className="flex-1 p-0 overflow-hidden">
+                        <ScrollArea className="h-full max-h-[350px] lg:max-h-none w-full px-6">
+                            <div className="py-4 space-y-6">
+                                {mitraNotifications.length > 0 ? (
+                                    mitraNotifications.map((item) => {
+                                        return (
+                                            <div key={item.id} className="flex flex-row gap-3">
+                                                <div className="h-2.5 w-2.5 rounded-full bg-primary mt-1.5 shrink-0">
+                                                </div>
+                                                <div className="flex flex-col space-y-1 flex-1">
+                                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-2">
+                                                        <p className="text-sm font-semibold leading-none">{item.title}</p>
+                                                        {item.date && (
+                                                            <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                                                {formatTime(item.date)}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-sm text-muted-foreground leading-snug">
+                                                        {item.message}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        )
+                                    })
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
+                                        <Info className="w-8 h-8 mb-2 opacity-20" />
+                                        <p className="text-sm">Tidak ada log aktivitas</p>
+                                    </div>
+                                )}
+                            </div>
+                        </ScrollArea>
+                    </CardContent>
+                </Card>
+            </div>
         </div>
     )
 }

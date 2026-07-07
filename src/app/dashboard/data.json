@@ -1,113 +1,11 @@
 [
   {
     "id": 1,
-    "tanggal": "2026-06-13",
-    "nomor": "OUT-20260602-001",
-    "kategori": "Keluar",
-    "status": "Selesai",
-    "items": [
-      {
-        "sn": "HW001",
-        "nama": "Access Point Huawei HG8245H",
-        "merek": "Huawei",
-        "asal": "Rak A / Level 1 / Baris 2",
-        "tujuan": "Keluar"
-      },
-      {
-        "sn": "HW002",
-        "nama": "Access Point Huawei HG8245H",
-        "merek": "Huawei",
-        "asal": "Rak A / Level 1 / Baris 2",
-        "tujuan": "Keluar"
-      },
-      {
-        "sn": "HW003",
-        "nama": "Access Point Huawei HG8245H",
-        "merek": "Huawei",
-        "asal": "Kardus 03",
-        "tujuan": "Keluar"
-      },
-      {
-        "sn": "ZTE001",
-        "nama": "Access Point ZTE F609",
-        "merek": "ZTE",
-        "asal": "Rak B / Level 2 / Baris 1",
-        "tujuan": "Keluar"
-      },
-      {
-        "sn": "ZTE002",
-        "nama": "Access Point ZTE F609",
-        "merek": "ZTE",
-        "asal": "Rak B / Level 2 / Baris 1",
-        "tujuan": "Keluar"
-      }
-    ]
-  },
-  {
-    "id": 2,
-    "tanggal": "2026-06-01",
-    "nomor": "IN-20260601-001",
-    "kategori": "Masuk",
-    "status": "Selesai",
-    "items": [
-      {
-        "sn": "CS001",
-        "nama": "Switch Cisco Catalyst 2960",
-        "merek": "Cisco",
-        "asal": "Supplier X",
-        "tujuan": "Rak B1"
-      },
-      {
-        "sn": "CS002",
-        "nama": "Switch Cisco Catalyst 2960",
-        "merek": "Cisco",
-        "asal": "Supplier X",
-        "tujuan": "Kardus 01"
-      }
-    ]
-  },
-  {
-    "id": 3,
-    "tanggal": "2026-06-05",
-    "nomor": "MOV-20260605-001",
-    "kategori": "Rusak",
-    "status": "Selesai",
-    "items": [
-      {
-        "sn": "UBI001",
-        "nama": "Ubiquiti UniFi AP AC Pro",
-        "merek": "Ubiquiti",
-        "asal": "Rak A1",
-        "tujuan": "Rak B2"
-      },
-      {
-        "sn": "UBI002",
-        "nama": "Ubiquiti UniFi AP AC Pro",
-        "merek": "Ubiquiti",
-        "asal": "Rak A1",
-        "tujuan": "Rak B2"
-      },
-      {
-        "sn": "UBI003",
-        "nama": "Ubiquiti UniFi AP AC Pro",
-        "merek": "Ubiquiti",
-        "asal": "Rak A1",
-        "tujuan": "Rak B2"
-      },
-      {
-        "sn": "MK001",
-        "nama": "MikroTik RB750Gr3",
-        "merek": "MikroTik",
-        "asal": "Rak A1",
-        "tujuan": "Rak B2"
-      },
-      {
-        "sn": "MK002",
-        "nama": "MikroTik RB750Gr3",
-        "merek": "MikroTik",
-        "asal": "Rak A1",
-        "tujuan": "Rak B2"
-      }
-    ]
+    "header": "Cover page",
+    "type": "Cover page",
+    "status": "In Process",
+    "target": "18",
+    "limit": "5",
+    "reviewer": "Eddie Lake"
   }
 ]
