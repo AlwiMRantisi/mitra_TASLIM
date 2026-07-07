@@ -1,6 +1,6 @@
 import "./App.css";
 import { HashRouter as Router } from "react-router-dom";
-import { ThemeProvider } from "@/components/shared/themeProvider";
+import { ThemeProvider } from "./components/themeProvider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppRoutes } from "@/routes/AppRoutes";
 import { Toaster } from "@/components/ui/sonner";

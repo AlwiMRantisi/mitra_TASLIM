@@ -1,6 +1,6 @@
 import { Navigate, Route, Routes } from "react-router-dom";
-import ProtectedRoute from "@/components/shared/ProtectedRoute";
-import Layout from "@/components/layout/layout";
+import ProtectedRoute from "@/components/ProtectedRoute";
+import Layout from "@/components/layout";
 import DashboardPage from "@/app/dashboard/page";
 import BarangMasukPage from "@/app/barang-masuk/page";
 import BarangKeluarPage from "@/app/barang-keluar/page";

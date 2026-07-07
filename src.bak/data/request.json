@@ -1,0 +1,288 @@
+[
+    {
+        "id": "dce8ddf8-52bf-4e57-8e1e-b77344157796",
+        "requestNumber": "REQ-20260707-0001",
+        "requestedAt": "2026-07-03T10:00:00Z",
+        "partner": "TZU",
+        "status": "Menunggu",
+        "notes": "Serpo",
+        "requestItems": [
+            {
+                "id": 1,
+                "category": "ONT",
+                "brand": "Huawei",
+                "quantity": 5
+            },
+            {
+                "id": 2,
+                "category": "Kabel",
+                "brand": "FiberHome",
+                "quantity": 5
+            }
+        ]
+    },
+    {
+        "id": "fce8ddf8-52bf-4e57-8e1e-b77344157796",
+        "requestNumber": "REQ-20260707-0001",
+        "requestedAt": "2026-07-03T10:00:00Z",
+        "partner": "TZU",
+        "status": "Menunggu",
+        "notes": "",
+        "requestItems": [
+            {
+                "id": 1,
+                "category": "ONT",
+                "brand": "Huawei",
+                "quantity": 5
+            },
+            {
+                "id": 2,
+                "category": "Kabel",
+                "brand": "FiberHome",
+                "quantity": 5
+            }
+        ]
+    },
+    {
+        "id": "fce8ddf8-52bf-4e57-8e1e-b77344157796",
+        "requestNumber": "REQ-20260707-0001",
+        "requestedAt": "2026-07-03T10:00:00Z",
+        "partner": "TZU",
+        "status": "Disetujui",
+        "notes": "Serpo",
+        "requestItems": [
+            {
+                "id": 1,
+                "category": "ONT",
+                "brand": "Huawei",
+                "quantity": 5
+            },
+            {
+                "id": 2,
+                "category": "Kabel",
+                "brand": "FiberHome",
+                "quantity": 5
+            }
+        ]
+    },
+    {
+        "id": "fce8ddf8-52bf-4e57-8e1e-b77344157796",
+        "requestNumber": "REQ-20260707-0001",
+        "requestedAt": "2026-07-03T10:00:00Z",
+        "partner": "TZU",
+        "status": "Ditolak",
+        "notes": "Serpo",
+        "requestItems": [
+            {
+                "id": 1,
+                "category": "ONT",
+                "brand": "Huawei",
+                "quantity": 5
+            },
+            {
+                "id": 2,
+                "category": "Kabel",
+                "brand": "FiberHome",
+                "quantity": 5
+            }
+        ]
+    },
+    {
+        "id": "fce8ddf8-52bf-4e57-8e1e-b77344157796",
+        "requestNumber": "REQ-20260707-0001",
+        "requestedAt": "2026-07-03T10:00:00Z",
+        "partner": "TZU",
+        "status": "Selesai",
+        "notes": "Serpo",
+        "requestItems": [
+            {
+                "id": 1,
+                "category": "ONT",
+                "brand": "Huawei",
+                "quantity": 5
+            },
+            {
+                "id": 2,
+                "category": "Kabel",
+                "brand": "FiberHome",
+                "quantity": 5
+            }
+        ]
+    },
+    {
+        "id": "fce8ddf8-52bf-4e57-8e1e-b77344157796",
+        "requestNumber": "REQ-20260707-0001",
+        "requestedAt": "2026-07-03T10:00:00Z",
+        "partner": "TZU",
+        "status": "Selesai",
+        "notes": "Serpo",
+        "requestItems": [
+            {
+                "id": 1,
+                "category": "ONT",
+                "brand": "Huawei",
+                "quantity": 5
+            },
+            {
+                "id": 2,
+                "category": "Kabel",
+                "brand": "FiberHome",
+                "quantity": 5
+            }
+        ]
+    },
+    {
+        "id": "fce8ddf8-52bf-4e57-8e1e-b77344157796",
+        "requestNumber": "REQ-20260707-0001",
+        "requestedAt": "2026-07-03T10:00:00Z",
+        "partner": "TZU",
+        "status": "Selesai",
+        "notes": "Serpo",
+        "requestItems": [
+            {
+                "id": 1,
+                "category": "ONT",
+                "brand": "Huawei",
+                "quantity": 5
+            },
+            {
+                "id": 2,
+                "category": "Kabel",
+                "brand": "FiberHome",
+                "quantity": 5
+            }
+        ]
+    },
+    {
+        "id": "fce8ddf8-52bf-4e57-8e1e-b77344157796",
+        "requestNumber": "REQ-20260707-0001",
+        "requestedAt": "2026-07-03T10:00:00Z",
+        "partner": "TZU",
+        "status": "Selesai",
+        "notes": "Serpo",
+        "requestItems": [
+            {
+                "id": 1,
+                "category": "ONT",
+                "brand": "Huawei",
+                "quantity": 5
+            },
+            {
+                "id": 2,
+                "category": "Kabel",
+                "brand": "FiberHome",
+                "quantity": 5
+            }
+        ]
+    },
+    {
+        "id": "fce8ddf8-52bf-4e57-8e1e-b77344157796",
+        "requestNumber": "REQ-20260707-0001",
+        "requestedAt": "2026-07-03T10:00:00Z",
+        "partner": "TZU",
+        "status": "Selesai",
+        "notes": "Serpo",
+        "requestItems": [
+            {
+                "id": 1,
+                "category": "ONT",
+                "brand": "Huawei",
+                "quantity": 5
+            },
+            {
+                "id": 2,
+                "category": "Kabel",
+                "brand": "FiberHome",
+                "quantity": 5
+            }
+        ]
+    },
+    {
+        "id": "fce8ddf8-52bf-4e57-8e1e-b77344157796",
+        "requestNumber": "REQ-20260707-0001",
+        "requestedAt": "2026-07-03T10:00:00Z",
+        "partner": "TZU",
+        "status": "Selesai",
+        "notes": "Serpo",
+        "requestItems": [
+            {
+                "id": 1,
+                "category": "ONT",
+                "brand": "Huawei",
+                "quantity": 5
+            },
+            {
+                "id": 2,
+                "category": "Kabel",
+                "brand": "FiberHome",
+                "quantity": 5
+            }
+        ]
+    },
+    {
+        "id": "fce8ddf8-52bf-4e57-8e1e-b77344157796",
+        "requestNumber": "REQ-20260707-0001",
+        "requestedAt": "2026-07-03T10:00:00Z",
+        "partner": "TZU",
+        "status": "Selesai",
+        "notes": "Serpo",
+        "requestItems": [
+            {
+                "id": 1,
+                "category": "ONT",
+                "brand": "Huawei",
+                "quantity": 5
+            },
+            {
+                "id": 2,
+                "category": "Kabel",
+                "brand": "FiberHome",
+                "quantity": 5
+            }
+        ]
+    },
+    {
+        "id": "fce8ddf8-52bf-4e57-8e1e-b77344157796",
+        "requestNumber": "REQ-20260707-0001",
+        "requestedAt": "2026-07-03T10:00:00Z",
+        "partner": "TZU",
+        "status": "Selesai",
+        "notes": "",
+        "requestItems": [
+            {
+                "id": 1,
+                "category": "ONT",
+                "brand": "Huawei",
+                "quantity": 5
+            },
+            {
+                "id": 2,
+                "category": "Kabel",
+                "brand": "FiberHome",
+                "quantity": 5
+            }
+        ]
+    },
+    {
+        "id": "fce8ddf8-52bf-4e57-8e1e-b77344157796",
+        "requestNumber": "REQ-20260707-0001",
+        "requestedAt": "2026-07-03T10:00:00Z",
+        "partner": "TZU",
+        "status": "Selesai",
+        "notes": "",
+        "requestItems": [
+            {
+                "id": 1,
+                "category": "ONT",
+                "brand": "Huawei",
+                "quantity": 5
+            },
+            {
+                "id": 2,
+                "category": "Kabel",
+                "brand": "FiberHome",
+                "quantity": 5
+            }
+        ]
+    }
+]

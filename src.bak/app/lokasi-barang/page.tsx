@@ -273,13 +273,11 @@ export default function LokasiBarangPage() {
           throw new Error(errData.message || "Gagal memperbarui kardus");
         }
       } else if (sheetMode === "add-level" && activeItem?.parentId) {
-        const res = await fetch(`${getBaseUrl()}/locations`, {
+        const res = await fetch(`${getBaseUrl()}/locations/${activeItem.parentId}/levels`, {
           method: "POST",
           headers: getHeaders(),
           body: JSON.stringify({
             name: levelName || "Level Baru",
-            type: "Kardus",
-            parentId: activeItem.parentId,
             capacity: parseInt(locCapacity) || 0,
             brandRule: locBrand
           }),
@@ -289,7 +287,7 @@ export default function LokasiBarangPage() {
           throw new Error(errData.message || "Gagal menambahkan level");
         }
       } else if (sheetMode === "edit-level" && activeItem?.parentId && activeItem?.levelId) {
-        const res = await fetch(`${getBaseUrl()}/locations/${activeItem.levelId}`, {
+        const res = await fetch(`${getBaseUrl()}/locations/${activeItem.parentId}/levels/${activeItem.levelId}`, {
           method: "PUT",
           headers: getHeaders(),
           body: JSON.stringify({
@@ -350,7 +348,7 @@ export default function LokasiBarangPage() {
       const loc = locations.find(l => l.id === rakId);
       const lvl = loc?.levels?.find(l => l.id === levelId);
       if (lvl) {
-        const res = await fetch(`${getBaseUrl()}/locations/${levelId}/toggle`, {
+        const res = await fetch(`${getBaseUrl()}/locations/${rakId}/levels/${levelId}/toggle`, {
           method: "PATCH",
           headers: getHeaders(),
           body: JSON.stringify({ isActive: !lvl.isActive }),
@@ -390,7 +388,9 @@ export default function LokasiBarangPage() {
         });
         if (!res.ok) throw new Error("Gagal menghapus lokasi");
       } else if (type === "level") {
-        const res = await fetch(`${getBaseUrl()}/locations/${id}`, {
+        const loc = locations.find(l => l.levels?.some(lvl => lvl.id === id));
+        const locId = loc ? loc.id : "default";
+        const res = await fetch(`${getBaseUrl()}/locations/${locId}/levels/${id}`, {
           method: "DELETE",
           headers: getHeaders(),
         });

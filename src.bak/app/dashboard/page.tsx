@@ -1,8 +1,8 @@
-import { DataTable } from "@/features/transactions/components/transaction-table"
-import { SectionCards } from "@/features/dashboard/components/section-cards"
-import { SectionCharts } from "@/features/dashboard/components/section-charts"
-import { ChartBarMixed } from "@/features/dashboard/components/bar-chart"
-import { ChartBarPositiveNegative } from "@/features/dashboard/components/chart-bar-positive-negative"
+import { DataTable } from "@/components/transaction-table"
+import { SectionCards } from "@/components/section-cards"
+import { SectionCharts } from "@/components/section-charts"
+import { ChartBarMixed } from "@/components/bar-chart"
+import { ChartBarPositiveNegative } from "@/components/chart-bar-positive-negative"
 import { useDashboard } from "./use-dashboard"
 import requestsData from "@/data/request.json"
 
