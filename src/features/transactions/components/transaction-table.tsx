@@ -16,7 +16,7 @@ import {
     TableRow,
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { IconPackage, IconNotes, IconLoader, IconChevronRight, IconDotsVertical } from "@tabler/icons-react"
+import { IconPackage, IconNotes, IconLoader, IconChevronRight, IconDotsVertical, IconCircleCheck, IconCheck, IconX, IconBan } from "@tabler/icons-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
@@ -83,24 +83,54 @@ export const columns: ColumnDef<DashboardRequest>[] = [
         header: "Status",
         cell: ({ row }) => {
             const status = row.original.status;
-            let colorClass = "bg-muted-foreground text-muted-foreground";
 
-            switch (status) {
-                case "MENUNGGU": colorClass = "bg-amber-500/10 text-amber-600 border-amber-500/20"; break;
-                case "DISETUJUI": colorClass = "bg-blue-500/10 text-blue-600 border-blue-500/20"; break;
-                case "SIAP": colorClass = "bg-purple-500/10 text-purple-600 border-purple-500/20"; break;
-                case "DITERIMA":
-                case "SELESAI": colorClass = "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"; break;
-                case "DITOLAK":
-                case "DIBATALKAN": colorClass = "bg-rose-500/10 text-rose-600 border-rose-500/20"; break;
-            }
+            const statusConfig: Record<
+                string,
+                { icon: typeof IconLoader; className: string }
+            > = {
+                MENUNGGU: {
+                    icon: IconLoader,
+                    className: "bg-gray-500 dark:bg-gray-400",
+                },
+                DISETUJUI: {
+                    icon: IconCircleCheck,
+                    className: "bg-green-500 dark:bg-green-400",
+                },
+                SIAP: {
+                    icon: IconPackage,
+                    className: "bg-yellow-500 dark:bg-yellow-400",
+                },
+                SELESAI: {
+                    icon: IconCircleCheck,
+                    className: "bg-green-500 dark:bg-green-400",
+                },
+                DITOLAK: {
+                    icon: IconX,
+                    className: "bg-red-500 dark:bg-red-400",
+                },
+                DIBATALKAN: {
+                    icon: IconBan,
+                    className: "text-gray-500 border-gray-300 bg-gray-50",
+                },
+            };
+
+            const normalizedStatus = status?.toUpperCase()?.trim() || "";
+            const config = statusConfig[normalizedStatus] ?? {
+                icon: IconLoader,
+                className: "text-muted-foreground",
+            };
+            const IconStatus = config.icon;
+            const className = config.className;
 
             return (
-                <Badge variant="outline" className={`font-normal ${colorClass} px-2.5 py-0.5`}>
-                    <IconLoader />
-                    {status}
+                <Badge
+                    variant="outline"
+                    className="flex items-center px-1.5 py-2.5 text-muted-foreground"
+                >
+                    <span className={cn(className, "size-2 rounded-full")}></span>
+                    <span>{status}</span>
                 </Badge>
-            )
+            );
         },
     },
     {
@@ -113,6 +143,7 @@ export const columns: ColumnDef<DashboardRequest>[] = [
                         variant="ghost"
                         className="flex size-8 text-muted-foreground data-[state=open]:bg-muted"
                         size="icon"
+                        onClick={(e) => e.stopPropagation()}
                     >
                         <IconDotsVertical />
                         <span className="sr-only">Open menu</span>

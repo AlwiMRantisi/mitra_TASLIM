@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import { DataTable } from "@/features/transactions/components/transaction-table"
 import { Card } from "@/components/ui/card"
-import { Download, Plus, Search, Trash2, Loader2, AreaChart } from "lucide-react"
+import { Download, Plus, Search, Trash2, Loader2, AreaChart, Filter, EllipsisVertical } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Link } from "react-router-dom"
@@ -36,6 +36,9 @@ import { useIsMobile } from "@/hooks/use-mobile"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
+import { IconLayoutColumns, IconChevronDown } from "@tabler/icons-react"
+import { table } from "console"
 
 const getBaseUrl = () => {
   const baseUrl = import.meta.env.URL || import.meta.env.VITE_URL || "http://172.168.9.139:3000/";
@@ -264,87 +267,57 @@ export default function DataTransaksiPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4 p-4 md:p-6 lg:p-8 animate-fade-in">
+    <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8 animate-fade-in">
       {/* Page Header */}
-      <Card className="p-4">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div className="flex gap-2">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute top-2 left-3 size-4 text-muted-foreground" />
+
+      <Tabs defaultValue="Menunggu" className="w-full">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-4">
+          <div className="w-full overflow-x-auto pb-1 scrollbar-hide">
+            <TabsList className="**:data-[slot=badge]:size-5 **:data-[slot=badge]:rounded-full **:data-[slot=badge]:bg-muted-foreground/30 **:data-[slot=badge]:px-1 inline-flex w-max h-auto">
+              <TabsTrigger value="Menunggu" className="cursor-pointer">
+                Menunggu <Badge variant="secondary">3</Badge>
+              </TabsTrigger>
+              <TabsTrigger value="Disetujui" className="cursor-pointer">Disetujui</TabsTrigger>
+              <TabsTrigger value="Siap" className="cursor-pointer">Siap</TabsTrigger>
+              <TabsTrigger value="Selesai" className="cursor-pointer">Selesai</TabsTrigger>
+              <TabsTrigger value="Ditolak" className="cursor-pointer">Ditolak</TabsTrigger>
+            </TabsList>
+          </div>
+          <div className="flex flex-row items-center gap-2 w-full lg:w-auto">
+            <div className="relative flex-1 lg:w-64">
+              <Search className="absolute top-[9px] left-3 size-4 text-muted-foreground" />
               <Input
-                placeholder="Cari nomor transaksi..."
-                className="pl-9"
+                placeholder="Cari transaksi..."
+                className="pl-9 w-full"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-
-            <div className="flex flex-wrap items-center gap-3">
-              <Select value={filterKategori} onValueChange={setFilterKategori}>
-                <SelectTrigger className="w-[160px] py-0">
-                  <SelectValue placeholder="Kategori Transaksi" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Semua Kategori</SelectItem>
-                  {KATEGORI_OPTIONS.map((kategori) => (
-                    <SelectItem key={kategori} value={kategori}>{kategori}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {(searchTerm || filterKategori !== "all") && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="px-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
-                  onClick={() => {
-                    setSearchTerm("")
-                    setFilterKategori("all")
-                  }}
-                >
-                  Reset Filter
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="shrink-0 gap-1.5 px-3">
+                  <Filter className="size-4" />
+                  <span className="hidden sm:inline">Filter</span>
+                  <IconChevronDown className="size-4" />
                 </Button>
-              )}
-            </div>
-
-          </div>
-
-          <div className="flex items-center gap-2 self-start md:self-auto">
-            {user?.role === "admin" && selectedIds.length > 0 && (
-              <Button variant="outline" onClick={handleBulkDelete}>
-                <Trash2 className="size-4 mr-2" />
-                Hapus ({selectedIds.length})
-              </Button>
-            )}
-            <Button
-              variant="outline"
-              onClick={handleExportExcel}
-              disabled={filteredData.length === 0}
-            >
-              <Download className="size-4" />
-              <span>Export Excel</span>
-            </Button>
-            <Button
-              className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-md transition-all active:scale-[0.98]"
-            >
-              <Link to="/barang-masuk" className="flex flex-row items-center">
-                <Plus className="size-4" />
-                <span>Buat Transaksi</span>
-              </Link>
-            </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem>Pilih Filter</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="px-2 shrink-0">
+                  <EllipsisVertical className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-32">
+                <DropdownMenuItem>Import</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExportExcel()}>Export</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
-      </Card>
-      <Tabs defaultValue="Semua" className="w-full">
-        <TabsList className="**:data-[slot=badge]:size-5 **:data-[slot=badge]:rounded-full **:data-[slot=badge]:bg-muted-foreground/30 **:data-[slot=badge]:px-1 @4xl/main:flex">
-          <TabsTrigger value="Menunggu">
-            Menunggu <Badge variant="secondary">3</Badge>
-          </TabsTrigger>
-          <TabsTrigger value="Disetujui">Disetujui</TabsTrigger>
-          <TabsTrigger value="Siap">Siap</TabsTrigger>
-          <TabsTrigger value="Diterima">Diterima</TabsTrigger>
-          <TabsTrigger value="Selesai">Selesai</TabsTrigger>
-          <TabsTrigger value="Ditolak">Ditolak</TabsTrigger>
-        </TabsList>
 
         {["Menunggu", "Disetujui", "Siap", "Diterima", "Selesai", "Ditolak"].map(status => (
           <TabsContent key={status} value={status} className="mt-0">
@@ -434,11 +407,9 @@ function RequestDetailDrawer({
               <Label htmlFor="partner">Pemohon</Label>
               <Input disabled id="partner" defaultValue={item.partner} />
             </div>
-            <div className="flex flex-col gap-1">
-              <span className="text-xs text-muted-foreground">Status</span>
-              <Badge variant="outline" className={`w-fit ${getStatusColor(item.status)}`}>
-                {item.status}
-              </Badge>
+            <div className="flex flex-col gap-3">
+              <Label htmlFor="status">Status</Label>
+              <Input disabled id="status" defaultValue={item.status} />
             </div>
             <div className="flex flex-col col-span-2 gap-3">
               <Label htmlFor="target">Tanggal Pengajuan</Label>
