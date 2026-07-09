@@ -310,7 +310,7 @@ export function DataTable({ data, className, onRowClick, onStatusChange, hiddenC
 
     return (
         <div className={cn("flex flex-col w-full h-full min-h-0", className)}>
-            <div className="overflow-auto rounded-lg border shadow-sm flex-1 min-h-0 relative max-h-[400px] lg:max-h-none">
+            <div className="overflow-auto rounded-lg border flex-1 min-h-0 relative max-h-[400px] lg:max-h-none">
                 <Table>
                     <TableHeader className="sticky top-0 z-20 bg-muted shadow-sm">
                         {table.getHeaderGroups().map((headerGroup) => (
