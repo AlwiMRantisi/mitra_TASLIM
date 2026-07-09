@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react"
 import { DataTable } from "@/features/transactions/components/transaction-table"
 import { Card } from "@/components/ui/card"
-import { Download, Plus, Search, Trash2, Loader2, AreaChart, Filter, EllipsisVertical } from "lucide-react"
+import { Download, Plus, Search, Trash2, Loader2, AreaChart, Filter, EllipsisVertical, FileUp, FileDown, ListFilter } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Link } from "react-router-dom"
+import { Link, useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
 import { saveExportFile } from "@/lib/export-file"
 import * as XLSX from "xlsx"
@@ -29,7 +29,6 @@ import {
 import { useAuth } from "@/lib/auth"
 import type { Transaction } from "@/types/transaction"
 import type { DeleteDialogState } from "@/types/ui"
-import type { DashboardRequest } from "@/features/transactions/components/transaction-table"
 import requestsData from "@/data/request.json"
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter, DrawerClose } from "@/components/ui/drawer"
 import { useIsMobile } from "@/hooks/use-mobile"
@@ -38,7 +37,16 @@ import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { IconLayoutColumns, IconChevronDown } from "@tabler/icons-react"
-import { table } from "console"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import type { DashboardRequest } from "@/types/transaction"
+import { cn } from "@/lib/utils"
 
 const getBaseUrl = () => {
   const baseUrl = import.meta.env.URL || import.meta.env.VITE_URL || "http://172.168.9.139:3000/";
@@ -68,6 +76,16 @@ const KATEGORI_OPTIONS = ["Masuk", "Keluar", "Rusak"]
  */
 export default function DataTransaksiPage() {
   const { user } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const activeTab = searchParams.get("tab") || "Menunggu"
+
+  const handleTabChange = (value: string) => {
+    setSearchParams((prev) => {
+      prev.set("tab", value)
+      return prev
+    }, { replace: true })
+  }
+
   const [searchTerm, setSearchTerm] = useState("")
   const [filterKategori, setFilterKategori] = useState("all")
   const [selectedIds, setSelectedIds] = useState<string[]>([])
@@ -75,7 +93,36 @@ export default function DataTransaksiPage() {
   const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [selectedRequest, setSelectedRequest] = useState<DashboardRequest | null>(null)
+  const [localRequests, setLocalRequests] = useState<DashboardRequest[]>(requestsData as DashboardRequest[])
   const isMobile = useIsMobile()
+
+  // Ambil semua nilai unik partnerCategory sebagai opsi filter
+  const categoryOptions = Array.from(
+    new Set((requestsData as DashboardRequest[]).map((r) => r.partnerCategory))
+  ).sort()
+
+  // State untuk filter yang sedang aktif (multi-select)
+  const [filterCategories, setFilterCategories] = useState<string[]>([])
+
+  const toggleFilterCategory = (category: string) => {
+    setFilterCategories((prev) =>
+      prev.includes(category)
+        ? prev.filter((c) => c !== category)
+        : [...prev, category]
+    )
+  }
+
+  const clearFilters = () => setFilterCategories([])
+
+  const handleStatusChange = (id: string, newStatus: string) => {
+    setLocalRequests(prev => prev.map(req => {
+      if (req.id === id) {
+        return { ...req, status: newStatus }
+      }
+      return req
+    }))
+    toast.success(`Status transaksi berhasil diubah menjadi ${newStatus}`)
+  }
 
   /**
    * Mengambil seluruh data riwayat transaksi dari backend.
@@ -275,10 +322,10 @@ export default function DataTransaksiPage() {
     <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8 animate-fade-in">
       {/* Page Header */}
 
-      <Tabs defaultValue="Menunggu" className="w-full">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-4">
-          <div className="w-full overflow-x-auto pb-1 scrollbar-hide">
-            <TabsList className="**:data-[slot=badge]:size-5 **:data-[slot=badge]:rounded-full **:data-[slot=badge]:bg-muted-foreground/30 **:data-[slot=badge]:px-1 inline-flex w-max h-auto">
+          <div className="flex items-center w-full overflow-x-auto pb-1 scrollbar-hide">
+            <TabsList className="**:data-[slot=badge]:size-5 **:data-[slot=badge]:rounded-full **:data-[slot=badge]:bg-muted-foreground/30 **:data-[slot=badge]:px-1 inline-flex h-auto w-full lg:w-auto">
               <TabsTrigger value="Menunggu" className="cursor-pointer">
                 Menunggu <Badge variant="secondary">3</Badge>
               </TabsTrigger>
@@ -300,38 +347,85 @@ export default function DataTransaksiPage() {
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="shrink-0 gap-1.5 px-3">
-                  <Filter className="size-4" />
+                <Button
+                  variant="outline"
+                  className={cn("shrink-0 gap-1.5 px-3 cursor-pointer", filterCategories.length > 0 && "border-primary text-primary")}
+                >
+                  <ListFilter className="size-4" />
                   <span className="hidden sm:inline">Filter</span>
-                  <IconChevronDown className="size-4" />
+                  {filterCategories.length > 0 && (
+                    <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
+                      {filterCategories.length}
+                    </Badge>
+                  )}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem>Pilih Filter</DropdownMenuItem>
+              <DropdownMenuContent align="end" className="w-32">
+                {categoryOptions.map((cat) => (
+                  <DropdownMenuCheckboxItem
+                    key={cat}
+                    checked={filterCategories.includes(cat)}
+                    onCheckedChange={() => toggleFilterCategory(cat)}
+                    className="cursor-pointer"
+                  >
+                    {cat}
+                  </DropdownMenuCheckboxItem>
+                ))}
+                {filterCategories.length > 0 && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="cursor-pointer text-muted-foreground justify-center text-xs"
+                      onClick={clearFilters}
+                    >
+                      Hapus Filter
+                    </DropdownMenuItem>
+                  </>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="px-2 shrink-0">
+                <Button variant="outline" className="px-2 shrink-0 cursor-pointer">
                   <EllipsisVertical className="size-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-32">
-                <DropdownMenuItem>Import</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleExportExcel()}>Export</DropdownMenuItem>
+                <DropdownMenuItem><FileUp className="mr-1" />Import</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExportExcel()}><FileDown className="mr-1" />Export</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
         </div>
 
-        {["Menunggu", "Disetujui", "Siap", "Diterima", "Selesai", "Ditolak"].map(status => (
-          <TabsContent key={status} value={status} className="mt-0">
-            <DataTable
-              data={requestsData.filter(req => req.status.toLowerCase() === status.toLowerCase())}
-              onRowClick={(item) => setSelectedRequest(item)}
-            />
-          </TabsContent>
-        ))}
+        {["Menunggu", "Disetujui", "Siap", "Diterima", "Selesai", "Ditolak"].map(status => {
+          // Terapkan filter sebelum diteruskan ke DataTable
+          const filteredByStatus = localRequests.filter(
+            (req) => req.status.toLowerCase() === status.toLowerCase()
+          )
+          const filteredData = filterCategories.length > 0
+            ? filteredByStatus.filter((req) => filterCategories.includes(req.partnerCategory))
+            : filteredByStatus
+
+          // Tambahkan filter search term
+          const finalData = searchTerm.trim()
+            ? filteredData.filter((req) =>
+              req.requestNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              req.partner.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              req.partnerCategory.toLowerCase().includes(searchTerm.toLowerCase())
+            )
+            : filteredData
+
+          return (
+            <TabsContent key={status} value={status} className="mt-0">
+              <DataTable
+                data={finalData}
+                onRowClick={(item) => setSelectedRequest(item)}
+                onStatusChange={handleStatusChange}
+              />
+            </TabsContent>
+          )
+        })}
       </Tabs>
 
       {/* Request Detail Drawer */}
@@ -397,7 +491,7 @@ function RequestDetailDrawer({
   }
 
   return (
-    <Drawer direction={isMobile ? "bottom" : "right"} open={open} onOpenChange={(o) => !o && onClose()}>
+    <Drawer direction={"bottom"} open={open} onOpenChange={(o) => !o && onClose()}>
       <DrawerContent>
         <DrawerHeader className="gap-1">
           <DrawerTitle>{item.requestNumber}</DrawerTitle>
@@ -406,56 +500,58 @@ function RequestDetailDrawer({
           </DrawerDescription>
         </DrawerHeader>
         <div className="flex flex-col gap-4 overflow-y-auto px-4 pb-4 text-sm">
-          {/* Info Umum */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-3">
-              <Label htmlFor="partner">Pemohon</Label>
-              <Input disabled id="partner" defaultValue={item.partner} />
-            </div>
-            <div className="flex flex-col gap-3">
-              <Label htmlFor="status">Status</Label>
-              <Input disabled id="status" defaultValue={item.status} />
-            </div>
-            <div className="flex flex-col col-span-2 gap-3">
-              <Label htmlFor="target">Tanggal Pengajuan</Label>
-              <Input disabled id="target" defaultValue={new Date(item.requestedAt).toLocaleDateString("id-ID", {
-                day: "numeric", month: "long", year: "numeric",
-                hour: "2-digit", minute: "2-digit",
-              })} />
-            </div>
-            <div className="flex flex-col col-span-2 gap-3">
-              <Label htmlFor="notes">Catatan</Label>
-              <Input disabled id="notes" defaultValue={item.notes !== "-" ? item.notes : "Tidak ada catatan"} />
-            </div>
-          </div>
-
-          <Separator />
 
           {/* Daftar Item */}
           <div className="flex flex-col gap-3">
-            <span className="text-sm font-medium text-muted-foreground">Daftar Barang</span>
-            {item.requestItems && item.requestItems.length > 0 ? (
-              <div className="rounded-lg border">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b bg-muted/50">
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">No</th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Kategori</th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Merek</th>
-                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Jumlah</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {item.requestItems.map((ri, idx) => (
-                      <tr key={ri.id} className="border-b last:border-b-0">
-                        <td className="px-3 py-2 text-muted-foreground">{idx + 1}</td>
-                        <td className="px-3 py-2 font-medium">{ri.category}</td>
-                        <td className="px-3 py-2">{ri.brand}</td>
-                        <td className="px-3 py-2 text-right font-medium">{ri.quantity}</td>
-                      </tr>
+            {item.status.toLowerCase() === "siap" && item.requestAllocations && item.requestAllocations.length > 0 ? (
+              <div className="rounded-lg border overflow-hidden overflow-x-auto">
+                <Table className="whitespace-nowrap">
+                  <TableHeader className="sticky top-0 z-20 bg-muted shadow-sm">
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead className="w-12">No</TableHead>
+                      <TableHead>No. Material</TableHead>
+                      <TableHead>Nama Material</TableHead>
+                      <TableHead>Serial Number</TableHead>
+                      <TableHead className="text-right">Jumlah</TableHead>
+                      <TableHead className="text-right">Satuan</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {item.requestAllocations.map((ra, idx) => (
+                      <TableRow key={ra.id}>
+                        <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
+                        <TableCell className="font-medium">{ra.materialNumber}</TableCell>
+                        <TableCell className="truncate max-w-[200px]" title={ra.materialName}>{ra.materialName}</TableCell>
+                        <TableCell className="text-muted-foreground">{ra.serialNumber || "-"}</TableCell>
+                        <TableCell className="text-right font-medium">{ra.quantity}</TableCell>
+                        <TableCell className="text-right font-medium">{ra.unit}</TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
+              </div>
+            ) : item.requestItems && item.requestItems.length > 0 ? (
+              <div className="rounded-lg border overflow-hidden">
+                <Table>
+                  <TableHeader className="bg-muted/50">
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead className="w-12">No</TableHead>
+                      <TableHead>Kategori</TableHead>
+                      <TableHead>Merek</TableHead>
+                      <TableHead className="text-right">Jumlah</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {item.requestItems.map((ri, idx) => (
+                      <TableRow key={ri.id}>
+                        <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
+                        <TableCell className="font-medium">{ri.category}</TableCell>
+                        <TableCell>{ri.brand}</TableCell>
+                        <TableCell className="text-right font-medium">{ri.quantity}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
             ) : (
               <p className="text-muted-foreground italic">Tidak ada item.</p>
