@@ -1,12 +1,30 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { DashboardService } from '@/services/dashboard.service';
-import type { Transaction, DashboardTransaction } from "@/types/transaction"
-import type { InventoryItem, Category } from "@/types/inventory"
-import type { InventoryStats, SafetyStockAlert } from "@/types/dashboard"
+import type { Transaction, DashboardTransaction, RequestSummary, ActivityItem } from "@/types/transaction"
+import type { InventoryStats } from "@/types/dashboard"
 import { useAuth } from "@/lib/auth"
 
 const DASHBOARD_TRANSACTION_LIMIT = 6;
 const DASHBOARD_REFRESH_INTERVAL = 5000;
+
+const getRangeDays = (timeRange: string) => {
+    if (timeRange === "30d") return 30;
+    if (timeRange === "7d") return 7;
+    if (timeRange === "90d") return 90;
+    return 30;
+}
+const toDateKey = (date: Date) => {
+    const year = date.getFullYear()
+    const month = `${date.getMonth() + 1}`.padStart(2, "0")
+    const day = `${date.getDate()}`.padStart(2, "0")
+    return `${year}-${month}-${day}`
+}
+const parseDateKey = (dateKey: string) => new Date(`${dateKey}T00:00:00`)
+const addDays = (date: Date, days: number) => {
+    const next = new Date(date)
+    next.setDate(next.getDate() + days)
+    return next
+}
 
 export function useDashboard() {
     const { user } = useAuth();
@@ -15,29 +33,30 @@ export function useDashboard() {
     const [chartTransactions, setChartTransactions] = useState<Transaction[]>([]);
     const [mitraOptions, setMitraOptions] = useState<string[]>([]);
     const [selectedMitra, setSelectedMitra] = useState("all");
-    const [safetyStockAlerts, setSafetyStockAlerts] = useState<SafetyStockAlert[]>([]);
+    const [timeRange, setTimeRange] = useState("30d");
+
     const [inventoryStats, setInventoryStats] = useState<InventoryStats>({
         totalItems: 0, tersedia: 0, diluar: 0, rusak: 0, hilang: 0,
     });
+    const [mitraDistribution, setMitraDistribution] = useState<{ mitra: string; tersedia: number; diluar: number; total: number }[]>([]);
+
+    const [allRequests, setAllRequests] = useState<RequestSummary[]>([]);
+    const [recentTransactions, setRecentTransactions] = useState<ActivityItem[]>([]);
+    const [isLoadingRequests, setIsLoadingRequests] = useState(true);
+    const [isLoadingActivity, setIsLoadingActivity] = useState(true);
+
     const isFetchingRef = useRef(false);
 
     const fetchDashboardData = useCallback(async () => {
         if (isFetchingRef.current) return;
         isFetchingRef.current = true;
-        
+
         try {
-            const [transactionData, itemData, categoriesList, requestData] = await Promise.all([
+            const [transactionData, itemData, requestData] = await Promise.all([
                 DashboardService.fetchTransactions(),
                 DashboardService.fetchItems(),
-                DashboardService.fetchCategories(),
                 DashboardService.fetchRequests(),
             ]);
-
-            const categoryData: Category[] = categoriesList.map((c: any) => ({
-                ...c,
-                name: c.nama || c.name || "",
-                safetyStock: c.safetyStock !== undefined ? c.safetyStock : (c.safety_stock || 5),
-            }));
 
             const visibleTransactions = transactionData.filter(
                 (transaction: any) =>
@@ -55,6 +74,31 @@ export function useDashboard() {
                     req.requesterName?.trim().toLowerCase() === user?.displayName?.trim().toLowerCase()
             );
 
+            // Grouping by Mitra
+            const mitraMap = new Map<string, { tersedia: number; diluar: number }>();
+            visibleItems.forEach((item: any) => {
+                const mitra = (item.mitra || "Lainnya").trim();
+                const status = (item.status || "").trim().toLowerCase();
+
+                if (!mitraMap.has(mitra)) {
+                    mitraMap.set(mitra, { tersedia: 0, diluar: 0 });
+                }
+                const current = mitraMap.get(mitra)!;
+                if (status === "tersedia") {
+                    current.tersedia += 1;
+                } else {
+                    current.diluar += 1;
+                }
+            });
+            const distribution = Array.from(mitraMap.entries())
+                .map(([mitra, counts]) => ({
+                    mitra,
+                    ...counts,
+                    total: counts.tersedia + counts.diluar
+                }))
+                .sort((a, b) => b.total - a.total);
+            setMitraDistribution(distribution);
+
             const flattened = visibleTransactions
                 .slice(0, DASHBOARD_TRANSACTION_LIMIT)
                 .map((transaction: any) => ({
@@ -70,18 +114,42 @@ export function useDashboard() {
                     mitra: transaction.mitra || "-",
                     keterangan: transaction.keterangan || "-",
                 }));
-            
+
             setTransactions(flattened);
             setRequests(visibleRequests.slice(0, DASHBOARD_TRANSACTION_LIMIT));
+
+            const mappedRequests: RequestSummary[] = (visibleRequests as any[]).map((r) => ({
+                id: r.id,
+                requestNumber: r.requestNumber,
+                requesterName: r.requesterName || "Unknown",
+                partnerCategory: r.partnerCategory,
+                status: r.status,
+                requestedAt: r.requestedAt || r.createdAt,
+                itemsCount: r.itemsCount ?? 0,
+            }));
+            setAllRequests(mappedRequests);
+            setIsLoadingRequests(false);
+
+            const mappedActivities: ActivityItem[] = (visibleTransactions as any[])
+                .slice(0, 10)
+                .map((t) => ({
+                    id: t.id,
+                    type: (t.kategori?.toUpperCase() as ActivityItem["type"]) || "MASUK",
+                    serialNumber: t.sn || t.serialNumber || "-",
+                    mitra: t.mitra || "KP Tasikmalaya",
+                    createdAt: t.createdAt || t.tanggal,
+                }));
+            setRecentTransactions(mappedActivities);
+            setIsLoadingActivity(false);
 
             const uniqueMitras = Array.from(new Set(visibleTransactions.map((trx: any) => trx.mitra || "-").filter(Boolean))) as string[];
             setMitraOptions([
                 "all",
                 ...uniqueMitras.sort((a, b) => a.localeCompare(b))
             ]);
-            
+
             setChartTransactions(visibleTransactions);
-            
+
             setInventoryStats({
                 totalItems: visibleItems.length,
                 tersedia: visibleItems.filter((item: any) => item.status.trim().toLowerCase() === "tersedia").length,
@@ -89,34 +157,10 @@ export function useDashboard() {
                 rusak: visibleItems.filter((item: any) => item.status.trim().toLowerCase() === "rusak").length,
                 hilang: visibleItems.filter((item: any) => item.status.trim().toLowerCase() === "hilang").length,
             });
-
-            const availableByCategory = new Map<string, number>();
-            const ownedCategories = new Set<string>();
-            
-            visibleItems.forEach((item: any) => {
-                const categoryKey = item.kategori.trim().toLowerCase();
-                ownedCategories.add(categoryKey);
-                if (item.status.trim().toLowerCase() === "tersedia") {
-                    availableByCategory.set(categoryKey, (availableByCategory.get(categoryKey) || 0) + 1);
-                }
-            });
-
-            const relevantCategories = categoryData.filter(
-                (category) => user?.role === "admin" || ownedCategories.has(category.name.trim().toLowerCase())
-            );
-
-            setSafetyStockAlerts(
-                relevantCategories.flatMap<SafetyStockAlert>((category) => {
-                    const available = availableByCategory.get(category.name.trim().toLowerCase()) || 0;
-                    const safetyStock = Math.max(0, Number(category.safetyStock ?? 5));
-                    
-                    if (available === 0) return [{ category: category.name, available, safetyStock, status: "Habis" as const }];
-                    if (available <= safetyStock) return [{ category: category.name, available, safetyStock, status: "Menipis" as const }];
-                    return [];
-                })
-            );
         } catch (error) {
             console.error("Gagal mengambil data dashboard:", error);
+            setIsLoadingRequests(false);
+            setIsLoadingActivity(false);
         } finally {
             isFetchingRef.current = false;
         }
@@ -140,6 +184,65 @@ export function useDashboard() {
         };
     }, [fetchDashboardData]);
 
+    const requestCounts = {
+        menunggu: allRequests.filter((r) => r.status === "MENUNGGU").length,
+        disetujui: allRequests.filter((r) => r.status === "DISETUJUI").length,
+        siap: allRequests.filter((r) => r.status === "SIAP").length,
+    };
+
+    const recentRequests = [...allRequests]
+        .sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime())
+        .slice(0, 5);
+
+    const transactionSeries = useMemo(() => {
+        const rangeDays = getRangeDays(timeRange);
+        if (!chartTransactions.length) {
+            // Generate empty series
+            const referenceDate = new Date();
+            const startDate = addDays(referenceDate, -(rangeDays - 1));
+            const points = [];
+            for (let day = 0; day < rangeDays; day += 1) {
+                points.push({ date: toDateKey(addDays(startDate, day)), masuk: 0, keluar: 0 });
+            }
+            return points;
+        }
+
+        const validDates = chartTransactions
+            .map((t) => t.tanggal)
+            .filter((date) => !Number.isNaN(parseDateKey(date).getTime()))
+            .sort();
+
+        const referenceDate = validDates.length
+            ? parseDateKey(validDates[validDates.length - 1])
+            : new Date();
+        const startDate = addDays(referenceDate, -(rangeDays - 1));
+
+        const points = new Map<string, { date: string; masuk: number; keluar: number }>();
+        for (let day = 0; day < rangeDays; day += 1) {
+            const date = addDays(startDate, day);
+            const dateKey = toDateKey(date);
+            points.set(dateKey, { date: dateKey, masuk: 0, keluar: 0 });
+        }
+
+        for (const transaction of chartTransactions) {
+            if (selectedMitra !== "all" && transaction.mitra?.trim().toLowerCase() !== selectedMitra.trim().toLowerCase()) {
+                continue;
+            }
+            const date = parseDateKey(transaction.tanggal);
+            if (Number.isNaN(date.getTime()) || date < startDate || date > referenceDate) {
+                continue;
+            }
+            const dateKey = toDateKey(date);
+            const point = points.get(dateKey);
+            if (!point) continue;
+
+            const kategori = (transaction.kategori || "").toLowerCase();
+            if (kategori === "masuk") point.masuk += 1;
+            else if (kategori === "keluar") point.keluar += 1;
+        }
+        return Array.from(points.values());
+    }, [chartTransactions, timeRange, selectedMitra]);
+
     return {
         user,
         transactions,
@@ -148,7 +251,15 @@ export function useDashboard() {
         mitraOptions,
         selectedMitra,
         setSelectedMitra,
-        safetyStockAlerts,
+        timeRange,
+        setTimeRange,
+        mitraDistribution,
+        transactionSeries,
         inventoryStats,
+        requestCounts,
+        recentRequests,
+        recentTransactions,
+        isLoadingRequests,
+        isLoadingActivity,
     };
 }
