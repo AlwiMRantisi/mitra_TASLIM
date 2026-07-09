@@ -14,7 +14,9 @@ export type SheetMode =
   | "closed"
   | "add-rak"
   | "add-kardus"
+  | "add-pallet"
   | "edit-rak"
   | "edit-kardus"
+  | "edit-pallet"
   | "add-level"
   | "edit-level";

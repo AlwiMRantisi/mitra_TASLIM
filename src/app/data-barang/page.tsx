@@ -170,15 +170,53 @@ export default function DataBarangPage() {
       const rawItems = await resItems.json()
       const data: BarangUnit[] = rawItems.data || rawItems
 
-      // Terapkan filter Role-Based Access Control
-      const visibleData =
-        user?.role === "mitra"
-          ? data.filter(
-            (item) =>
-              item.mitra?.trim().toLowerCase() ===
-              user.displayName.trim().toLowerCase()
-          )
-          : data
+      // Terapkan filter Role-Based Access Control untuk mitra.
+      // Strategi ganda: cocokkan berdasarkan field `mitra` ATAU berdasarkan lokasi penyimpanan milik mitra.
+      // Ini lebih robust karena tidak bergantung pada kecocokan string nama yang rawan inkonsistensi.
+
+      // Fetch lokasi dulu (dipakai untuk filter mitra & populate dbLocations)
+      const resLoc = await fetch(`${getBaseUrl()}/locations`, { method: "GET", headers: getHeaders() })
+      const rawLoc = await resLoc.json()
+      const locationsData: any[] = rawLoc.data || rawLoc
+
+      let visibleData: BarangUnit[]
+      if (user?.role === "mitra") {
+        // Kumpulkan semua nama lokasi yang dimiliki mitra dari endpoint /locations
+        const mitraLocationNames = new Set<string>()
+        locationsData.forEach((loc: any) => {
+          const locOwner = (loc.owner || "").trim().toLowerCase()
+          const isMitraOwned =
+            locOwner === user.displayName.trim().toLowerCase() ||
+            locOwner === user.username.trim().toLowerCase() ||
+            (user.identityCode && locOwner.includes(user.identityCode.trim().toLowerCase()))
+          if (!isMitraOwned) return
+          if (loc.type === "Rak" && loc.levels) {
+            loc.levels.forEach((lvl: any) => mitraLocationNames.add(`${loc.name} - ${lvl.name}`.trim().toLowerCase()))
+          } else {
+            mitraLocationNames.add((loc.name || "").trim().toLowerCase())
+          }
+        })
+
+        visibleData = data.filter((item) => {
+          // Cocokkan via field mitra
+          if (item.mitra) {
+            const itemMitra = item.mitra.trim().toLowerCase()
+            if (
+              itemMitra === user.displayName.trim().toLowerCase() ||
+              itemMitra === user.username.trim().toLowerCase() ||
+              (user.identityCode && itemMitra.includes(user.identityCode.trim().toLowerCase()))
+            ) return true
+          }
+          // Cocokkan via lokasi penyimpanan milik mitra
+          if (item.lokasiPenyimpanan) {
+            const itemLokasi = item.lokasiPenyimpanan.trim().toLowerCase()
+            if (mitraLocationNames.has(itemLokasi)) return true
+          }
+          return false
+        })
+      } else {
+        visibleData = data
+      }
           
       // Normalisasi nama mitra (khusus admin)
       const normalizedData = visibleData.map((item) => ({
@@ -224,11 +262,16 @@ export default function DataBarangPage() {
 
       setTransactions(
         user?.role === "mitra"
-          ? transactionData.filter(
-            (transaction) =>
-              transaction.mitra?.trim().toLowerCase() ===
-              user.displayName.trim().toLowerCase()
-          )
+          ? transactionData.filter((transaction) => {
+              if (!transaction.mitra) return false
+              const trxMitra = transaction.mitra.trim().toLowerCase()
+              return (
+                trxMitra === user.displayName.trim().toLowerCase() ||
+                trxMitra === user.username.trim().toLowerCase() ||
+                (user.identityCode &&
+                  trxMitra.includes(user.identityCode.trim().toLowerCase()))
+              )
+            })
           : transactionData
       )
 
@@ -244,10 +287,7 @@ export default function DataBarangPage() {
 
       setDbCategories(categories.map(c => c.name))
 
-      // Ambil struktur Rak & Kardus
-      const resLoc = await fetch(`${getBaseUrl()}/locations`, { method: "GET", headers: getHeaders() })
-      const rawLoc = await resLoc.json()
-      const locationsData = rawLoc.data || rawLoc
+      // Populate dbLocations dari locationsData yang sudah di-fetch di atas
       const locs: StorageLocationOption[] = []
       locationsData.forEach((loc: any) => {
         const owner = loc.owner || ADMIN_LOCATION
@@ -305,11 +345,17 @@ export default function DataBarangPage() {
       : formMode === "edit"
         ? selectedBarang?.mitra || ADMIN_LOCATION
         : ADMIN_LOCATION
-  const availableFormLocations = dbLocations.filter(
-    (location) =>
-      location.owner.trim().toLowerCase() ===
-      formLocationOwner.trim().toLowerCase()
-  )
+  const availableFormLocations = dbLocations.filter((location) => {
+    if (user?.role === "mitra") {
+      const locOwner = location.owner.trim().toLowerCase()
+      return (
+        locOwner === user.displayName.trim().toLowerCase() ||
+        locOwner === user.username.trim().toLowerCase() ||
+        (user.identityCode && locOwner.includes(user.identityCode.trim().toLowerCase()))
+      )
+    }
+    return location.owner.trim().toLowerCase() === formLocationOwner.trim().toLowerCase()
+  })
 
   const resetForm = () => {
     setFormData({

@@ -95,7 +95,7 @@ export type Level = {
 export type StorageLocation = {
   id: string;
   name: string;
-  type: "Rak" | "Kardus";
+  type: "Rak" | "Kardus" | "Pallet";
   isActive: boolean;
   levels?: Level[];
   capacity?: number;

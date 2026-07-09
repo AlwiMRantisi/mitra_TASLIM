@@ -96,11 +96,16 @@ export default function DataTransaksiPage() {
       // Jika user adalah mitra, sembunyikan transaksi mitra lain
       setTransactions(
         user?.role === "mitra"
-          ? data.filter(
-            (transaction) =>
-              transaction.mitra?.trim().toLowerCase() ===
-              user.displayName.trim().toLowerCase()
-          )
+          ? data.filter((transaction) => {
+              if (!transaction.mitra) return false
+              const trxMitra = transaction.mitra.trim().toLowerCase()
+              return (
+                trxMitra === user.displayName.trim().toLowerCase() ||
+                trxMitra === user.username.trim().toLowerCase() ||
+                (user.identityCode &&
+                  trxMitra.includes(user.identityCode.trim().toLowerCase()))
+              )
+            })
           : data
       );
     } catch (error) {

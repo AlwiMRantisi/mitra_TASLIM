@@ -1,0 +1,205 @@
+[
+  {
+    "id": "rak-001",
+    "name": "Rak A",
+    "type": "Rak",
+    "isActive": true,
+    "levels": [
+      {
+        "id": "rak-001-lvl-1",
+        "name": "Level 1",
+        "capacity": 50,
+        "usedCapacity": 42,
+        "brandRule": "Huawei",
+        "isActive": true,
+        "sheetUrl": "https://docs.google.com/spreadsheets/d/dummy-rak-a-lvl1"
+      },
+      {
+        "id": "rak-001-lvl-2",
+        "name": "Level 2",
+        "capacity": 50,
+        "usedCapacity": 28,
+        "brandRule": "Campuran",
+        "isActive": true,
+        "sheetUrl": "https://docs.google.com/spreadsheets/d/dummy-rak-a-lvl2"
+      },
+      {
+        "id": "rak-001-lvl-3",
+        "name": "Level 3",
+        "capacity": 50,
+        "usedCapacity": 10,
+        "brandRule": "ZTE",
+        "isActive": true,
+        "sheetUrl": null
+      }
+    ]
+  },
+  {
+    "id": "rak-002",
+    "name": "Rak B",
+    "type": "Rak",
+    "isActive": true,
+    "levels": [
+      {
+        "id": "rak-002-lvl-1",
+        "name": "Level 1",
+        "capacity": 80,
+        "usedCapacity": 80,
+        "brandRule": "FiberHome",
+        "isActive": true,
+        "sheetUrl": "https://docs.google.com/spreadsheets/d/dummy-rak-b-lvl1"
+      },
+      {
+        "id": "rak-002-lvl-2",
+        "name": "Level 2",
+        "capacity": 80,
+        "usedCapacity": 65,
+        "brandRule": "Campuran",
+        "isActive": true,
+        "sheetUrl": "https://docs.google.com/spreadsheets/d/dummy-rak-b-lvl2"
+      },
+      {
+        "id": "rak-002-lvl-3",
+        "name": "Level 3",
+        "capacity": 80,
+        "usedCapacity": 0,
+        "brandRule": "Campuran",
+        "isActive": false,
+        "sheetUrl": null
+      }
+    ]
+  },
+  {
+    "id": "rak-003",
+    "name": "Rak C",
+    "type": "Rak",
+    "isActive": true,
+    "levels": [
+      {
+        "id": "rak-003-lvl-1",
+        "name": "Level 1",
+        "capacity": 60,
+        "usedCapacity": 15,
+        "brandRule": "Huawei",
+        "isActive": true,
+        "sheetUrl": "https://docs.google.com/spreadsheets/d/dummy-rak-c-lvl1"
+      },
+      {
+        "id": "rak-003-lvl-2",
+        "name": "Level 2",
+        "capacity": 60,
+        "usedCapacity": 45,
+        "brandRule": "Nokia",
+        "isActive": true,
+        "sheetUrl": null
+      }
+    ]
+  },
+  {
+    "id": "rak-004",
+    "name": "Rak D",
+    "type": "Rak",
+    "isActive": false,
+    "levels": [
+      {
+        "id": "rak-004-lvl-1",
+        "name": "Level 1",
+        "capacity": 40,
+        "usedCapacity": 0,
+        "brandRule": "Campuran",
+        "isActive": false,
+        "sheetUrl": null
+      }
+    ]
+  },
+  {
+    "id": "kardus-001",
+    "name": "Kardus K-01",
+    "type": "Kardus",
+    "isActive": true,
+    "capacity": 30,
+    "usedCapacity": 24,
+    "brandRule": "Huawei",
+    "sheetUrl": "https://docs.google.com/spreadsheets/d/dummy-kardus-k01"
+  },
+  {
+    "id": "kardus-002",
+    "name": "Kardus K-02",
+    "type": "Kardus",
+    "isActive": true,
+    "capacity": 30,
+    "usedCapacity": 30,
+    "brandRule": "ZTE",
+    "sheetUrl": "https://docs.google.com/spreadsheets/d/dummy-kardus-k02"
+  },
+  {
+    "id": "kardus-003",
+    "name": "Kardus K-03",
+    "type": "Kardus",
+    "isActive": true,
+    "capacity": 20,
+    "usedCapacity": 8,
+    "brandRule": "Campuran",
+    "sheetUrl": null
+  },
+  {
+    "id": "kardus-004",
+    "name": "Kardus K-04",
+    "type": "Kardus",
+    "isActive": true,
+    "capacity": 25,
+    "usedCapacity": 20,
+    "brandRule": "FiberHome",
+    "sheetUrl": "https://docs.google.com/spreadsheets/d/dummy-kardus-k04"
+  },
+  {
+    "id": "kardus-005",
+    "name": "Kardus K-05",
+    "type": "Kardus",
+    "isActive": false,
+    "capacity": 15,
+    "usedCapacity": 0,
+    "brandRule": "Nokia",
+    "sheetUrl": null
+  },
+  {
+    "id": "pallet-001",
+    "name": "Pallet P-01",
+    "type": "Pallet",
+    "isActive": true,
+    "capacity": 200,
+    "usedCapacity": 145,
+    "brandRule": "Campuran",
+    "sheetUrl": "https://docs.google.com/spreadsheets/d/dummy-pallet-p01"
+  },
+  {
+    "id": "pallet-002",
+    "name": "Pallet P-02",
+    "type": "Pallet",
+    "isActive": true,
+    "capacity": 200,
+    "usedCapacity": 200,
+    "brandRule": "Huawei",
+    "sheetUrl": "https://docs.google.com/spreadsheets/d/dummy-pallet-p02"
+  },
+  {
+    "id": "pallet-003",
+    "name": "Pallet P-03",
+    "type": "Pallet",
+    "isActive": true,
+    "capacity": 150,
+    "usedCapacity": 60,
+    "brandRule": "ZTE",
+    "sheetUrl": null
+  },
+  {
+    "id": "pallet-004",
+    "name": "Pallet P-04",
+    "type": "Pallet",
+    "isActive": false,
+    "capacity": 100,
+    "usedCapacity": 0,
+    "brandRule": "Campuran",
+    "sheetUrl": null
+  }
+]

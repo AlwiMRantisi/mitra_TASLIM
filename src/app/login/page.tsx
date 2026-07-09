@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react"
-import { Eye, EyeOff, LockKeyhole, PackageSearch, UserRound, Loader2 } from "lucide-react"
+import { Eye, EyeOff, PackageSearch, UserRound, Loader2 } from "lucide-react"
 import { Navigate, useNavigate } from "react-router-dom"
 
 import { Button } from "@/components/ui/button"
@@ -108,7 +108,6 @@ export default function LoginPage() {
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
                 <div className="relative">
-                  <LockKeyhole className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
@@ -116,13 +115,11 @@ export default function LoginPage() {
                     onChange={(event) => setPassword(event.target.value)}
                     autoComplete="current-password"
                     placeholder="Masukkan password"
-                    className="h-11 px-10"
+                    className="h-11 pl-3 pr-10 [&::-ms-reveal]:hidden [&::-ms-clear]:hidden [&::-webkit-credentials-auto-fill-button]:hidden"
                   />
-                  <Button
+                  <button
                     type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    className="absolute right-2 top-1/2 -translate-y-1/2"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center justify-center rounded p-1 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     onClick={() => setShowPassword((current) => !current)}
                     aria-label={
                       showPassword ? "Sembunyikan password" : "Tampilkan password"
@@ -133,7 +130,7 @@ export default function LoginPage() {
                     ) : (
                       <Eye className="size-4" />
                     )}
-                  </Button>
+                  </button>
                 </div>
               </div>
 

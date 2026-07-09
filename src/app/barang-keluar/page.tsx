@@ -186,11 +186,16 @@ export default function BarangKeluarPage() {
         const items: InventoryItem[] = Array.isArray(rawItems.data || rawItems) ? (rawItems.data || rawItems) : [];
         setDbItems(
           user?.role === "mitra"
-            ? items.filter(
-              (item) =>
-                item.mitra?.trim().toLowerCase() ===
-                user.displayName.trim().toLowerCase()
-            )
+            ? items.filter((item) => {
+                if (!item.mitra) return false
+                const itemMitra = item.mitra.trim().toLowerCase()
+                return (
+                  itemMitra === user.displayName.trim().toLowerCase() ||
+                  itemMitra === user.username.trim().toLowerCase() ||
+                  (user.identityCode &&
+                    itemMitra.includes(user.identityCode.trim().toLowerCase()))
+                )
+              })
             : items
         );
 
@@ -489,9 +494,16 @@ export default function BarangKeluarPage() {
       const latestItems: InventoryItem[] = Array.isArray(rawLatestItems.data || rawLatestItems) ? (rawLatestItems.data || rawLatestItems) : [];
       const latestVisibleItems =
         user?.role === "mitra"
-          ? latestItems.filter(
-            (item) => normalizeOwner(item.mitra) === normalizeOwner(user.displayName)
-          )
+          ? latestItems.filter((item) => {
+              if (!item.mitra) return false
+              const itemMitra = normalizeOwner(item.mitra)
+              return (
+                itemMitra === normalizeOwner(user.displayName) ||
+                itemMitra === normalizeOwner(user.username) ||
+                (user.identityCode &&
+                  itemMitra.includes(normalizeOwner(user.identityCode)))
+              )
+            })
           : latestItems;
       const findLatestSessionItem = (nomor: string) =>
         latestVisibleItems.find(
@@ -618,11 +630,16 @@ export default function BarangKeluarPage() {
       const items: InventoryItem[] = Array.isArray(rawRefresh.data || rawRefresh) ? (rawRefresh.data || rawRefresh) : [];
       setDbItems(
         user?.role === "mitra"
-          ? items.filter(
-            (item) =>
-              item.mitra?.trim().toLowerCase() ===
-              user.displayName.trim().toLowerCase()
-          )
+          ? items.filter((item) => {
+              if (!item.mitra) return false
+              const itemMitra = item.mitra.trim().toLowerCase()
+              return (
+                itemMitra === user.displayName.trim().toLowerCase() ||
+                itemMitra === user.username.trim().toLowerCase() ||
+                (user.identityCode &&
+                  itemMitra.includes(user.identityCode.trim().toLowerCase()))
+              )
+            })
           : items
       );
     } catch (error) {
