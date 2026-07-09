@@ -303,7 +303,7 @@ export function SectionCharts({
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:h-[380px]">
 
                 {/* Card 1: Tabel Permintaan */}
-                <DataTable data={requestData.filter(req => req.status.toLowerCase() === 'menunggu')} className="flex-1 w-full lg:col-span-2" />
+                <DataTable data={requestData.filter(req => req.status.toLowerCase() === 'menunggu')} className="flex-1 w-full lg:col-span-2" hiddenColumns={["requestItems"]} />
 
                 {/* Card 2: Update Terbaru / Log Sistem */}
                 <Card className="flex flex-col h-full lg:col-span-1">

@@ -18,6 +18,8 @@ export function SiteHeader() {
     // Determine breadcrumbs based on route
     let parent = "Menu Utama"
     let pageName = "Dashboard"
+    let parentLink = "#"
+    let grandparent = ""
 
     if (path === "/barang-masuk") {
         parent = "Operasional"
@@ -28,6 +30,11 @@ export function SiteHeader() {
     } else if (path === "/riwayat") {
         parent = "Operasional"
         pageName = "Riwayat"
+    } else if (path.startsWith("/riwayat/")) {
+        grandparent = "Operasional"
+        parent = "Riwayat"
+        pageName = "Detail Permintaan"
+        parentLink = "#/riwayat"
     } else if (path === "/data-barang") {
         parent = "Inventori"
         pageName = "Data Barang"
@@ -59,8 +66,18 @@ export function SiteHeader() {
                     />
                     <Breadcrumb className="flex-1">
                         <BreadcrumbList>
+                            {grandparent && (
+                                <>
+                                    <BreadcrumbItem className="hidden md:block">
+                                        <BreadcrumbLink href="#">
+                                            {grandparent}
+                                        </BreadcrumbLink>
+                                    </BreadcrumbItem>
+                                    <BreadcrumbSeparator className="hidden md:block" />
+                                </>
+                            )}
                             <BreadcrumbItem className="hidden md:block">
-                                <BreadcrumbLink href="#">
+                                <BreadcrumbLink href={parentLink}>
                                     {parent}
                                 </BreadcrumbLink>
                             </BreadcrumbItem>
