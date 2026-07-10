@@ -41,7 +41,7 @@ export function ChartBarMixed({ className, data, isLoading }: ChartBarMixedProps
   // Urutkan mitra secara menaik (ascending) berdasarkan total aset (mitra kritis)
   const sortedData = [...data].sort((a, b) => a.total - b.total);
   const bottom5 = sortedData.slice(0, 5);
-  const others = sortedData.slice(5);
+  // const others = sortedData.slice(5);
 
   const displayData = [...bottom5];
   // if (others.length > 0) {

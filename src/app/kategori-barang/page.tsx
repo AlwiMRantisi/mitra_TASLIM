@@ -34,6 +34,7 @@ const getHeaders = () => {
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetFooter } from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
@@ -75,8 +76,9 @@ export default function KategoriBarangPage() {
 
   // Form state
   const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
+  const [typeId, setTypeId] = useState<string>("");
   const [safetyStock, setSafetyStock] = useState(5);
+  const [materialTypes, setMaterialTypes] = useState<any[]>([]);
   const [nameError, setNameError] = useState("");
   const [safetyStockError, setSafetyStockError] = useState("");
 
@@ -101,7 +103,8 @@ export default function KategoriBarangPage() {
         ...c,
         id: String(c.id),
         name: c.nama || c.name || "",
-        description: c.deskripsi || c.description || "",
+        typeId: String(c.typeId || ""),
+        description: c.type?.nama || c.deskripsi || c.description || "",
         totalItems: c.totalItems !== undefined ? c.totalItems : (c.total_items || 0),
         safetyStock: c.safetyStock !== undefined ? c.safetyStock : (c.safety_stock || 5),
       })) : []);
@@ -111,8 +114,24 @@ export default function KategoriBarangPage() {
     }
   };
 
+  const loadMaterialTypes = async () => {
+    try {
+      const response = await fetch(`${getBaseUrl()}/material-types`, {
+        method: "GET",
+        headers: getHeaders(),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setMaterialTypes(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch material types:", error);
+    }
+  };
+
   useEffect(() => {
     loadCategories();
+    loadMaterialTypes();
   }, []);
 
   const filteredCategories = useMemo(() => {
@@ -124,16 +143,16 @@ export default function KategoriBarangPage() {
 
   const handleOpenSheet = (id?: string) => {
     if (id) {
-      const cat = categories.find(c => c.id === id);
+      const cat = categories.find(c => c.id === id) as any;
       if (cat) {
         setName(cat.name);
-        setDescription(cat.description);
+        setTypeId(cat.typeId || "");
         setSafetyStock(cat.safetyStock);
         setEditId(id);
       }
     } else {
       setName("");
-      setDescription("");
+      setTypeId("");
       setSafetyStock(5);
       setEditId(null);
     }
@@ -175,16 +194,12 @@ export default function KategoriBarangPage() {
     setIsSaving(true);
     try {
       if (editId) {
-        const cat = categories.find(c => c.id === editId);
         const response = await fetch(`${getBaseUrl()}/categories/${editId}`, {
           method: "PUT",
           headers: getHeaders(),
           body: JSON.stringify({
             nama: normalizedName,
-            name: normalizedName,
-            deskripsi: description.trim() || "-",
-            description: description.trim() || "-",
-            totalItems: cat?.totalItems || 0,
+            typeId: parseInt(typeId),
             safetyStock,
           }),
         });
@@ -199,10 +214,7 @@ export default function KategoriBarangPage() {
           headers: getHeaders(),
           body: JSON.stringify({
             nama: normalizedName,
-            name: normalizedName,
-            deskripsi: description.trim() || "-",
-            description: description.trim() || "-",
-            totalItems: 0,
+            typeId: parseInt(typeId),
             safetyStock,
           }),
         });
@@ -355,8 +367,17 @@ export default function KategoriBarangPage() {
                 )}
               </div>
               <div className="space-y-2">
-                <Label>Deskripsi</Label>
-                <Input value={description} onChange={e => setDescription(e.target.value)} placeholder="Masukkan deskripsi..." className="bg-neutral-900 border-neutral-800" />
+                <Label>Tipe Material</Label>
+                <Select value={typeId} onValueChange={setTypeId}>
+                  <SelectTrigger className="bg-neutral-900 border-neutral-800">
+                    <SelectValue placeholder="Pilih Tipe Material" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-neutral-950 border-neutral-800">
+                    {materialTypes.map(mt => (
+                      <SelectItem key={mt.id} value={String(mt.id)}>{mt.nama}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="safety-stock">Safety Stock Minimum</Label>

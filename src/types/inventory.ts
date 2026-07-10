@@ -5,6 +5,7 @@ export interface InventoryItem {
   serialNumber: string;
   kategori: string;
   merek: string;
+  tipe?: string;
   status: string;
   lokasiPenyimpanan: string;
   tanggalMasuk: string;
@@ -17,6 +18,7 @@ export interface BarangUnit {
   serialNumber: string;
   kategori: string;
   merek: string;
+  tipe?: string;
   status: StatusUnit;
   lokasiPenyimpanan: string;
   tanggalMasuk: string;
@@ -105,3 +107,18 @@ export type StorageLocation = {
 };
 
 export type KodeBarangUpdate = string | ((current: string) => string);
+
+export interface MaterialModel {
+  id: number;
+  nama: string;
+  materialCategoryId: number;
+  brandId: number;
+  materialCategory?: {
+    id: number;
+    nama: string;
+  };
+  brand?: {
+    id: number;
+    nama: string;
+  };
+}

@@ -187,15 +187,15 @@ export default function BarangKeluarPage() {
         setDbItems(
           user?.role === "mitra"
             ? items.filter((item) => {
-                if (!item.mitra) return false
-                const itemMitra = item.mitra.trim().toLowerCase()
-                return (
-                  itemMitra === user.displayName.trim().toLowerCase() ||
-                  itemMitra === user.username.trim().toLowerCase() ||
-                  (user.identityCode &&
-                    itemMitra.includes(user.identityCode.trim().toLowerCase()))
-                )
-              })
+              if (!item.mitra) return false
+              const itemMitra = item.mitra.trim().toLowerCase()
+              return (
+                itemMitra === user.displayName.trim().toLowerCase() ||
+                itemMitra === user.username.trim().toLowerCase() ||
+                (user.identityCode &&
+                  itemMitra.includes(user.identityCode.trim().toLowerCase()))
+              )
+            })
             : items
         );
 
@@ -372,6 +372,7 @@ export default function BarangKeluarPage() {
       nomor: trimmedKode,
       merek: matchedItem.merek || "-",
       kategori: matchedItem.kategori || "-",
+      tipe: matchedItem.tipe || undefined,
       lokasi: originalLoc as LokasiOption,
       mitra: targetMitraName,
       keterangan: user?.role === "mitra" ? keterangan.trim() : "",
@@ -495,15 +496,15 @@ export default function BarangKeluarPage() {
       const latestVisibleItems =
         user?.role === "mitra"
           ? latestItems.filter((item) => {
-              if (!item.mitra) return false
-              const itemMitra = normalizeOwner(item.mitra)
-              return (
-                itemMitra === normalizeOwner(user.displayName) ||
-                itemMitra === normalizeOwner(user.username) ||
-                (user.identityCode &&
-                  itemMitra.includes(normalizeOwner(user.identityCode)))
-              )
-            })
+            if (!item.mitra) return false
+            const itemMitra = normalizeOwner(item.mitra)
+            return (
+              itemMitra === normalizeOwner(user.displayName) ||
+              itemMitra === normalizeOwner(user.username) ||
+              (user.identityCode &&
+                itemMitra.includes(normalizeOwner(user.identityCode)))
+            )
+          })
           : latestItems;
       const findLatestSessionItem = (nomor: string) =>
         latestVisibleItems.find(
@@ -631,15 +632,15 @@ export default function BarangKeluarPage() {
       setDbItems(
         user?.role === "mitra"
           ? items.filter((item) => {
-              if (!item.mitra) return false
-              const itemMitra = item.mitra.trim().toLowerCase()
-              return (
-                itemMitra === user.displayName.trim().toLowerCase() ||
-                itemMitra === user.username.trim().toLowerCase() ||
-                (user.identityCode &&
-                  itemMitra.includes(user.identityCode.trim().toLowerCase()))
-              )
-            })
+            if (!item.mitra) return false
+            const itemMitra = item.mitra.trim().toLowerCase()
+            return (
+              itemMitra === user.displayName.trim().toLowerCase() ||
+              itemMitra === user.username.trim().toLowerCase() ||
+              (user.identityCode &&
+                itemMitra.includes(user.identityCode.trim().toLowerCase()))
+            )
+          })
           : items
       );
     } catch (error) {
@@ -873,6 +874,7 @@ export default function BarangKeluarPage() {
                     <TableHead>Serial Number</TableHead>
                     <TableHead>Merek</TableHead>
                     <TableHead>Kategori</TableHead>
+                    <TableHead>Tipe/Model</TableHead>
                     <TableHead>Asal Lokasi</TableHead>
                     {user?.role !== "mitra" && (
                       <TableHead>Mitra</TableHead>
@@ -890,7 +892,7 @@ export default function BarangKeluarPage() {
                   {barangKeluar.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={8}
+                        colSpan={9}
                         className="p-0"
                       >
                         <EmptyScanTableState />
@@ -907,6 +909,7 @@ export default function BarangKeluarPage() {
                             {item.kategori}
                           </Badge>
                         </TableCell>
+                        <TableCell>{item.tipe || "-"}</TableCell>
                         <TableCell>{item.lokasi}</TableCell>
                         {user?.role !== "mitra" && (
                           <TableCell>{item.mitra}</TableCell>

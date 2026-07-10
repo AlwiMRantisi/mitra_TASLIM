@@ -37,7 +37,7 @@ const PlnIconPlusLogo = () => (
 );
 
 const BastTemplate = forwardRef<HTMLDivElement, BastTemplateProps>(
-  ({ documentNumber, requesterName, generatedByName, bastDate, allocations }, ref) => {
+  ({ documentNumber: _documentNumber, requesterName, generatedByName, bastDate, allocations }, ref) => {
     const formattedDate = formatTanggalBAST(bastDate);
 
     return (

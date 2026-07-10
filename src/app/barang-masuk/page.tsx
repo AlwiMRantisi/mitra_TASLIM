@@ -228,6 +228,7 @@ export default function BarangMasukPage() {
   const [asalBarangManual, setAsalBarangManual] = useState<boolean>(false);
   const [asalBarang, setAsalBarang] = useState<string>("SBU Regional Jawa Barat");
   const [kondisiBarang, setKondisiBarang] = useState<string>("Baru");
+  const [tipeBarang, setTipeBarang] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
   const refreshInventoryItems = useCallback(async () => {
@@ -510,6 +511,7 @@ export default function BarangMasukPage() {
       nomor: trimmedKode,
       merek: itemBrand || "(otomatis)",
       kategori: existingItem?.kategori || kategoriBarang,
+      tipe: existingItem?.tipe || tipeBarang || undefined,
       lokasi: recommendedLocation,
       status: "Valid",
       existingItemId: existingItem?.id,
@@ -532,6 +534,7 @@ export default function BarangMasukPage() {
     }));
 
     updateKodeBarang("");
+    setTipeBarang("");
     setMerekFallback("");
     setAsalBarangManual(false);
 
@@ -742,6 +745,7 @@ export default function BarangMasukPage() {
             serialNumber: item.nomor,
             kategori: item.kategori,
             merek: item.merek,
+            tipe: item.tipe || undefined,
             status: "Tersedia",
             lokasiPenyimpanan: item.lokasi,
             tanggalMasuk: sessionDate,
@@ -763,6 +767,7 @@ export default function BarangMasukPage() {
             serialNumber: item.nomor,
             kategori: item.kategori,
             merek: item.merek,
+            tipe: item.tipe || undefined,
             status: "Tersedia",
             lokasiPenyimpanan: item.lokasi,
             tanggalMasuk: sessionDate,
@@ -1059,6 +1064,18 @@ export default function BarangMasukPage() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                <div className="flex flex-col gap-3">
+                  <Label htmlFor="tipe-barang">Tipe / Model Barang</Label>
+                  <Input
+                    id="tipe-barang"
+                    placeholder="HG8245H, EG8145V5, 1-Core 150m..."
+                    value={tipeBarang}
+                    onChange={(e) => {
+                      setTipeBarang(e.target.value);
+                    }}
+                  />
+                </div>
               </TabsContent>
             </CardContent>
           </Tabs>
@@ -1092,6 +1109,7 @@ export default function BarangMasukPage() {
                     <TableHead>Serial Number</TableHead>
                     <TableHead>Merek</TableHead>
                     <TableHead>Kategori</TableHead>
+                    <TableHead>Tipe/Model</TableHead>
                     <TableHead>Asal</TableHead>
                     <TableHead>Kondisi</TableHead>
                     <TableHead>Rekomendasi Lokasi</TableHead>
@@ -1102,7 +1120,7 @@ export default function BarangMasukPage() {
                 <TableBody>
                   {barangMasuk.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="p-0">
+                      <TableCell colSpan={10} className="p-0">
                         <EmptyScanTableState />
                       </TableCell>
                     </TableRow>
@@ -1117,6 +1135,7 @@ export default function BarangMasukPage() {
                             {item.kategori}
                           </Badge>
                         </TableCell>
+                        <TableCell>{item.tipe || "-"}</TableCell>
                         <TableCell>{item.asal || asalBarang}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className="font-normal px-2.5 py-0.5 border-primary/30 bg-primary/5 text-primary">

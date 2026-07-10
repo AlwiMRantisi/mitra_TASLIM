@@ -44,6 +44,9 @@ export function SiteHeader({ className }: { className?: string }) {
     } else if (path === "/lokasi-barang") {
         parent = "Manajemen Data"
         pageName = "Lokasi Barang"
+    } else if (path === "/tipe-material") {
+        parent = "Manajemen Data"
+        pageName = "Tipe Material"
     } else if (path === "/kategori-barang") {
         parent = "Manajemen Data"
         pageName = "Kategori Barang"

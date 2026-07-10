@@ -217,7 +217,7 @@ export default function DataBarangPage() {
       } else {
         visibleData = data
       }
-          
+
       // Normalisasi nama mitra (khusus admin)
       const normalizedData = visibleData.map((item) => ({
         ...item,
@@ -263,15 +263,15 @@ export default function DataBarangPage() {
       setTransactions(
         user?.role === "mitra"
           ? transactionData.filter((transaction) => {
-              if (!transaction.mitra) return false
-              const trxMitra = transaction.mitra.trim().toLowerCase()
-              return (
-                trxMitra === user.displayName.trim().toLowerCase() ||
-                trxMitra === user.username.trim().toLowerCase() ||
-                (user.identityCode &&
-                  trxMitra.includes(user.identityCode.trim().toLowerCase()))
-              )
-            })
+            if (!transaction.mitra) return false
+            const trxMitra = transaction.mitra.trim().toLowerCase()
+            return (
+              trxMitra === user.displayName.trim().toLowerCase() ||
+              trxMitra === user.username.trim().toLowerCase() ||
+              (user.identityCode &&
+                trxMitra.includes(user.identityCode.trim().toLowerCase()))
+            )
+          })
           : transactionData
       )
 
@@ -323,6 +323,7 @@ export default function DataBarangPage() {
     serialNumber: "",
     kategori: "",
     merek: "",
+    tipe: "",
     status: "Tersedia" as StatusUnit,
     lokasiPenyimpanan: "",
     tanggalMasuk: "",
@@ -362,6 +363,7 @@ export default function DataBarangPage() {
       serialNumber: "",
       kategori: "",
       merek: "",
+      tipe: "",
       status: "Tersedia",
       lokasiPenyimpanan: "",
       tanggalMasuk: new Date().toISOString().slice(0, 10),
@@ -378,6 +380,7 @@ export default function DataBarangPage() {
       serialNumber: barang.serialNumber,
       kategori: barang.kategori,
       merek: barang.merek,
+      tipe: barang.tipe || "",
       status: barang.status,
       lokasiPenyimpanan: getLokasiPenyimpanan(
         barang.status,
@@ -510,6 +513,7 @@ export default function DataBarangPage() {
           serialNumber: formData.serialNumber.toUpperCase(),
           kategori: formData.kategori,
           merek: formData.merek,
+          tipe: formData.tipe || undefined,
           status: formData.status,
           lokasiPenyimpanan,
           tanggalMasuk: formData.tanggalMasuk,
@@ -570,6 +574,7 @@ export default function DataBarangPage() {
           serialNumber: formData.serialNumber.toUpperCase(),
           kategori: formData.kategori,
           merek: formData.merek,
+          tipe: formData.tipe || undefined,
           status: formData.status,
           lokasiPenyimpanan,
           tanggalMasuk: formData.tanggalMasuk,
@@ -657,6 +662,7 @@ export default function DataBarangPage() {
         b.serialNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
         b.kategori.toLowerCase().includes(searchTerm.toLowerCase()) ||
         b.merek.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (b.tipe && b.tipe.toLowerCase().includes(searchTerm.toLowerCase())) ||
         b.lokasiPenyimpanan.toLowerCase().includes(searchTerm.toLowerCase()) ||
         b.mitra?.toLowerCase().includes(searchTerm.toLowerCase())
       const matchesStatus = filterStatus === "all" || b.status === filterStatus
@@ -745,6 +751,7 @@ export default function DataBarangPage() {
         "Serial Number",
         "Merek",
         "Kategori",
+        "Tipe/Model",
         "Status",
         "Lokasi Penyimpanan",
         "Tempat",
@@ -758,6 +765,7 @@ export default function DataBarangPage() {
           item.serialNumber,
           item.merek,
           item.kategori,
+          item.tipe || "-",
           item.status,
           item.lokasiPenyimpanan,
           item.mitra || "KP Tasikmalaya",
@@ -916,9 +924,9 @@ export default function DataBarangPage() {
                 </TableHead>
               )}
               <TableHead className="w-42.5">Serial Number (SN)</TableHead>
-              <TableHead className="w-35">Merek</TableHead>
-              <TableHead className="w-35">Kategori</TableHead>
-              <TableHead className="text-center w-30">Status</TableHead>
+              <TableHead className="w-30">Merek</TableHead>
+              <TableHead className="w-30">Kategori</TableHead>
+              <TableHead className=" w-30">Status</TableHead>
               <TableHead>Lokasi Penyimpanan</TableHead>
               {user?.role === "admin" && (
                 <TableHead className="w-37.5">Tempat</TableHead>
@@ -962,7 +970,7 @@ export default function DataBarangPage() {
                     <TableCell>
                       {item.kategori}
                     </TableCell>
-                    <TableCell className="text-center">
+                    <TableCell>
                       <Badge variant="secondary" className="font-normal gap-1.5 px-2.5 py-0.5">
                         <div className={`w-1.5 h-1.5 rounded-full ${badge.dotClass}`} />
                         {badge.text}
@@ -1156,6 +1164,19 @@ export default function DataBarangPage() {
                 )}
               </div>
 
+              {/* Tipe / Model */}
+              <div className="flex flex-col gap-3">
+                <Label htmlFor="tipe">Tipe / Model</Label>
+                <Input
+                  id="tipe"
+                  placeholder="HG8245H, EG8145V5, 1-Core 150m..."
+                  value={formData.tipe}
+                  onChange={(e) => {
+                    setFormData(prev => ({ ...prev, tipe: e.target.value }))
+                  }}
+                />
+              </div>
+
               {/* Status & Tanggal Masuk */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-3">
@@ -1292,7 +1313,7 @@ export default function DataBarangPage() {
               <div className="flex flex-col gap-4 overflow-y-auto px-4 text-sm">
                 {/* Metadata */}
                 <form className="flex flex-col gap-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-3 gap-4">
                     <div className="flex flex-col gap-3">
                       <Label>Merek</Label>
                       <Input readOnly defaultValue={detailBarang.merek} />
@@ -1300,6 +1321,10 @@ export default function DataBarangPage() {
                     <div className="flex flex-col gap-3">
                       <Label>Kategori</Label>
                       <Input readOnly defaultValue={detailBarang.kategori} />
+                    </div>
+                    <div className="flex flex-col gap-3">
+                      <Label>Tipe / Model</Label>
+                      <Input readOnly defaultValue={detailBarang.tipe || "-"} />
                     </div>
                   </div>
 

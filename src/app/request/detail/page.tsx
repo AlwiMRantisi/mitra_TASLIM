@@ -23,6 +23,23 @@ const getBaseUrl = () => {
   return baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
 };
 
+const getUnitByCategory = (categoryName?: string) => {
+  if (!categoryName) return "Unit";
+  const name = categoryName.toLowerCase();
+  if (name.includes("kabel") || name.includes("foc") || name.includes("dropwire")) {
+    return "Meter";
+  }
+  return "Unit";
+};
+
+const getCleanCategoryName = (categoryName?: string) => {
+  if (!categoryName) return "-";
+  const name = categoryName.toLowerCase();
+  if (name.includes("ont")) return "ONT";
+  if (name.includes("dropwire") || name.includes("kabel") || name.includes("foc")) return "DropWire";
+  return categoryName;
+};
+
 const getHeaders = () => {
   const token = localStorage.getItem("arxiva-auth-token");
   const headers: Record<string, string> = {
@@ -64,20 +81,21 @@ export default function RequestDetailPage() {
           itemsCount: data.requestItems?.reduce((acc: number, item: any) => acc + item.quantity, 0),
           requestItems: data.requestItems?.map((item: any) => ({
             id: item.id,
-            category: item.category?.nama,
+            category: getCleanCategoryName(item.category?.nama),
             brand: item.brand?.nama,
-            quantity: item.quantity
+            quantity: item.quantity,
+            unit: getUnitByCategory(item.category?.nama)
           })),
           requestAllocations: data.requestItems?.flatMap((item: any) =>
             item.allocations?.map((alloc: any) => ({
               id: alloc.id,
               materialNumber: alloc.item?.paNumber || "-",
-              category: item.category?.nama,
-              brand: item.brand?.nama,
-              materialName: `${item.category?.nama} ${item.brand?.nama}`,
+              materialCategory: getCleanCategoryName(item.category?.nama),
+              brand: alloc.item?.brand?.nama || item.brand?.nama,
+              materialName: `${getCleanCategoryName(item.category?.nama)} ${alloc.item?.brand?.nama || item.brand?.nama}`,
               serialNumber: alloc.item?.serialNumber,
               quantity: 1,
-              unit: "Unit"
+              unit: getUnitByCategory(item.category?.nama)
             })) || []
           )
         };
@@ -202,30 +220,71 @@ export default function RequestDetailPage() {
               <CardDescription>Daftar material atau barang untuk permintaan ini</CardDescription>
             </CardHeader>
             <CardContent className="pt-6">
-              {request.requestAllocations && request.requestAllocations.length > 0 ? (
+              {['SIAP', 'SELESAI', 'DITERIMA'].includes(request.status?.toUpperCase() || "") ? (
                 <div className="rounded-lg border overflow-hidden overflow-x-auto shadow-sm">
                   <Table className="whitespace-nowrap">
                     <TableHeader className="bg-muted/50">
                       <TableRow className="hover:bg-transparent">
                         <TableHead className="w-16 text-center">No</TableHead>
-                        <TableHead>No. Material</TableHead>
+                        <TableHead>Kategori</TableHead>
                         <TableHead>Nama Material</TableHead>
-                        <TableHead>Serial Number</TableHead>
+                        <TableHead>Merek</TableHead>
                         <TableHead className="text-right">Jumlah</TableHead>
                         <TableHead className="text-right pr-6">Satuan</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {request.requestAllocations.map((ra, idx) => (
-                        <TableRow key={ra.id}>
-                          <TableCell className="text-muted-foreground text-center">{idx + 1}</TableCell>
-                          <TableCell className="font-medium">{ra.materialNumber}</TableCell>
-                          <TableCell className="truncate max-w-[300px]" title={ra.materialName}>{ra.materialName}</TableCell>
-                          <TableCell className="text-muted-foreground font-mono text-xs">{ra.serialNumber || "-"}</TableCell>
-                          <TableCell className="text-right font-medium">{ra.quantity}</TableCell>
-                          <TableCell className="text-right font-medium pr-6">{ra.unit}</TableCell>
+                      {request.requestAllocations && request.requestAllocations.length > 0 ? (
+                        request.requestAllocations.map((ra, idx) => (
+                          <TableRow key={ra.id}>
+                            <TableCell className="text-muted-foreground text-center">{idx + 1}</TableCell>
+                            <TableCell className="font-medium">{ra.materialCategory}</TableCell>
+                            <TableCell className="truncate max-w-[300px]" title={ra.materialName}>{ra.materialName}</TableCell>
+                            <TableCell>{ra.brand}</TableCell>
+                            <TableCell className="text-right font-medium">{ra.quantity}</TableCell>
+                            <TableCell className="text-right font-medium pr-6">{ra.unit}</TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
+                            Belum ada alokasi material spesifik.
+                          </TableCell>
                         </TableRow>
-                      ))}
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : request.status?.toUpperCase() === 'DISETUJUI' ? (
+                <div className="rounded-lg border overflow-hidden shadow-sm">
+                  <Table>
+                    <TableHeader className="bg-muted/50">
+                      <TableRow className="hover:bg-transparent">
+                        <TableHead className="w-16 text-center">No</TableHead>
+                        <TableHead>Kategori</TableHead>
+                        <TableHead>Merek</TableHead>
+                        <TableHead className="text-right">Jumlah</TableHead>
+                        <TableHead className="text-right pr-6">Satuan</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {request.requestItems && request.requestItems.length > 0 ? (
+                        request.requestItems.map((ri, idx) => (
+                          <TableRow key={ri.id}>
+                            <TableCell className="text-muted-foreground text-center">{idx + 1}</TableCell>
+                            <TableCell className="font-medium">{ri.category}</TableCell>
+                            <TableCell>{ri.brand}</TableCell>
+                            <TableCell className="text-right font-medium">{ri.quantity}</TableCell>
+                            <TableCell className="text-right font-medium pr-6">{ri.unit}</TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
+                            Tidak ada item.
+                          </TableCell>
+                        </TableRow>
+                      )}
                     </TableBody>
                   </Table>
                 </div>

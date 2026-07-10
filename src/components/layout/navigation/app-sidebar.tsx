@@ -25,6 +25,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import {
+  Box,
   CircleStar,
   Database,
   Handshake,
@@ -94,6 +95,14 @@ const data = {
           url: "/lokasi-barang",
           icon: (
             <MapPinHouse />
+          ),
+          isActive: false,
+        },
+        {
+          title: "Tipe Material",
+          url: "/tipe-material",
+          icon: (
+            <Box />
           ),
           isActive: false,
         },

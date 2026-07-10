@@ -28,6 +28,23 @@ const getBaseUrl = () => {
   return baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
 };
 
+const getUnitByCategory = (categoryName?: string) => {
+  if (!categoryName) return "Unit";
+  const name = categoryName.toLowerCase();
+  if (name.includes("kabel") || name.includes("foc") || name.includes("dropwire")) {
+    return "Meter";
+  }
+  return "Unit";
+};
+
+const getCleanCategoryName = (categoryName?: string) => {
+  if (!categoryName) return "-";
+  const name = categoryName.toLowerCase();
+  if (name.includes("ont")) return "ONT";
+  if (name.includes("dropwire") || name.includes("kabel") || name.includes("foc")) return "DropWire";
+  return categoryName;
+};
+
 const getHeaders = () => {
   const token = localStorage.getItem("arxiva-auth-token");
   const headers: Record<string, string> = {
@@ -384,20 +401,22 @@ function RequestDetailDrawer({
           itemsCount: data.requestItems?.reduce((acc: number, ri: any) => acc + ri.quantity, 0),
           requestItems: data.requestItems?.map((ri: any) => ({
             id: ri.id,
-            category: ri.category?.nama,
+            category: ri.materialCategory?.nama,
             brand: ri.brand?.nama,
-            quantity: ri.quantity
+            model: ri.model?.nama || ri.model?.name || "-",
+            quantity: ri.quantity,
+            unit: getUnitByCategory(ri.materialCategory?.nama)
           })),
           requestAllocations: data.requestItems?.flatMap((ri: any) =>
             ri.allocations?.map((alloc: any) => ({
               id: alloc.id,
               materialNumber: alloc.item?.paNumber || "-",
-              category: ri.category?.nama,
-              brand: ri.brand?.nama,
-              materialName: `${ri.category?.nama} ${ri.brand?.nama}`,
+              materialCategory: ri.materialCategory?.nama,
+              brand: alloc.item?.brand?.nama || ri.brand?.nama,
+              materialName: `${getCleanCategoryName(ri.materialCategory?.nama)} ${alloc.item?.brand?.nama || ri.brand?.nama}${alloc.item?.model?.nama ? ` (${alloc.item.model.nama})` : ''}`,
               serialNumber: alloc.item?.serialNumber,
               quantity: 1,
-              unit: "Unit"
+              unit: getUnitByCategory(ri.materialCategory?.nama)
             })) || []
           )
         }
@@ -434,15 +453,16 @@ function RequestDetailDrawer({
             </div>
           ) : (
             <div className="flex flex-col gap-3">
-              {['SIAP', 'SELESAI', 'DISETUJUI', 'DITERIMA'].includes(displayItem.status?.toUpperCase() || "") || (displayItem.requestAllocations && displayItem.requestAllocations.length > 0) ? (
+              {['SIAP', 'SELESAI', 'DITERIMA'].includes(displayItem.status?.toUpperCase() || "") ? (
                 <div className="rounded-lg border overflow-hidden overflow-x-auto">
                   <Table className="whitespace-nowrap">
                     <TableHeader className="sticky top-0 z-20 bg-muted shadow-sm">
                       <TableRow className="hover:bg-transparent">
                         <TableHead className="w-12">No</TableHead>
-                        <TableHead>No. Material</TableHead>
+                        <TableHead>Kategori</TableHead>
                         <TableHead>Nama Material</TableHead>
-                        <TableHead>Serial Number</TableHead>
+                        <TableHead>Material Number</TableHead>
+                        <TableHead>Merek</TableHead>
                         <TableHead className="text-right">Jumlah</TableHead>
                         <TableHead className="text-right">Satuan</TableHead>
                       </TableRow>
@@ -452,17 +472,53 @@ function RequestDetailDrawer({
                         displayItem.requestAllocations.map((ra, idx) => (
                           <TableRow key={ra.id}>
                             <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
-                            <TableCell className="font-medium">{ra.materialNumber}</TableCell>
+                            <TableCell className="font-medium">{ra.materialCategory}</TableCell>
                             <TableCell className="truncate max-w-[200px]" title={ra.materialName}>{ra.materialName}</TableCell>
-                            <TableCell className="text-muted-foreground">{ra.serialNumber || "-"}</TableCell>
+                            <TableCell className="font-medium text-muted-foreground" title={ra.materialNumber}>{ra.materialNumber}</TableCell>
+                            <TableCell>{ra.brand}</TableCell>
                             <TableCell className="text-right font-medium">{ra.quantity}</TableCell>
-                            <TableCell className="text-right font-medium">{ra.unit}</TableCell>
+                            <TableCell className="text-right font-medium">Unit</TableCell>
                           </TableRow>
                         ))
                       ) : (
                         <TableRow>
                           <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
                             Belum ada alokasi material spesifik.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : displayItem.status?.toUpperCase() === 'DISETUJUI' ? (
+                <div className="rounded-lg border overflow-hidden">
+                  <Table>
+                    <TableHeader className="bg-muted/50">
+                      <TableRow className="hover:bg-transparent">
+                        <TableHead className="w-12">No</TableHead>
+                        <TableHead>Kategori</TableHead>
+                        <TableHead>Merek</TableHead>
+                        <TableHead>Tipe/Model</TableHead>
+                        <TableHead className="text-right">Jumlah</TableHead>
+                        <TableHead className="text-right">Satuan</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {displayItem.requestItems && displayItem.requestItems.length > 0 ? (
+                        displayItem.requestItems.map((ri, idx) => (
+                          <TableRow key={ri.id}>
+                            <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
+                            <TableCell className="font-medium">{ri.category}</TableCell>
+                            <TableCell>{ri.brand}</TableCell>
+                            <TableCell>{ri.model || "-"}</TableCell>
+                            <TableCell className="text-right font-medium">{ri.quantity}</TableCell>
+                            <TableCell className="text-right font-medium">Unit</TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
+                            Tidak ada item.
                           </TableCell>
                         </TableRow>
                       )}
@@ -477,6 +533,7 @@ function RequestDetailDrawer({
                         <TableHead className="w-12">No</TableHead>
                         <TableHead>Kategori</TableHead>
                         <TableHead>Merek</TableHead>
+                        <TableHead>Tipe/Model</TableHead>
                         <TableHead className="text-right">Jumlah</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -486,6 +543,7 @@ function RequestDetailDrawer({
                           <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
                           <TableCell className="font-medium">{ri.category}</TableCell>
                           <TableCell>{ri.brand}</TableCell>
+                          <TableCell>{ri.model || "-"}</TableCell>
                           <TableCell className="text-right font-medium">{ri.quantity}</TableCell>
                         </TableRow>
                       ))}

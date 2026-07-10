@@ -8,6 +8,7 @@ import DataBarangPage from "@/app/data-barang/page";
 import DataTransaksiPage from "@/app/request/page";
 import DataTransaksiDetailPage from "@/app/request/detail/page";
 import LokasiBarangPage from "@/app/lokasi-barang/page";
+import TipeMaterialPage from "@/app/tipe-material/page";
 import KategoriBarangPage from "@/app/kategori-barang/page";
 import MerekBarangPage from "@/app/merek-barang/page";
 import MitraPage from "@/app/mitra/page";
@@ -44,6 +45,14 @@ export function AppRoutes() {
 					element={
 						<ProtectedRoute adminOnly>
 							<KategoriBarangPage />
+						</ProtectedRoute>
+					}
+				/>
+				<Route
+					path="tipe-material"
+					element={
+						<ProtectedRoute adminOnly>
+							<TipeMaterialPage />
 						</ProtectedRoute>
 					}
 				/>
