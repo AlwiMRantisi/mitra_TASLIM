@@ -18,6 +18,7 @@ export default function DashboardPage() {
         recentTransactions,
         isLoadingRequests,
         isLoadingActivity,
+        isLoading,
     } = useDashboard();
 
     return (
@@ -36,6 +37,7 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 px-4 lg:px-6">
                 <ChartBarMixed 
                     data={mitraDistribution} 
+                    isLoading={isLoading}
                     className="h-full" 
                 />
                 <ChartInboundOutbound

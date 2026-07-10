@@ -64,8 +64,8 @@ const data = {
           isActive: false,
         },
         {
-          title: "Riwayat",
-          url: "/riwayat",
+          title: "Request",
+          url: "/request",
           icon: (
             <HistoryIcon />
           ),
@@ -154,7 +154,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const mitraAllowedUrls = new Set([
     "/barang-masuk",
     "/barang-keluar",
-    "/riwayat",
+    "/request",
     "/data-barang",
   ])
   const visibleNavMain = isAdmin

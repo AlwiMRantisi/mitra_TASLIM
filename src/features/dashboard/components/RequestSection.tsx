@@ -93,7 +93,7 @@ export function RequestSection({ requests, counts, isLoading, className }: Reque
             <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="text-base">Request Masuk</CardTitle>
                 <div
-                    onClick={() => navigate("/riwayat")}
+                    onClick={() => navigate("/request")}
                     className="rounded-full p-1.5 cursor-pointer bg-muted transition-colors hover:bg-muted/80"
                 >
                     <ArrowUpRight size={14} className="text-muted-foreground" />
@@ -110,7 +110,7 @@ export function RequestSection({ requests, counts, isLoading, className }: Reque
                     ].map((kpi) => (
                         <div
                             key={kpi.label}
-                            onClick={() => navigate(`/riwayat?tab=${kpi.label}`)}
+                            onClick={() => navigate(`/request?tab=${kpi.label}`)}
                             className={cn(
                                 "flex items-center gap-3 p-3 rounded-xl border border-input bg-muted/20 hover:bg-muted/40 cursor-pointer transition-all"
                             )}
@@ -161,7 +161,7 @@ export function RequestSection({ requests, counts, isLoading, className }: Reque
                                         <TableRow
                                             key={req.id}
                                             className="cursor-pointer group"
-                                            onClick={() => navigate(`/riwayat?tab=${getStatusLabel(req.status)}`)}
+                                            onClick={() => navigate(`/request?tab=${getStatusLabel(req.status)}`)}
                                         >
                                             <TableCell className="text-[13px] text-muted-foreground py-2.5">
                                                 {index + 1}

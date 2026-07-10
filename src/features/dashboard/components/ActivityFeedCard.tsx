@@ -1,6 +1,6 @@
 import { ActivityIcon, ArrowUpRight } from "lucide-react"
 import { useState, useRef, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import type { ActivityItem } from "@/types/transaction"

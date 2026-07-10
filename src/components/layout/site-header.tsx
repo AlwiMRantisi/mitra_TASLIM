@@ -11,7 +11,7 @@ import {
 import { useLocation } from "react-router-dom"
 import { Notifications } from "@/features/dashboard/components/notifications"
 
-export function SiteHeader() {
+export function SiteHeader({ className }: { className?: string }) {
     const location = useLocation()
     const path = location.pathname
 
@@ -27,14 +27,14 @@ export function SiteHeader() {
     } else if (path === "/barang-keluar") {
         parent = "Operasional"
         pageName = "Barang Keluar"
-    } else if (path === "/riwayat") {
+    } else if (path === "/request") {
         parent = "Operasional"
-        pageName = "Riwayat"
-    } else if (path.startsWith("/riwayat/")) {
+        pageName = "Request"
+    } else if (path.startsWith("/request/")) {
         grandparent = "Operasional"
-        parent = "Riwayat"
+        parent = "Request"
         pageName = "Detail Permintaan"
-        parentLink = "#/riwayat"
+        parentLink = "#/request"
     } else if (path === "/data-barang") {
         parent = "Inventori"
         pageName = "Data Barang"
@@ -56,7 +56,7 @@ export function SiteHeader() {
     }
 
     return (
-        <header className="flex h-(--header-height) shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)">
+        <header className={`flex h-(--header-height) shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height) ${className || ''}`}>
             <div className="flex w-full items-center justify-between gap-1 px-4 lg:gap-2 lg:px-6">
                 <div className="flex items-center gap-1">
                     <SidebarTrigger className="-ml-1" />

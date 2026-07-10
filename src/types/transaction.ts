@@ -89,13 +89,14 @@ export type RequestAllocation = {
 export type DashboardRequest = {
   id: string
   requestNumber: string
-  partner: string
-  partnerCategory: string
-  itemTotal: number
+  requesterName?: string
+  partnerCategory?: string
+  itemsCount?: number
+  itemsDetail?: string
   status: string
   notes: string
   requestedAt: string
-  requestItems: RequestItem[]
+  requestItems?: RequestItem[]
   requestAllocations?: RequestAllocation[]
 }
 

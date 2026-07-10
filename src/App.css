@@ -153,6 +153,18 @@
     height: 100%;
     width: 100%;
   }
+
+  @media print {
+    html, body, #root {
+      height: auto !important;
+      min-height: 100% !important;
+      overflow: visible !important;
+      display: block !important;
+      position: static !important;
+      background-color: white !important;
+      color: black !important;
+    }
+  }
 }
 
 /* Performance: promote sidebar container to GPU layer during transitions */
