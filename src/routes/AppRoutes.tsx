@@ -6,7 +6,6 @@ import BarangMasukPage from "@/app/barang-masuk/page";
 import BarangKeluarPage from "@/app/barang-keluar/page";
 import DataBarangPage from "@/app/data-barang/page";
 import DataTransaksiPage from "@/app/request/page";
-import DataTransaksiDetailPage from "@/app/request/detail/page";
 import LokasiBarangPage from "@/app/lokasi-barang/page";
 import TipeMaterialPage from "@/app/tipe-material/page";
 import KategoriBarangPage from "@/app/kategori-barang/page";
@@ -14,11 +13,13 @@ import MerekBarangPage from "@/app/merek-barang/page";
 import MitraPage from "@/app/mitra/page";
 import LoginPage from "@/app/login/page";
 import PengaturanPage from "@/app/pengaturan/page";
+import MobileSignPage from "@/app/mobile-sign/page";
 
 export function AppRoutes() {
 	return (
 		<Routes>
 			<Route path="/login" element={<LoginPage />} />
+			<Route path="/mobile-sign/:sessionId" element={<MobileSignPage />} />
 			<Route
 				path="/"
 				element={
@@ -30,7 +31,6 @@ export function AppRoutes() {
 				<Route path="barang-masuk" element={<BarangMasukPage />} />
 				<Route path="barang-keluar" element={<BarangKeluarPage />} />
 				<Route path="request" element={<DataTransaksiPage />} />
-				<Route path="request/:id" element={<DataTransaksiDetailPage />} />
 				<Route path="data-barang" element={<DataBarangPage />} />
 				<Route
 					path="lokasi-barang"

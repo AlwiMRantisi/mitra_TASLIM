@@ -7,4 +7,8 @@ export type AuthUser = {
 	role: UserRole;
 	partnerId: string | null;
 	identityCode: string;
+	profile?: {
+		picName?: string | null;
+		picSignatureUrl?: string | null;
+	};
 };

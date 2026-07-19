@@ -12,7 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { toast } from "sonner";
 
 const getBaseUrl = () => {
-  const baseUrl = import.meta.env.URL || import.meta.env.VITE_URL || "http://localhost:3000";
+  const baseUrl = import.meta.env.URL || import.meta.env.VITE_URL;
   return baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
 };
 

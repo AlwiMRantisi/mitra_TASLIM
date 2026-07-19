@@ -102,6 +102,10 @@ export type DashboardRequest = {
   requestedAt: string
   requestItems?: RequestItem[]
   requestAllocations?: RequestAllocation[]
+  deliveryDocument?: {
+    kpSignedById?: string | null
+    picSignedById?: string | null
+  } | null
 }
 
 /** Tipe ringkas untuk widget KPI & tabel "Request Terbaru" di dashboard */

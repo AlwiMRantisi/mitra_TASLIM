@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { ProfilPicTab } from "./components/ProfilPicTab"
 
 const GOOGLE_CLIENT_ID = import.meta.env.GOOGLE_CLIENT_ID || "847352193552-odl1tr4a71os3eddiftnu9en4ncg7mqg.apps.googleusercontent.com";
 
@@ -235,7 +236,12 @@ export default function PengaturanPage() {
       <Tabs defaultValue="google-drive" className="px-4 lg:px-6 w-full">
         <TabsList className="mb-6">
           <TabsTrigger value="google-drive" className="px-4 py-1.5 text-sm font-medium">Google Drive</TabsTrigger>
+          <TabsTrigger value="profil-pic" className="px-4 py-1.5 text-sm font-medium">Profil & Tanda Tangan</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="profil-pic" className="mt-0">
+          <ProfilPicTab />
+        </TabsContent>
 
         {/* Tab Content: Google Drive */}
         <TabsContent value="google-drive" className="flex flex-col gap-6 mt-0">

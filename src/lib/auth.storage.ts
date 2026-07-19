@@ -60,5 +60,6 @@ export function normalizeAuthUser(rawUser: any): AuthUser {
 			rawUser?.profile?.code ||
 			rawUser?.code ||
 			(role === "admin" ? "ADM" : "MTR"),
+		profile: rawUser?.profile || undefined,
 	};
 }
