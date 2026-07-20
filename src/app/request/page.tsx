@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo, useTransition } from "react"
 import { DataTable } from "@/features/transactions/components/request-table"
 import { RequestDetailDrawer } from "@/features/transactions/components/request-detail-drawer"
 import { Search, EllipsisVertical, FileUp, FileDown, ListFilter, Loader2, PenTool } from "lucide-react"
@@ -10,7 +10,13 @@ import { saveExportFile } from "@/lib/export-file"
 import * as XLSX from "xlsx"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuItem } from "@/components/ui/dropdown-menu"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Calendar } from "@/components/ui/calendar"
+import { format } from "date-fns"
+import { CalendarIcon } from "lucide-react"
+import { DateRange } from "react-day-picker"
+import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/lib/auth"
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter, DrawerClose } from "@/components/ui/drawer"
 import { DigitalSignatureDialog } from "./components/DigitalSignatureDialog"
@@ -57,18 +63,34 @@ export default function DataTransaksiPage() {
     new Set(localRequests.map((r) => r.partnerCategory).filter((c): c is string => !!c))
   ).sort()
 
-  // State untuk filter yang sedang aktif (multi-select)
+  // State untuk filter yang sedang aktif
   const [filterCategories, setFilterCategories] = useState<string[]>([])
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
 
-  const toggleFilterCategory = (category: string) => {
-    setFilterCategories((prev) =>
-      prev.includes(category)
-        ? prev.filter((c) => c !== category)
-        : [...prev, category]
-    )
+  // State lokal untuk popover filter
+  const [tempFilterCategories, setTempFilterCategories] = useState<string[]>([])
+  const [tempDateRange, setTempDateRange] = useState<DateRange | undefined>(undefined)
+  const [isFilterOpen, setIsFilterOpen] = useState(false)
+  
+  const [, startTransition] = useTransition()
+
+  const handleApplyFilter = () => {
+    setIsFilterOpen(false)
+    startTransition(() => {
+      setFilterCategories(tempFilterCategories)
+      setDateRange(tempDateRange)
+    })
   }
 
-  const clearFilters = () => setFilterCategories([])
+  const handleResetFilter = () => {
+    setIsFilterOpen(false)
+    startTransition(() => {
+      setTempFilterCategories([])
+      setTempDateRange(undefined)
+      setFilterCategories([])
+      setDateRange(undefined)
+    })
+  }
 
   const countMenunggu = localRequests.filter(req => req.status.toLowerCase() === "menunggu").length;
   const countDisetujui = localRequests.filter(req => req.status.toLowerCase() === "disetujui").length;
@@ -121,16 +143,75 @@ export default function DataTransaksiPage() {
     fetchRequests();
   }, [user])
 
-  const filteredData = localRequests.filter((item) => {
-    const matchesSearch = item.requestNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.requesterName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.notes?.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesSearch;
-  }).sort((a, b) => {
-    const timeA = new Date(a.requestedAt).getTime();
-    const timeB = new Date(b.requestedAt).getTime();
-    return timeB - timeA;
-  });
+  const filteredData = useMemo(() => {
+    let data = localRequests;
+
+    if (filterCategories.length > 0) {
+      data = data.filter((req) => req.partnerCategory && filterCategories.includes(req.partnerCategory));
+    }
+
+    if (dateRange?.from || dateRange?.to) {
+      data = data.filter((req) => {
+        const reqDate = new Date(req.requestedAt).getTime();
+        if (dateRange.from) {
+          const startDate = new Date(dateRange.from).setHours(0, 0, 0, 0);
+          if (reqDate < startDate) return false;
+        }
+        if (dateRange.to) {
+          const endDate = new Date(dateRange.to).setHours(23, 59, 59, 999);
+          if (reqDate > endDate) return false;
+        }
+        return true;
+      });
+    }
+
+    if (searchTerm.trim()) {
+      const lowerSearch = searchTerm.toLowerCase();
+      data = data.filter((req) =>
+        req.requestNumber?.toLowerCase().includes(lowerSearch) ||
+        req.requesterName?.toLowerCase().includes(lowerSearch) ||
+        req.notes?.toLowerCase().includes(lowerSearch) ||
+        req.partnerCategory?.toLowerCase().includes(lowerSearch)
+      );
+    }
+    
+    // Global fallback sort (LIFO)
+    return [...data].sort((a, b) => {
+      const timeA = new Date(a.requestedAt).getTime();
+      const timeB = new Date(b.requestedAt).getTime();
+      return timeB - timeA;
+    });
+  }, [localRequests, filterCategories, dateRange, searchTerm]);
+
+  // Pre-calculate tab data to prevent re-sorting on every render (e.g. when popover toggles)
+  const tabData = useMemo(() => {
+    const tabs = ["Menunggu", "Disetujui", "Siap", "Diterima", "Selesai", "Ditolak"];
+    const result: Record<string, typeof filteredData> = {};
+    
+    tabs.forEach(status => {
+      const tabLower = status.toLowerCase()
+      const finalData = filteredData.filter((req) => {
+        if (tabLower === "ditolak") {
+          return ["ditolak", "dibatalkan"].includes(req.status.toLowerCase())
+        }
+        return req.status.toLowerCase() === tabLower
+      })
+
+      const sortedData = [...finalData].sort((a, b) => {
+        const timeA = new Date(a.requestedAt).getTime();
+        const timeB = new Date(b.requestedAt).getTime();
+        const activeStatuses = ["menunggu", "disetujui", "siap"];
+        if (activeStatuses.includes(tabLower)) {
+          return timeA - timeB; // FIFO
+        }
+        return timeB - timeA; // LIFO
+      });
+      
+      result[status] = sortedData;
+    });
+    
+    return result;
+  }, [filteredData]);
 
   const handleExportExcel = async () => {
     if (filteredData.length === 0) {
@@ -231,70 +312,83 @@ export default function DataTransaksiPage() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
+            <Popover open={isFilterOpen} onOpenChange={(open) => {
+              setIsFilterOpen(open)
+              if (open) {
+                setTempFilterCategories(filterCategories)
+                setTempDateRange(dateRange)
+              }
+            }}>
+              <PopoverTrigger asChild>
                 <Button
                   variant="outline"
-                  className={cn("shrink-0 gap-1.5 px-3 cursor-pointer", filterCategories.length > 0 && "border-primary text-primary")}
+                  className={cn("shrink-0 gap-1.5 px-3 cursor-pointer", (filterCategories.length > 0 || dateRange?.from || dateRange?.to) && "border-gray-400 text-primary")}
                 >
                   <ListFilter className="size-4" />
                   <span className="hidden sm:inline">Filter</span>
-                  {filterCategories.length > 0 && (
+                  {(filterCategories.length > 0 || dateRange?.from || dateRange?.to) && (
                     <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
-                      {filterCategories.length}
+                      {(filterCategories.length > 0 ? 1 : 0) + (dateRange?.from || dateRange?.to ? 1 : 0)}
                     </Badge>
                   )}
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-32">
-                {categoryOptions.map((cat) => (
-                  <DropdownMenuCheckboxItem
-                    key={cat}
-                    checked={filterCategories.includes(cat)}
-                    onCheckedChange={() => toggleFilterCategory(cat)}
-                    className="cursor-pointer"
-                  >
-                    {cat}
-                  </DropdownMenuCheckboxItem>
-                ))}
-                {filterCategories.length > 0 && (
-                  <>
-                    <DropdownMenuItem
-                      className="cursor-pointer text-muted-foreground justify-center text-xs"
-                      onClick={clearFilters}
-                    >
-                      Hapus Filter
-                    </DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-auto p-4" onCloseAutoFocus={(e) => e.preventDefault()}>
+                <div className="flex flex-col gap-3">
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-sm leading-none text-muted-foreground">Kategori Partner</h4>
+                    <div className="flex flex-col gap-3">
+                      {categoryOptions.map((cat) => (
+                        <div key={cat} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`cat-${cat}`}
+                            checked={tempFilterCategories.includes(cat)}
+                            onCheckedChange={(checked) => {
+                              setTempFilterCategories(prev =>
+                                checked
+                                  ? [...prev, cat]
+                                  : prev.filter(c => c !== cat)
+                              )
+                            }}
+                          />
+                          <label
+                            htmlFor={`cat-${cat}`}
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                          >
+                            {cat}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <Separator />
+                  <div className="space-y-3">
+                    <h4 className="font-medium text-sm leading-none text-muted-foreground">Rentang Tanggal</h4>
+                    <div className="border rounded-md">
+                      <Calendar
+                        mode="range"
+                        defaultMonth={tempDateRange?.from}
+                        selected={tempDateRange}
+                        onSelect={setTempDateRange}
+                        numberOfMonths={1}
+                        className="p-3"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={handleResetFilter} className="cursor-pointer">Reset</Button>
+                    <Button size="sm" onClick={handleApplyFilter} className="cursor-pointer">Terapkan</Button>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
 
         {["Menunggu", "Disetujui", "Siap", "Diterima", "Selesai", "Ditolak"].map(status => {
-          // Terapkan filter sebelum diteruskan ke DataTable
-          const filteredByStatus = localRequests.filter((req) => {
-            if (status.toLowerCase() === "ditolak") {
-              return ["ditolak", "dibatalkan"].includes(req.status.toLowerCase())
-            }
-            return req.status.toLowerCase() === status.toLowerCase()
-          })
-          const filteredData = filterCategories.length > 0
-            ? filteredByStatus.filter((req) => req.partnerCategory && filterCategories.includes(req.partnerCategory))
-            : filteredByStatus
-
-          // Tambahkan filter search term
-          const finalData = searchTerm.trim()
-            ? filteredData.filter((req) =>
-              req.requestNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-              req.requesterName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-              req.partnerCategory?.toLowerCase().includes(searchTerm.toLowerCase())
-            )
-            : filteredData
+          const tabLower = status.toLowerCase()
 
           // Tentukan kolom mana yang disembunyikan berdasarkan tab
-          const tabLower = status.toLowerCase()
           let hiddenColumns: string[] = []
           if (["menunggu", "disetujui"].includes(tabLower)) {
             hiddenColumns.push("document")
@@ -306,21 +400,10 @@ export default function DataTransaksiPage() {
             hiddenColumns.push("document")
           }
 
-          // Context-aware sorting
-          finalData.sort((a, b) => {
-            const timeA = new Date(a.requestedAt).getTime();
-            const timeB = new Date(b.requestedAt).getTime();
-            const activeStatuses = ["menunggu", "disetujui", "siap"];
-            if (activeStatuses.includes(tabLower)) {
-              return timeA - timeB; // FIFO
-            }
-            return timeB - timeA; // LIFO
-          });
-
           return (
             <TabsContent key={status} value={status} className="mt-0 flex flex-col gap-4 min-h-0">
               <DataTable
-                data={finalData}
+                data={tabData[status] || []}
                 onRowClick={(item) => setSelectedRequest(item)}
                 onStatusChange={handleStatusChange}
                 hiddenColumns={hiddenColumns}

@@ -1,10 +1,12 @@
 "use client"
 
 import * as React from "react"
+import { confirm } from "@tauri-apps/plugin-dialog"
 import {
     flexRender,
     getCoreRowModel,
     getPaginationRowModel,
+    getSortedRowModel,
     useReactTable,
     type ColumnDef,
     type Table as TanstackTable,
@@ -46,14 +48,14 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useNavigate } from "react-router-dom"
 import type { DashboardRequest } from "@/types/transaction"
-import { Check, Edit, Pencil, PencilIcon } from "lucide-react"
+import { Check, Edit, Pencil, PencilIcon, ArrowUpDown } from "lucide-react"
 import { Label } from "@/components/ui/label"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from "@/components/ui/select"
 
 function ScrollShadowWrapper({ children, className }: { children: React.ReactNode, className?: string }) {
@@ -134,11 +136,11 @@ const STATUS_CONFIG: Record<StatusKey, { icon: typeof IconLoader; dotClass: stri
     Menunggu: {
         icon: IconLoader, dotClass: "text-muted-foreground bg-neutral-500/20 border-0"
     },
-    Disetujui: { icon: IconCircleCheck, dotClass: "text-green-100/70 bg-green-300/10 border-0" },
-    Siap: { icon: IconPackage, dotClass: "text-amber-600 bg-amber-700/10 border-amber-500/10" },
-    Selesai: { icon: IconCircleCheck, dotClass: "text-emerald-600/80 bg-emerald-700/10 border-emerald-500/10" },
+    Disetujui: { icon: IconCircleCheck, dotClass: "dark:text-green-600/80 dark:bg-green-300/10 border-0 text-emerald-700 bg-emerald-100/80" },
+    Siap: { icon: IconPackage, dotClass: "text-amber-600 bg-amber-700/10 dark:border-amber-500/10 dark:border-1 border-0" },
+    Selesai: { icon: IconCircleCheck, dotClass: "text-emerald-600/80 bg-emerald-700/10 dark:border-emerald-500/10 border-emerald-500/10" },
     Ditolak: { icon: IconX, dotClass: "text-destructive bg-red-400/10 border-0" },
-    Dibatalkan: { icon: IconBan, dotClass: "text-destructive bg-red-400/10 border-destructive/10" },
+    Dibatalkan: { icon: IconBan, dotClass: "text-destructive bg-red-400/10 border-0" },
 }
 
 const DEFAULT_STATUS_CONFIG = { icon: IconLoader, dotClass: "bg-muted-foreground" }
@@ -195,7 +197,8 @@ function DocumentMenu({
 
     const handleSignDocument = React.useCallback(async (e: React.MouseEvent) => {
         e.stopPropagation()
-        if (!window.confirm("Apakah Anda yakin ingin menyematkan tanda tangan Anda pada dokumen BAST ini?")) {
+        const isConfirmed = await confirm("Apakah Anda yakin ingin menyematkan tanda tangan Anda pada dokumen BAST ini?")
+        if (!isConfirmed) {
             return
         }
         setIsSigning(true)
@@ -311,7 +314,7 @@ function ActionMenu({
                         variant="ghost"
                         size="icon-lg"
                         className="text-xs font-medium text-muted-foreground hover:text-destructive cursor-pointer"
-                        onClick={(e) => handleStatusChange(e, "Tolak")}
+                        onClick={(e) => handleStatusChange(e, "Ditolak")}
                     >
                         <IconX size={18} className="" />
                     </Button>
@@ -364,7 +367,18 @@ function createColumns(): ColumnDef<DashboardRequest>[] {
         },
         {
             accessorKey: "requestedAt",
-            header: "Tanggal Permintaan",
+            header: ({ column }) => {
+                return (
+                    <Button
+                        variant="ghost"
+                        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                        className="p-0 hover:bg-transparent font-medium"
+                    >
+                        Tanggal Permintaan
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+                )
+            },
             cell: ({ row }) => (
                 <div className="text-muted-foreground whitespace-nowrap">
                     {new Date(row.original.requestedAt).toLocaleDateString("en-GB", DATE_FORMAT_OPTIONS)}
@@ -436,6 +450,7 @@ export function DataTable({ data, className, onRowClick, onStatusChange, hiddenC
         columns,
         getCoreRowModel: getCoreRowModel(),
         getPaginationRowModel: getPaginationRowModel(),
+        getSortedRowModel: getSortedRowModel(),
         meta: tableMeta,
         initialState: { columnVisibility },
     })

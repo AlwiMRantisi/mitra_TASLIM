@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react"
+import { confirm } from "@tauri-apps/plugin-dialog"
 import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { api } from "@/lib/api"
@@ -167,11 +168,12 @@ export function RequestDetailDrawer({
 
   const displayItem = detailData || item
 
-  const handleAction = (newStatus: string, requireConfirm: boolean = false) => {
+  const handleAction = async (newStatus: string, requireConfirm: boolean = false) => {
     if (!displayItem?.id || !onStatusChange) return;
 
     if (requireConfirm) {
-      if (!window.confirm("Apakah Anda yakin ingin melakukan tindakan ini pada permintaan?")) {
+      const isConfirmed = await confirm("Apakah Anda yakin ingin melakukan tindakan ini pada permintaan?");
+      if (!isConfirmed) {
         return;
       }
     }
@@ -310,7 +312,7 @@ export function RequestDetailDrawer({
             {['MENUNGGU'].includes(displayItem.status?.toUpperCase() || "") && (
               <>
                 <Button variant="default" className="flex-1 cursor-pointer" onClick={() => handleAction("Disetujui")}>Setujui</Button>
-                <Button variant="destructive" className="flex-1 cursor-pointer" onClick={() => handleAction("Tolak", true)}>Batalkan Permintaan</Button>
+                <Button variant="destructive" className="flex-1 cursor-pointer" onClick={() => handleAction("Ditolak", true)}>Batalkan Permintaan</Button>
               </>
             )}
             {

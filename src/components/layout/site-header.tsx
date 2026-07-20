@@ -10,10 +10,14 @@ import {
 } from "@/components/ui/breadcrumb"
 import { useLocation } from "react-router-dom"
 import { Notifications } from "@/features/dashboard/components/notifications"
+import { Sun, Moon } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { useTheme } from "@/components/shared/themeProvider"
 
 export function SiteHeader({ className }: { className?: string }) {
     const location = useLocation()
     const path = location.pathname
+    const { theme, setTheme } = useTheme()
 
     // Determine breadcrumbs based on route
     let parent = "Menu Utama"
@@ -92,6 +96,16 @@ export function SiteHeader({ className }: { className?: string }) {
                     </Breadcrumb>
                 </div>
                 <div className="hidden md:flex items-center gap-2">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+                        title="Toggle theme"
+                    >
+                        <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+                        <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+                        <span className="sr-only">Toggle theme</span>
+                    </Button>
                     <Notifications />
                 </div>
             </div>
