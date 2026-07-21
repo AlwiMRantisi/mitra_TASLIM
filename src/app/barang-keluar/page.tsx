@@ -79,7 +79,7 @@ const normalizeText = (text?: string | null) => (text || "").trim().toLocaleLowe
 const normalizeOwner = (owner?: string | null) => normalizeText(owner || ADMIN_LOCATION);
 const isOutsideStatus = (status: string) => {
   const normalizedStatus = normalizeStatus(status);
-  return normalizedStatus === "keluar";
+  return normalizedStatus === "keluar" || normalizedStatus === "diluar";
 };
 
 const getEntryDateTime = (item: InventoryItem) => {
@@ -272,11 +272,9 @@ export default function BarangKeluarPage() {
   const validItems = barangKeluar.filter((item) => item.status === "Valid").length;
 
   const updateKodeBarang = useCallback((value: KodeBarangUpdate) => {
-    setKodeBarang((current) => {
-      const nextValue = typeof value === "function" ? value(current) : value;
-      kodeBarangRef.current = nextValue;
-      return nextValue;
-    });
+    const nextValue = typeof value === "function" ? value(kodeBarangRef.current) : value;
+    kodeBarangRef.current = nextValue;
+    setKodeBarang(nextValue);
   }, []);
 
   const focusKodeBarangInput = useCallback(() => {
@@ -653,93 +651,37 @@ export default function BarangKeluarPage() {
 
   return (
     <div className="@container/main flex h-full select-none flex-col gap-4 py-4 md:gap-6 md:py-6">
-      <div className="grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4 dark:*:data-[slot=card]:bg-card">
-        <Card className="@container/card relative">
-          <div className="flex flex-row items-center">
-            <div className="ml-4 rounded-lg bg-primary/10 p-3">
-              <PackageMinus className="text-primary" />
-            </div>
-            <div className="flex w-full flex-col">
-              <CardHeader className="flex flex-col">
-                <CardDescription>Sesi Keluar</CardDescription>
-                <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-                  {barangKeluar.length} <span className="text-sm font-normal text-muted-foreground">Unit</span>
-                </CardTitle>
-              </CardHeader>
-            </div>
-          </div>
-        </Card>
+      <div className="flex h-full flex-col gap-4 px-4 lg:px-6">
+        
+        {/* Smart Input Bar */}
+        <Card className="shrink-0 border-primary/20 shadow-sm">
+          <CardContent className="flex flex-col gap-4 p-4 sm:p-5">
+            <div className="flex flex-col items-end gap-4 sm:flex-row">
+              <div className="w-full flex-1 space-y-1.5">
+                <Label htmlFor="smart-input" className="text-sm font-semibold">Scan Barcode / SN</Label>
+                <div className="relative">
+                  <ScanLine className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    ref={inputRef}
+                    id="smart-input"
+                    className="h-11 pl-9 font-mono text-base shadow-inner focus-visible:ring-primary/50"
+                    placeholder="Contoh: ZTEG12345678"
+                    value={kodeBarang}
+                    onChange={(event) => updateKodeBarang(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        handleSubmit(kodeBarangRef.current);
+                      }
+                    }}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">Sistem akan otomatis mendeteksi dari barcode scanner.</p>
+              </div>
 
-        <Card className="@container/card relative">
-          <div className="flex flex-row items-center">
-            <div className="ml-4 rounded-lg bg-primary/10 p-3">
-              <Archive className="text-primary" />
-            </div>
-            <div className="flex w-full flex-col">
-              <CardHeader className="flex flex-col">
-                <CardDescription>Data Master</CardDescription>
-                <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-                  {dbItems.length} <span className="text-sm font-normal text-muted-foreground">Item</span>
-                </CardTitle>
-              </CardHeader>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="@container/card relative">
-          <div className="flex flex-row items-center">
-            <div className="ml-4 rounded-lg bg-primary/10 p-3">
-              <BadgeCheck className="text-primary" />
-            </div>
-            <div className="flex w-full flex-col">
-              <CardHeader className="flex flex-col">
-                <CardDescription>Validasi</CardDescription>
-                <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-                  {validItems} <span className="text-sm font-normal text-muted-foreground">Valid</span>
-                </CardTitle>
-              </CardHeader>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="@container/card relative">
-          <div className="flex flex-row items-center">
-            <div className="ml-4 rounded-lg bg-primary/10 p-3">
-              <Boxes className="text-primary" />
-            </div>
-            <div className="flex w-full flex-col">
-              <CardHeader className="flex flex-col">
-                <CardDescription>Kuota Tersisa</CardDescription>
-                <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-                  {totalKuotaTersedia} <span className="text-sm font-normal text-muted-foreground">Slot</span>
-                </CardTitle>
-              </CardHeader>
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      <div className="grid h-full gap-4 px-4 lg:px-6 @5xl/main:grid-cols-[minmax(320px,380px)_1fr]">
-        <Card className="@container/card flex flex-col @5xl/main:min-h-[calc(100svh-var(--header-height)-15rem)]">
-          <Tabs
-            value={inputMode}
-            onValueChange={(value) => {
-              setInputMode(value as "auto" | "manual");
-              focusKodeBarangInput();
-            }}
-            className="flex flex-1 flex-col gap-4"
-          >
-            <CardHeader className="flex flex-col gap-4 pb-2">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="auto">Auto</TabsTrigger>
-                <TabsTrigger value="manual">Manual</TabsTrigger>
-              </TabsList>
-            </CardHeader>
-
-            <CardContent className="flex flex-1 flex-col gap-4">
-              {user?.role !== "mitra" && (
-                <div className="flex flex-col gap-3">
-                  <Label htmlFor="mitra-tujuan">Tujuan</Label>
+              {user?.role !== "mitra" ? (
+                <div className="w-full space-y-1.5 sm:w-64">
+                  <Label htmlFor="mitra-tujuan" className="text-sm font-semibold">Tujuan (Mitra)</Label>
                   <Select
                     value={selectedPartnerId}
                     onValueChange={(value) => {
@@ -747,30 +689,28 @@ export default function BarangKeluarPage() {
                       focusKodeBarangInput();
                     }}
                   >
-                    <SelectTrigger id="mitra-tujuan" className="w-full">
-                      <SelectValue placeholder="Pilih mitra tujuan..." />
+                    <SelectTrigger id="mitra-tujuan" className="h-11">
+                      <SelectValue placeholder="Pilih mitra..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {dbPartners.map((partner) => (
-                        <SelectItem key={partner.id} value={partner.id}>
-                          {partner.name}
-                        </SelectItem>
-                      ))}
+                      {dbPartners.length === 0 ? (
+                        <div className="p-2 text-sm text-muted-foreground">Belum ada mitra aktif</div>
+                      ) : (
+                        dbPartners.map((partner) => (
+                          <SelectItem key={partner.id} value={partner.id}>
+                            {partner.name}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
-                  {dbPartners.length === 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      Belum ada mitra aktif. Tambahkan atau aktifkan mitra terlebih dahulu.
-                    </p>
-                  )}
                 </div>
-              )}
-
-              {user?.role === "mitra" && (
-                <div className="flex flex-col gap-3">
-                  <Label htmlFor="keterangan-keluar">PA / Keterangan</Label>
+              ) : (
+                <div className="w-full space-y-1.5 sm:w-64">
+                  <Label htmlFor="keterangan-keluar" className="text-sm font-semibold">PA / Keterangan</Label>
                   <Input
                     id="keterangan-keluar"
+                    className="h-11"
                     value={keterangan}
                     onChange={(event) => {
                       const nextKeterangan = event.target.value;
@@ -788,172 +728,119 @@ export default function BarangKeluarPage() {
                         focusKodeBarangInput();
                       }
                     }}
-                    placeholder="Contoh: PA-00123 atau keperluan barang"
+                    placeholder="Contoh: PA-00123"
                   />
-                  <p className="text-xs text-muted-foreground">
-                    Tekan Enter setelah mengisi agar scanner kembali aktif.
-                  </p>
                 </div>
               )}
 
-              <TabsContent value="auto" className="mt-0 flex flex-1 flex-col">
-                <Input
-                  ref={inputRef}
-                  id="kode-barang-auto"
-                  value={kodeBarang}
-                  onChange={(event) => updateKodeBarang(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      handleSubmit();
-                    }
-                  }}
-                  placeholder="Masukkan kode barang atau serial number"
-                  className="hidden"
-                />
-                <div className="flex flex-1 flex-col items-center justify-center gap-4 rounded-lg border border-dashed bg-muted/20 px-6 py-10 text-center">
-                  <div className="flex size-16 items-center justify-center rounded-full bg-primary/10 text-primary">
-                    <ScanLine className="size-8 animate-pulse" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <p className="text-base font-semibold text-foreground">
-                      Silakan scan menggunakan scanner
-                    </p>
-                    <p className="text-sm leading-relaxed text-muted-foreground">
-                      Sistem akan menangkap kode secara otomatis dan menambahkannya ke daftar barang keluar.
-                    </p>
-                  </div>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="manual" className="mt-0 flex flex-col gap-3">
-                <Label htmlFor="kode-barang-manual">Kode / SN</Label>
-                <Input
-                  ref={inputRef}
-                  id="kode-barang-manual"
-                  value={kodeBarang}
-                  onChange={(event) => updateKodeBarang(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      handleSubmit();
-                    }
-                  }}
-                  placeholder="Masukkan kode barang atau serial number"
-                />
-              </TabsContent>
-            </CardContent>
-          </Tabs>
-
-          {inputMode === "manual" ? (
-            <CardFooter className="mt-auto justify-end gap-2">
-              <Button className="w-full gap-2 sm:w-auto" size="lg" onClick={() => handleSubmit()}>
+              <Button className="h-11 w-full gap-2 sm:w-32" onClick={() => handleSubmit(kodeBarangRef.current)}>
                 <PackageMinus className="size-4" />
-                Simpan barang keluar
+                Tambah
               </Button>
-            </CardFooter>
-          ) : null}
+            </div>
+          </CardContent>
         </Card>
 
-        <Card className="@container/card flex flex-col @5xl/main:min-h-[calc(100svh-var(--header-height)-15rem)]">
-          <CardHeader className="flex flex-col gap-3 border-b pb-4 @lg/card:flex-row @lg/card:items-center @lg/card:justify-between">
-            <div className="space-y-1">
-              <CardTitle>Daftar Barang Keluar</CardTitle>
-            </div>
+        {/* Tabel Layar Penuh */}
+        <Card className="flex flex-1 flex-col overflow-hidden">
+          <CardHeader className="shrink-0 flex-row items-center justify-between border-b pb-4">
+            <CardTitle>Daftar Barang Keluar</CardTitle>
             <Badge variant="outline" className="w-fit">
               {barangKeluar.length} Item
             </Badge>
           </CardHeader>
 
-          <CardContent className="flex flex-1 flex-col gap-4">
-            <div className="flex-1 overflow-hidden rounded-lg border">
-              <Table>
-                <TableHeader className="sticky top-0 z-10 bg-muted">
+          <CardContent className="relative flex-1 overflow-auto p-0">
+            <Table>
+              <TableHeader className="sticky top-0 z-10 bg-muted/50 backdrop-blur-md">
+                <TableRow>
+                  <TableHead className="w-14">No</TableHead>
+                  <TableHead>Serial Number</TableHead>
+                  <TableHead>Merek</TableHead>
+                  <TableHead>Kategori</TableHead>
+                  <TableHead>Tipe/Model</TableHead>
+                  <TableHead>Asal Lokasi</TableHead>
+                  {user?.role !== "mitra" && <TableHead>Mitra</TableHead>}
+                  {user?.role === "mitra" && <TableHead>PA / Keterangan</TableHead>}
+                  <TableHead>{user?.role === "mitra" ? "Status" : "Status Validasi"}</TableHead>
+                  <TableHead className="w-16 text-center">Aksi</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {barangKeluar.length === 0 ? (
                   <TableRow>
-                    <TableHead className="w-14">No</TableHead>
-                    <TableHead>Serial Number</TableHead>
-                    <TableHead>Merek</TableHead>
-                    <TableHead>Kategori</TableHead>
-                    <TableHead>Tipe/Model</TableHead>
-                    <TableHead>Asal Lokasi</TableHead>
-                    {user?.role !== "mitra" && (
-                      <TableHead>Mitra</TableHead>
-                    )}
-                    {user?.role === "mitra" && (
-                      <TableHead>PA / Keterangan</TableHead>
-                    )}
-                    <TableHead>
-                      {user?.role === "mitra" ? "Status" : "Status Validasi"}
-                    </TableHead>
-                    <TableHead className="w-16 text-center">Aksi</TableHead>
+                    <TableCell colSpan={9} className="h-[300px] p-0">
+                      <EmptyScanTableState />
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {barangKeluar.length === 0 ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={9}
-                        className="p-0"
-                      >
-                        <EmptyScanTableState />
+                ) : (
+                  barangKeluar.map((item, index) => (
+                    <TableRow key={item.id}>
+                      <TableCell className="font-medium">{index + 1}</TableCell>
+                      <TableCell className="font-mono">{item.nomor}</TableCell>
+                      <TableCell>{item.merek}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className="font-normal px-2.5 py-0.5">
+                          {item.kategori}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{item.tipe || "-"}</TableCell>
+                      <TableCell>{item.lokasi}</TableCell>
+                      {user?.role !== "mitra" && <TableCell>{item.mitra}</TableCell>}
+                      {user?.role === "mitra" && <TableCell>{item.keterangan}</TableCell>}
+                      <TableCell>
+                        <Badge variant="secondary" className="gap-1.5 font-normal px-2.5 py-0.5">
+                          <div
+                            className={`size-1.5 rounded-full ${
+                              user?.role === "mitra" ? "bg-sky-500" : "bg-emerald-500"
+                            }`}
+                          />
+                          {user?.role === "mitra" ? "Diluar" : item.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          className="text-muted-foreground hover:text-destructive"
+                          onClick={() => handleDeleteItem(item.id)}
+                        >
+                          <X className="size-4" />
+                          <span className="sr-only">Hapus item</span>
+                        </Button>
                       </TableCell>
                     </TableRow>
-                  ) : (
-                    barangKeluar.map((item, index) => (
-                      <TableRow key={item.id}>
-                        <TableCell className="font-medium">{index + 1}</TableCell>
-                        <TableCell className="font-mono">{item.nomor}</TableCell>
-                        <TableCell>{item.merek}</TableCell>
-                        <TableCell>
-                          <Badge variant="secondary" className="font-normal px-2.5 py-0.5">
-                            {item.kategori}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{item.tipe || "-"}</TableCell>
-                        <TableCell>{item.lokasi}</TableCell>
-                        {user?.role !== "mitra" && (
-                          <TableCell>{item.mitra}</TableCell>
-                        )}
-                        {user?.role === "mitra" && (
-                          <TableCell>{item.keterangan}</TableCell>
-                        )}
-                        <TableCell>
-                          <Badge variant="secondary" className="font-normal gap-1.5 px-2.5 py-0.5">
-                            <div
-                              className={`w-1.5 h-1.5 rounded-full ${user?.role === "mitra" ? "bg-sky-500" : "bg-emerald-500"
-                                }`}
-                            />
-                            {user?.role === "mitra" ? "Diluar" : item.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            className="text-muted-foreground hover:text-destructive"
-                            onClick={() => handleDeleteItem(item.id)}
-                          >
-                            <X className="size-4" />
-                            <span className="sr-only">Hapus item</span>
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+                  ))
+                )}
+              </TableBody>
+            </Table>
           </CardContent>
 
-          <CardFooter className="justify-end gap-2">
+          {/* Sticky Footer Metrics & Action */}
+          <CardFooter className="shrink-0 flex-col items-start justify-between gap-4 border-t bg-muted/20 p-4 sm:flex-row sm:items-center">
+            <div className="flex gap-6 text-sm">
+              <div className="flex flex-col">
+                <span className="text-muted-foreground">Total Scan</span>
+                <span className="text-lg font-semibold">{barangKeluar.length} <span className="text-sm font-normal text-muted-foreground">Unit</span></span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-muted-foreground">Validasi</span>
+                <span className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">{validItems} <span className="text-sm font-normal text-emerald-600/70 dark:text-emerald-400/70">Valid</span></span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-muted-foreground">Kuota Tersisa</span>
+                <span className="text-lg font-semibold">{totalKuotaTersedia} <span className="text-sm font-normal text-muted-foreground">Slot</span></span>
+              </div>
+            </div>
+            
             <Button
               className="w-full gap-2 sm:w-auto"
               size="lg"
               onClick={handleValidateAll}
               disabled={barangKeluar.length === 0 || isSaving}
             >
-              {isSaving ? <Loader2 className="size-4 animate-spin" /> : null}
-              Simpan
+              {isSaving ? <Loader2 className="size-4 animate-spin" /> : <Archive className="size-4" />}
+              Simpan Barang Keluar
             </Button>
           </CardFooter>
         </Card>

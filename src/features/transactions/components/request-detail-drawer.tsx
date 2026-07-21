@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react"
 import { confirm } from "@tauri-apps/plugin-dialog"
+import { useNavigate } from "react-router-dom"
 import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { api } from "@/lib/api"
@@ -104,6 +105,7 @@ export function RequestDetailDrawer({
   onStatusChange?: (id: string, newStatus: string) => void
 }) {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [detailData, setDetailData] = useState<DashboardRequest | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
@@ -138,7 +140,7 @@ export function RequestDetailDrawer({
           requestAllocations: data.requestItems?.flatMap((ri: any) =>
             ri.allocations?.map((alloc: any) => ({
               id: alloc.id,
-              materialNumber: alloc.item?.paNumber || "-",
+              materialNumber: alloc.item?.model?.code || "-",
               materialCategory: ri.materialCategory?.nama,
               brand: alloc.item?.brand?.nama || ri.brand?.nama,
               materialName: `${getCleanCategoryName(ri.materialCategory?.nama)} ${alloc.item?.brand?.nama || ri.brand?.nama}${alloc.item?.model?.nama ? ` (${alloc.item.model.nama})` : ''}`,
@@ -171,6 +173,13 @@ export function RequestDetailDrawer({
   const handleAction = async (newStatus: string, requireConfirm: boolean = false) => {
     if (!displayItem?.id || !onStatusChange) return;
 
+    // Siapkan: navigate to prepare page instead of changing status directly
+    if (newStatus === "Siap") {
+      onClose()
+      navigate(`/request/${displayItem.id}/prepare`)
+      return;
+    }
+
     if (requireConfirm) {
       const isConfirmed = await confirm("Apakah Anda yakin ingin melakukan tindakan ini pada permintaan?");
       if (!isConfirmed) {
@@ -186,12 +195,12 @@ export function RequestDetailDrawer({
     <Drawer direction={"bottom"} open={open} onOpenChange={(o) => !o && onClose()}>
       <DrawerContent>
         <DrawerHeader className="gap-1">
-          <DrawerTitle>{displayItem.requestNumber}</DrawerTitle>
+          <DrawerTitle>{displayItem.requestNumber.toUpperCase()}</DrawerTitle>
           <DrawerDescription>
             Detail Permintaan
           </DrawerDescription>
         </DrawerHeader>
-        <div className="flex flex-col gap-4 overflow-y-auto px-4 pb-4 text-sm min-h-[150px] justify-center">
+        <div className="flex flex-col gap-4 overflow-y-auto px-4 pb-4 text-sm min-h-37.5 justify-center">
           {isLoading ? (
             <div className="flex items-center justify-center py-8 text-muted-foreground gap-2">
               <Loader2 className="h-5 w-5 animate-spin" />
@@ -206,8 +215,8 @@ export function RequestDetailDrawer({
                       <TableRow className="hover:bg-transparent">
                         <TableHead className="w-12">No</TableHead>
                         <TableHead>Kategori</TableHead>
+                        <TableHead>No. Material</TableHead>
                         <TableHead>Nama Material</TableHead>
-                        <TableHead>Material Number</TableHead>
                         <TableHead>Merek</TableHead>
                         <TableHead className="text-right">Jumlah</TableHead>
                         <TableHead className="text-right">Satuan</TableHead>
@@ -219,8 +228,8 @@ export function RequestDetailDrawer({
                           <TableRow key={ra.id}>
                             <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
                             <TableCell className="font-medium">{ra.materialCategory}</TableCell>
-                            <TableCell className="truncate max-w-[200px]" title={ra.materialName}>{ra.materialName}</TableCell>
                             <TableCell className="font-medium text-muted-foreground" title={ra.materialNumber}>{ra.materialNumber}</TableCell>
+                            <TableCell className="truncate max-w-50" title={ra.materialName}>{ra.materialName}</TableCell>
                             <TableCell>{ra.brand}</TableCell>
                             <TableCell className="text-right font-medium">{ra.quantity}</TableCell>
                             <TableCell className="text-right font-medium">{ra.unit || "Unit"}</TableCell>
@@ -326,7 +335,7 @@ export function RequestDetailDrawer({
             {
               ['SIAP'].includes(displayItem.status?.toUpperCase() || "") && (
                 <>
-                  <Button variant="default" className="flex-1 cursor-pointer">Edit</Button>
+                  <Button variant="default" className="flex-1 cursor-pointer" onClick={() => navigate(`/request/${displayItem.id}/prepare`)}>Edit</Button>
                   <Button variant="destructive" className="flex-1 cursor-pointer" onClick={() => handleAction("Dibatalkan", true)}>Batalkan</Button>
                 </>
               )

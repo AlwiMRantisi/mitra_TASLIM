@@ -6,6 +6,7 @@ import BarangMasukPage from "@/app/barang-masuk/page";
 import BarangKeluarPage from "@/app/barang-keluar/page";
 import DataBarangPage from "@/app/data-barang/page";
 import DataTransaksiPage from "@/app/request/page";
+import PreparePage from "@/app/request/prepare/page";
 import LokasiBarangPage from "@/app/lokasi-barang/page";
 import TipeMaterialPage from "@/app/tipe-material/page";
 import KategoriBarangPage from "@/app/kategori-barang/page";
@@ -31,6 +32,14 @@ export function AppRoutes() {
 				<Route path="barang-masuk" element={<BarangMasukPage />} />
 				<Route path="barang-keluar" element={<BarangKeluarPage />} />
 				<Route path="request" element={<DataTransaksiPage />} />
+				<Route
+					path="request/:id/prepare"
+					element={
+						<ProtectedRoute adminOnly>
+							<PreparePage />
+						</ProtectedRoute>
+					}
+				/>
 				<Route path="data-barang" element={<DataBarangPage />} />
 				<Route
 					path="lokasi-barang"

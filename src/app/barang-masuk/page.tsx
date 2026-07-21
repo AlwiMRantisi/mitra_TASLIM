@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { BadgeCheck, Boxes, PackagePlus, ScanLine, X, Loader2 } from "lucide-react";
+import { PackagePlus, ScanLine, X, Loader2, Wrench, Lock } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -213,22 +213,20 @@ function EmptyScanTableState() {
 export default function BarangMasukPage() {
   const { user } = useAuth();
   const [kodeBarang, setKodeBarang] = useState("");
-  const [inputMode, setInputMode] = useState<"auto" | "manual">("auto");
-  const [merekFallback, setMerekFallback] = useState<BrandOption>("");
-  const [kategoriBarang, setKategoriBarang] = useState<KategoriOption>("");
   const [barangMasuk, setBarangMasuk] = useState<BarangMasukItem[]>([]);
   const [kuota, setKuota] = useState<Record<string, number>>({});
   const inputRef = useRef<HTMLInputElement>(null);
   const kodeBarangRef = useRef("");
   const [dbBrands, setDbBrands] = useState<BrandDefinition[]>([]);
   const [dbCategories, setDbCategories] = useState<string[]>([]);
+  const [dbModels, setDbModels] = useState<any[]>([]);
   const [dbLocations, setDbLocations] = useState<LocationDefinition[]>([]);
   const [, setDbItems] = useState<InventoryItem[]>([]);
   const [dbPartners, setDbPartners] = useState<Partner[]>([]);
   const [asalBarangManual, setAsalBarangManual] = useState<boolean>(false);
   const [asalBarang, setAsalBarang] = useState<string>("SBU Regional Jawa Barat");
   const [kondisiBarang, setKondisiBarang] = useState<string>("Baru");
-  const [tipeBarang, setTipeBarang] = useState("");
+  const [tipeBarang, setTipeBarang] = useState<string>("");
   const [isSaving, setIsSaving] = useState(false);
 
   const refreshInventoryItems = useCallback(async () => {
@@ -281,9 +279,10 @@ export default function BarangMasukPage() {
         const categoryNames = (Array.isArray(categories) ? categories : []).map((c: any) => c.name || c.nama || "");
         setDbCategories(categoryNames);
 
-        if (categoryNames.length > 0) {
-          setKategoriBarang(categoryNames[0]);
-        }
+
+        const resModels = await fetch(`${getBaseUrl()}/material-models`, { method: "GET", headers: getHeaders() });
+        const rawModels = await resModels.json();
+        setDbModels(Array.isArray(rawModels.data || rawModels) ? (rawModels.data || rawModels) : []);
 
         const items = await refreshInventoryItems();
 
@@ -364,16 +363,13 @@ export default function BarangMasukPage() {
     };
   }, [refreshInventoryItems]);
 
-  const detectedBrand = detectBrandFromCode(kodeBarang, dbBrands);
   const totalKuotaTersedia = Object.values(kuota).reduce((total, value) => total + value, 0);
   const validItems = barangMasuk.filter((item) => item.status === "Valid").length;
 
   const updateKodeBarang = useCallback((value: KodeBarangUpdate) => {
-    setKodeBarang((current) => {
-      const nextValue = typeof value === "function" ? value(current) : value;
-      kodeBarangRef.current = nextValue;
-      return nextValue;
-    });
+    const nextValue = typeof value === "function" ? value(kodeBarangRef.current) : value;
+    kodeBarangRef.current = nextValue;
+    setKodeBarang(nextValue);
   }, []);
 
   const focusKodeBarangInput = useCallback(() => {
@@ -384,15 +380,6 @@ export default function BarangMasukPage() {
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
-
-  // Auto-detect merek berdasarkan awal input kode
-  useEffect(() => {
-    if (detectedBrand) {
-      setMerekFallback(detectedBrand);
-    } else {
-      setMerekFallback("");
-    }
-  }, [detectedBrand]);
 
   /**
    * Menangani aksi submit (scan/input manual) kode barang.
@@ -459,11 +446,36 @@ export default function BarangMasukPage() {
       return;
     }
 
+    if (kondisiBarang === "Baru") {
+      if (existingItem) {
+        toast.error("Barang sudah ada di database.", {
+          description: "SN ini sudah terdaftar. Silakan gunakan kondisi 'Dismantle'.",
+        });
+        updateKodeBarang("");
+        focusKodeBarangInput();
+        return;
+      }
+    } else if (kondisiBarang === "Dismantle") {
+      if (!existingItem) {
+        toast.error("Barang tidak ditemukan di database.", {
+          description: "SN ini belum terdaftar. Silakan gunakan kondisi 'Baru'.",
+        });
+        updateKodeBarang("");
+        focusKodeBarangInput();
+        return;
+      }
+    }
+
+    const selectedModelInfo = tipeBarang && kondisiBarang === "Baru"
+      ? dbModels.find((m) => m.nama === tipeBarang)
+      : null;
+
     // Tentukan Merek untuk rekomendasi lokasi
     const itemBrand =
       existingItem?.merek ||
+      (selectedModelInfo?.brand?.nama || selectedModelInfo?.brand?.name) ||
       detectBrandFromCode(trimmedKode, dbBrands) ||
-      merekFallback;
+      "";
 
     // Rekomendasi Lokasi Otomatis (Smart Routing)
     let recommendedLocation = getRecommendedLocation(itemBrand, dbLocations, kuota);
@@ -509,9 +521,9 @@ export default function BarangMasukPage() {
     const newItem: BarangMasukItem = {
       id: Date.now(),
       nomor: trimmedKode,
-      merek: itemBrand || "(otomatis)",
-      kategori: existingItem?.kategori || kategoriBarang,
-      tipe: existingItem?.tipe || tipeBarang || undefined,
+      merek: kondisiBarang === "Dismantle" ? (existingItem?.merek || "") : (itemBrand || ""),
+      kategori: kondisiBarang === "Dismantle" ? (existingItem?.kategori || "") : "ONT",
+      tipe: kondisiBarang === "Dismantle" ? (existingItem?.tipe || "") : (kondisiBarang === "Baru" ? tipeBarang : ""),
       lokasi: recommendedLocation,
       status: "Valid",
       existingItemId: existingItem?.id,
@@ -534,8 +546,6 @@ export default function BarangMasukPage() {
     }));
 
     updateKodeBarang("");
-    setTipeBarang("");
-    setMerekFallback("");
     setAsalBarangManual(false);
 
     // Auto-focus kembali ke input setelah submit
@@ -546,10 +556,8 @@ export default function BarangMasukPage() {
     dbLocations,
     refreshInventoryItems,
     focusKodeBarangInput,
-    kategoriBarang,
     kodeBarang,
     kuota,
-    merekFallback,
     updateKodeBarang,
     user,
     asalBarang,
@@ -618,6 +626,22 @@ export default function BarangMasukPage() {
     setBarangMasuk((current) => current.filter((item) => item.id !== id));
   };
 
+  const handleUpdateInline = (id: number, field: keyof BarangMasukItem, value: any) => {
+    setBarangMasuk((current) =>
+      current.map((item) => {
+        if (item.id === id) {
+          const updatedItem = { ...item, [field]: value };
+          // Jika merek diubah, reset tipe
+          if (field === "merek" && value !== item.merek) {
+            updatedItem.tipe = "";
+          }
+          return updatedItem;
+        }
+        return item;
+      })
+    );
+  };
+
   const handleUpdateLokasi = (id: number, newLokasi: LokasiOption) => {
     const itemToUpdate = barangMasuk.find((item) => item.id === id);
     if (!itemToUpdate) return;
@@ -655,6 +679,17 @@ export default function BarangMasukPage() {
    */
   const handleValidateAll = async () => {
     if (isSaving) return;
+
+    const hasIncompleteNewItems = barangMasuk.some(
+      (item) => item.kondisi === "Baru" && !item.tipe
+    );
+    if (hasIncompleteNewItems) {
+      toast.error("Masih ada barang Baru yang belum memiliki Tipe/Model.", {
+        description: "Silakan lengkapi Tipe/Model di tabel sebelum menyimpan.",
+      });
+      return;
+    }
+
     setIsSaving(true);
     try {
       const sessionDate = new Date().toISOString().slice(0, 10);
@@ -823,86 +858,24 @@ export default function BarangMasukPage() {
 
   return (
     <div className="@container/main flex h-full select-none flex-col gap-4 py-4 md:gap-6 md:py-6">
-      <div className="grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4 dark:*:data-[slot=card]:bg-card">
-        <Card className="@container/card relative">
-          <div className="flex flex-row items-center">
-            <div className="ml-4 rounded-lg bg-primary/10 p-3">
-              <PackagePlus className="text-primary" />
-            </div>
-            <div className="flex w-full flex-col">
-              <CardHeader className="flex flex-col">
-                <CardDescription>Sesi Scan</CardDescription>
-                <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-                  {barangMasuk.length} <span className="text-sm font-normal text-muted-foreground">Unit</span>
-                </CardTitle>
-              </CardHeader>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="@container/card relative">
-          <div className="flex flex-row items-center">
-            <div className="ml-4 rounded-lg bg-primary/10 p-3">
-              <ScanLine className="text-primary" />
-            </div>
-            <div className="flex w-full flex-col">
-              <CardHeader className="flex flex-col">
-                <CardDescription>Merek Terdeteksi</CardDescription>
-                <CardTitle className="truncate text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-                  {merekFallback || "-"}
-                </CardTitle>
-              </CardHeader>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="@container/card relative">
-          <div className="flex flex-row items-center">
-            <div className="ml-4 rounded-lg bg-primary/10 p-3">
-              <BadgeCheck className="text-primary" />
-            </div>
-            <div className="flex w-full flex-col">
-              <CardHeader className="flex flex-col">
-                <CardDescription>Validasi</CardDescription>
-                <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-                  {validItems} <span className="text-sm font-normal text-muted-foreground">Valid</span>
-                </CardTitle>
-              </CardHeader>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="@container/card relative">
-          <div className="flex flex-row items-center">
-            <div className="ml-4 rounded-lg bg-primary/10 p-3">
-              <Boxes className="text-primary" />
-            </div>
-            <div className="flex w-full flex-col">
-              <CardHeader className="flex flex-col">
-                <CardDescription>Kuota Tersisa</CardDescription>
-                <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-                  {totalKuotaTersedia} <span className="text-sm font-normal text-muted-foreground">Slot</span>
-                </CardTitle>
-              </CardHeader>
-            </div>
-          </div>
-        </Card>
-      </div>
-
       <div className="grid h-full gap-4 px-4 lg:px-6 @5xl/main:grid-cols-[minmax(320px,380px)_1fr]">
         <Card className="@container/card flex flex-col @5xl/main:min-h-[calc(107svh-var(--header-height)-15rem)]">
           <Tabs
-            value={inputMode}
+            value={kondisiBarang}
             onValueChange={(value) => {
-              setInputMode(value as "auto" | "manual");
+              setKondisiBarang(value);
               focusKodeBarangInput();
             }}
             className="flex flex-1 flex-col gap-4"
           >
             <CardHeader className="flex flex-col gap-4 pb-2">
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="auto">Auto</TabsTrigger>
-                <TabsTrigger value="manual">Manual</TabsTrigger>
+                <TabsTrigger value="Baru" className="gap-2">
+                  Baru
+                </TabsTrigger>
+                <TabsTrigger value="Dismantle" className="gap-2">
+                  Dismantle
+                </TabsTrigger>
               </TabsList>
             </CardHeader>
 
@@ -945,57 +918,35 @@ export default function BarangMasukPage() {
                 </div>
               )}
 
+              <div className="my-2 border-t border-dashed"></div>
+
               <div className="flex flex-col gap-3">
-                <Label htmlFor="kondisi-barang">Kategori / Kondisi</Label>
-                <Select
-                  value={kondisiBarang}
-                  onValueChange={(value) => {
-                    setKondisiBarang(value);
-                    focusKodeBarangInput();
-                  }}
-                >
-                  <SelectTrigger id="kondisi-barang" className="w-full">
-                    <SelectValue placeholder="Pilih kondisi barang..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Baru">Baru</SelectItem>
-                    <SelectItem value="Dismantle">Dismantle</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
 
-              <TabsContent value="auto" className="mt-0 flex flex-1 flex-col">
-                <Input
-                  ref={inputRef}
-                  id="kode-barang-auto"
-                  value={kodeBarang}
-                  onChange={(event) => updateKodeBarang(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      void handleSubmit();
-                    }
-                  }}
-                  placeholder="Masukkan kode barang atau serial number"
-                  className="hidden"
-                />
-                <div className="flex flex-1 flex-col items-center justify-center gap-4 rounded-lg border border-dashed bg-muted/20 px-6 py-10 text-center">
-                  <div className="flex size-16 items-center justify-center rounded-full bg-primary/10 text-primary">
-                    <ScanLine className="size-8 animate-pulse" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <p className="text-base font-semibold text-foreground">
-                      Silakan scan menggunakan scanner
-                    </p>
-                    <p className="text-sm leading-relaxed text-muted-foreground">
-                      Sistem akan menangkap kode secara otomatis dan menambahkannya ke daftar barang masuk.
-                    </p>
-                  </div>
-                </div>
-              </TabsContent>
+                {kondisiBarang === "Baru" && (
+                  <Select
+                    value={tipeBarang}
+                    onValueChange={(value) => {
+                      setTipeBarang(value);
+                      focusKodeBarangInput();
+                    }}
+                  >
+                    <Label htmlFor="tipe-barang">Model</Label>
+                    <SelectTrigger id="tipe-barang" className="w-full mb-3 h-10">
+                      <SelectValue placeholder="Pilih Model Default (Opsional)" />
+                    </SelectTrigger>
+                    <Label htmlFor="kode-barang-manual">Kode / SN</Label>
+                    <SelectContent>
+                      <SelectGroup>
+                        {dbModels.map((model) => (
+                          <SelectItem key={model.id} value={model.nama}>
+                            {model.nama} ({model.brand?.nama || model.brand?.name || "Tanpa Merek"})
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                )}
 
-              <TabsContent value="manual" className="mt-0 flex flex-col gap-3">
-                <Label htmlFor="kode-barang-manual">Kode / SN</Label>
                 <Input
                   ref={inputRef}
                   id="kode-barang-manual"
@@ -1004,90 +955,17 @@ export default function BarangMasukPage() {
                   onKeyDown={(event) => {
                     if (event.key === "Enter") {
                       event.preventDefault();
-                      void handleSubmit();
+                      void handleSubmit(kodeBarangRef.current);
                     }
                   }}
-                  placeholder="Masukkan kode barang atau serial number"
+                  placeholder="Scan barcode atau ketik manual di sini..."
                 />
-
-                <div className="flex flex-col gap-3">
-                  <div className="flex items-center justify-between gap-4">
-                    <Label htmlFor="merek-fallback">Merek fallback</Label>
-                    <span className="text-xs text-muted-foreground">
-                      {merekFallback && detectedBrand === merekFallback
-                        ? "Terdeteksi otomatis"
-                        : "Jika pola SN tidak dikenali"}
-                    </span>
-                  </div>
-                  <Select
-                    value={merekFallback}
-                    onValueChange={(value) => {
-                      setMerekFallback(value as BrandOption);
-                      focusKodeBarangInput();
-                    }}
-                  >
-                    <SelectTrigger id="merek-fallback" className="w-full">
-                      <SelectValue placeholder="Pilih merek" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        {dbBrands.map((brand) => (
-                          <SelectItem key={brand.name} value={brand.name}>
-                            {brand.name}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="flex flex-col gap-3">
-                  <Label htmlFor="kategori-barang">Kategori Barang</Label>
-                  <Select
-                    value={kategoriBarang}
-                    onValueChange={(value) => {
-                      setKategoriBarang(value as KategoriOption);
-                      focusKodeBarangInput();
-                    }}
-                  >
-                    <SelectTrigger id="kategori-barang" className="w-full">
-                      <SelectValue placeholder="Pilih kategori" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        {dbCategories.map((kategori) => (
-                          <SelectItem key={kategori} value={kategori}>
-                            {kategori}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="flex flex-col gap-3">
-                  <Label htmlFor="tipe-barang">Tipe / Model Barang</Label>
-                  <Input
-                    id="tipe-barang"
-                    placeholder="HG8245H, EG8145V5, 1-Core 150m..."
-                    value={tipeBarang}
-                    onChange={(e) => {
-                      setTipeBarang(e.target.value);
-                    }}
-                  />
-                </div>
-              </TabsContent>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Kategori dan Merek akan terdeteksi otomatis dari SN.
+                </p>
+              </div>
             </CardContent>
           </Tabs>
-
-          {inputMode === "manual" ? (
-            <CardFooter className="mt-auto justify-end gap-2">
-              <Button className="w-full gap-2 sm:w-auto" size="lg" onClick={() => void handleSubmit()}>
-                <PackagePlus className="size-4" />
-                Simpan barang masuk
-              </Button>
-            </CardFooter>
-          ) : null}
         </Card>
 
         <Card className="@container/card flex flex-col @5xl/main:min-h-[calc(100svh-var(--header-height)-15rem)]">
@@ -1111,9 +989,7 @@ export default function BarangMasukPage() {
                     <TableHead>Kategori</TableHead>
                     <TableHead>Tipe/Model</TableHead>
                     <TableHead>Asal</TableHead>
-                    <TableHead>Kondisi</TableHead>
-                    <TableHead>Rekomendasi Lokasi</TableHead>
-                    <TableHead>Status Validasi</TableHead>
+                    <TableHead>Lokasi</TableHead>
                     <TableHead className="w-16 text-center">Aksi</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1129,19 +1005,43 @@ export default function BarangMasukPage() {
                       <TableRow key={item.id}>
                         <TableCell className="font-medium">{index + 1}</TableCell>
                         <TableCell className="font-mono">{item.nomor}</TableCell>
-                        <TableCell>{item.merek}</TableCell>
                         <TableCell>
-                          <Badge variant="secondary" className="font-normal px-2.5 py-0.5">
-                            {item.kategori}
-                          </Badge>
+                          {item.kondisi === "Baru" ? (
+                            <Select value={item.merek} onValueChange={(val) => handleUpdateInline(item.id, "merek", val)}>
+                              <SelectTrigger className="w-30 h-8 text-xs"><SelectValue placeholder="Pilih Merek" /></SelectTrigger>
+                              <SelectContent>
+                                {dbBrands.map(b => <SelectItem key={b.name} value={b.name}>{b.name}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <div className="flex items-center gap-1.5"><Lock className="size-3 text-muted-foreground" />{item.merek}</div>
+                          )}
                         </TableCell>
-                        <TableCell>{item.tipe || "-"}</TableCell>
+                        <TableCell>
+                          {item.kondisi === "Baru" ? (
+                            <Select value={item.kategori} onValueChange={(val) => handleUpdateInline(item.id, "kategori", val)}>
+                              <SelectTrigger className="w-30 h-8 text-xs"><SelectValue placeholder="Pilih Kategori" /></SelectTrigger>
+                              <SelectContent>
+                                {dbCategories.map(k => <SelectItem key={k} value={k}>{k}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <Badge variant="secondary" className="font-normal px-2.5 py-0.5 flex w-fit items-center gap-1.5"><Lock className="size-3 text-muted-foreground" />{item.kategori}</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {item.kondisi === "Baru" ? (
+                            <Select value={item.tipe} onValueChange={(val) => handleUpdateInline(item.id, "tipe", val)}>
+                              <SelectTrigger className={`w-[140px] h-8 text-xs ${!item.tipe ? "border-destructive text-destructive" : ""}`}><SelectValue placeholder="Pilih Model" /></SelectTrigger>
+                              <SelectContent>
+                                {dbModels.filter(m => (m.brand?.nama || m.brand?.name || "").toLowerCase() === item.merek.toLowerCase()).map(m => <SelectItem key={m.id} value={m.nama}>{m.nama}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <div className="flex items-center gap-1.5"><Lock className="size-3 text-muted-foreground" />{item.tipe || "-"}</div>
+                          )}
+                        </TableCell>
                         <TableCell>{item.asal || asalBarang}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="font-normal px-2.5 py-0.5 border-primary/30 bg-primary/5 text-primary">
-                            {item.kondisi || kondisiBarang}
-                          </Badge>
-                        </TableCell>
                         <TableCell>
                           <Select
                             value={item.lokasi}
@@ -1183,16 +1083,6 @@ export default function BarangMasukPage() {
                               </SelectGroup>
                             </SelectContent>
                           </Select>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="secondary" className="font-normal gap-1.5 px-2.5 py-0.5">
-                            <div className={`w-1.5 h-1.5 rounded-full ${item.existingItemId ? "bg-sky-500" : "bg-emerald-500"}`} />
-                            {user?.role === "mitra" && item.source === "KP"
-                              ? "Dari KP"
-                              : item.existingItemId
-                                ? "Masuk Kembali"
-                                : item.status}
-                          </Badge>
                         </TableCell>
                         <TableCell className="text-center">
                           <Button

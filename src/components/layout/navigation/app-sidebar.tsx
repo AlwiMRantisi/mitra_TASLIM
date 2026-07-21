@@ -57,14 +57,6 @@ const data = {
           isActive: false,
         },
         {
-          title: "Barang Keluar",
-          url: "/barang-keluar",
-          icon: (
-            <PackageMinus />
-          ),
-          isActive: false,
-        },
-        {
           title: "Request",
           url: "/request",
           icon: (
@@ -162,7 +154,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const isAdmin = user?.role === "admin"
   const mitraAllowedUrls = new Set([
     "/barang-masuk",
-    "/barang-keluar",
     "/request",
     "/data-barang",
   ])
