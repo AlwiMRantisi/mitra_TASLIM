@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { api } from "@/lib/api";
 import QRCode from "qrcode";
+import { getSignatureDataUrl } from "@/lib/trimCanvas";
 
 export function ProfilPicTab() {
   const { user, updateUser } = useAuth();
@@ -42,7 +43,7 @@ export function ProfilPicTab() {
     if (!user) return;
     setIsSaving(true);
     try {
-      const signatureDataUrl = sigPad.current?.isEmpty() ? null : sigPad.current?.getCanvas().toDataURL("image/png");
+      const signatureDataUrl = sigPad.current?.isEmpty() ? null : getSignatureDataUrl(sigPad.current!);
       
       const res = await api.put(`/users/${user.id}`, { 
         picName, 
@@ -153,7 +154,10 @@ export function ProfilPicTab() {
               ref={sigPad}
               penColor="black"
               canvasProps={{
-                className: "w-full h-full cursor-crosshair"
+                width: 600,
+                height: 250,
+                style: { width: "100%", height: "100%" },
+                className: "cursor-crosshair"
               }}
             />
             <div className="absolute inset-0 pointer-events-none border border-dashed border-zinc-300 dark:border-zinc-700 m-4 rounded-sm opacity-50 flex items-center justify-center">

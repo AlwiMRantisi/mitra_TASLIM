@@ -4,6 +4,7 @@ import SignatureCanvas from "react-signature-canvas";
 import { Button } from "@/components/ui/button";
 import { Loader2, CheckCircle2, PenTool } from "lucide-react";
 import { api } from "@/lib/api";
+import { getSignatureDataUrl } from "@/lib/trimCanvas";
 
 export default function MobileSignPage() {
 	const { sessionId } = useParams<{ sessionId: string }>();
@@ -67,7 +68,11 @@ export default function MobileSignPage() {
 			return;
 		}
 		setErrorMsg("");
-		const dataUrl = sigPad.current.getCanvas().toDataURL("image/png");
+		const dataUrl = getSignatureDataUrl(sigPad.current!);
+		if (!dataUrl) {
+			setErrorMsg("Gagal mengekspor tanda tangan. Silakan coba lagi.");
+			return;
+		}
 
 		try {
 			setStatus("submitting");

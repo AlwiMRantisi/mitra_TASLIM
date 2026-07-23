@@ -49,6 +49,7 @@ import {
 import { useNavigate } from "react-router-dom"
 import type { DashboardRequest } from "@/types/transaction"
 import { Check, Edit, Pencil, PencilIcon, ArrowUpDown } from "lucide-react"
+import { useAuth } from "@/lib/auth"
 import { Label } from "@/components/ui/label"
 import {
     Select,
@@ -181,8 +182,12 @@ function DocumentMenu({
 }) {
     const status = row.original.status?.toUpperCase()?.trim()
     const meta = table.options.meta as TableMeta | undefined
+    const { user } = useAuth()
 
     const [isSigning, setIsSigning] = React.useState(false)
+    const [localDeliveryDocument, setLocalDeliveryDocument] = React.useState(
+        row.original.deliveryDocument
+    )
 
     const handleOpenPDF = React.useCallback(async (e: React.MouseEvent) => {
         e.stopPropagation()
@@ -203,9 +208,16 @@ function DocumentMenu({
         }
         setIsSigning(true)
         try {
-            await api.post(`/requests/${row.original.id}/sign-bast`);
+            const res = await api.post(`/requests/${row.original.id}/sign-bast`);
             toast.success("Dokumen BAST berhasil ditandatangani");
-            meta?.onStatusChange?.(row.original.id, "Selesai")
+
+            // Update lokal deliveryDocument agar tombol langsung refresh
+            setLocalDeliveryDocument(res.data.document)
+
+            // Hanya ubah status jika backend konfirmasi kedua TTD sudah lengkap
+            if (res.data.requestStatus === "SELESAI") {
+                meta?.onStatusChange?.(row.original.id, "Selesai")
+            }
         } catch (error: any) {
             toast.error(error.message || "Gagal menandatangani dokumen BAST");
         } finally {
@@ -214,7 +226,15 @@ function DocumentMenu({
     }, [meta, row.original.id])
 
     const showBastActions = ["SIAP", "SELESAI", "DITERIMA"].includes(status || "")
-    const canSign = status === "SIAP"
+
+    // Tentukan apakah user ini sudah menandatangani
+    const role = user?.role?.toUpperCase()
+    const hasAdminSigned = !!(localDeliveryDocument?.kpSignedById)
+    const hasMitraSigned = !!(localDeliveryDocument?.picSignedById)
+    const iAlreadySigned = role === "ADMIN" ? hasAdminSigned : hasMitraSigned
+
+    // Tombol sign hanya muncul di status SIAP dan belum ditandatangani oleh user ini
+    const canSign = status === "SIAP" && !iAlreadySigned
 
     if (!showBastActions) return null;
 
@@ -230,31 +250,28 @@ function DocumentMenu({
                 <IconFileText size={18} />
                 BAST
             </Button>
-            {canSign && (() => {
-                const isSigned = !!row.original.deliveryDocument?.kpSignedById;
-                return (
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 text-xs text-muted-foreground/70 font-medium cursor-pointer gap-2"
-                        title={isSigned ? "Sudah ditandatangani" : "Tanda Tangani BAST"}
-                        onClick={handleSignDocument}
-                        disabled={isSigning || isSigned}
-                    >
-                        {isSigned ? (
-                            <>
-                                <Pencil size={16} />
-                                Signed
-                            </>
-                        ) : (
-                            <>
-                                {isSigning ? <IconLoader className="animate-spin" size={16} /> : <Pencil size={16} />}
-                                Sign
-                            </>
-                        )}
-                    </Button>
-                );
-            })()}
+            {status === "SIAP" && (
+                <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs text-muted-foreground/70 font-medium cursor-pointer gap-2"
+                    title={iAlreadySigned ? "Sudah ditandatangani" : "Tanda Tangani BAST"}
+                    onClick={canSign ? handleSignDocument : undefined}
+                    disabled={isSigning || iAlreadySigned}
+                >
+                    {iAlreadySigned ? (
+                        <>
+                            <Check size={16} />
+                            Signed
+                        </>
+                    ) : (
+                        <>
+                            {isSigning ? <IconLoader className="animate-spin" size={16} /> : <Pencil size={16} />}
+                            Sign
+                        </>
+                    )}
+                </Button>
+            )}
         </div>
     )
 }

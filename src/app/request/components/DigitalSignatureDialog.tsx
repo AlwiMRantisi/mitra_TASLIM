@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { api } from "@/lib/api";
 import QRCode from "qrcode";
 import { useAuth } from "@/lib/auth";
+import { getSignatureDataUrl } from "@/lib/trimCanvas";
 
 interface DigitalSignatureDialogProps {
   open: boolean;
@@ -119,7 +120,7 @@ export function DigitalSignatureDialog({
       // If the signature is modified, we save it to the user's profile first
       // Actually, we can just call the save profile API then call onSignComplete
       // Or we assume the profile is already saved, but let's just save it.
-      const signatureDataUrl = sigPad.current?.getCanvas().toDataURL("image/png");
+      const signatureDataUrl = getSignatureDataUrl(sigPad.current!);
       
       if (user) {
         await api.put(`/users/${user.id}`, { 
@@ -193,7 +194,10 @@ export function DigitalSignatureDialog({
                 ref={sigPad}
                 penColor="black"
                 canvasProps={{
-                  className: "w-full h-full cursor-crosshair"
+                  width: 600,
+                  height: 200,
+                  style: { width: "100%", height: "100%" },
+                  className: "cursor-crosshair"
                 }}
               />
               <div className="absolute inset-0 pointer-events-none border border-dashed border-zinc-300 dark:border-zinc-700 m-2 rounded-sm opacity-50 flex items-center justify-center">

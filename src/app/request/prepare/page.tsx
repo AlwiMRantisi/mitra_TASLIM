@@ -423,7 +423,7 @@ export default function PreparePage() {
               <TabsContent value="auto" className="mt-0 flex flex-1 flex-col">
                 <Input
                   ref={inputRef}
-                  id="kode-barang-manual"
+                  id="kode-barang-auto"
                   value={kodeBarang}
                   onChange={(e) => updateKodeBarang(e.target.value)}
                   onKeyDown={(e) => {
@@ -432,6 +432,7 @@ export default function PreparePage() {
                       void handleScanSubmit(kodeBarangRef.current);
                     }
                   }}
+                  placeholder="Masukkan serial number"
                   className="hidden"
                 />
                 <div className="flex flex-1 flex-col items-center justify-center gap-4 rounded-lg border border-dashed bg-muted/20 px-6 py-10 text-center">

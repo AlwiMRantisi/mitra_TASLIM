@@ -1,4 +1,4 @@
-export type StatusUnit = "Tersedia" | "Diluar" | "Rusak" | "Hilang";
+export type StatusUnit = "Tersedia" | "Terdistribusi" | "Rusak" | "Hilang";
 
 export interface InventoryItem {
   id: string;
@@ -28,12 +28,17 @@ export interface BarangUnit {
 
 export interface RiwayatUnit {
   tanggal: string;
-  tipe: string;
-  nomorSurat: string;
-  dariStatus: string;
-  keStatus: string;
-  lokasi: string;
+  tipe?: string;
+  nomorSurat?: string;
+  dariStatus?: string;
+  keStatus?: string;
+  lokasi?: string;
   catatan?: string;
+  kategori?: string;
+  nomor?: string;
+  tujuan?: string;
+  asal?: string;
+  keterangan?: string;
 }
 
 export type CategoryDefinition = {
