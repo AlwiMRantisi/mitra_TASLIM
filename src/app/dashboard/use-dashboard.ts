@@ -3,6 +3,7 @@ import { DashboardService } from '@/services/dashboard.service';
 import type { Transaction, DashboardTransaction, RequestSummary, ActivityItem } from "@/types/transaction"
 import type { InventoryStats } from "@/types/dashboard"
 import { useAuth } from "@/lib/auth"
+import type { AuthUser } from "@/types/auth"
 
 const DASHBOARD_TRANSACTION_LIMIT = 6;
 const DASHBOARD_REFRESH_INTERVAL = 5000;
@@ -24,6 +25,109 @@ const addDays = (date: Date, days: number) => {
     const next = new Date(date)
     next.setDate(next.getDate() + days)
     return next
+}
+
+type RawRecord = Record<string, unknown>
+
+const asRecord = (value: unknown): RawRecord =>
+    value && typeof value === "object" && !Array.isArray(value) ? (value as RawRecord) : {}
+
+const normalizeText = (value: unknown) => {
+    if (value === null || value === undefined || typeof value === "object") return ""
+    return String(value).trim()
+}
+
+const normalizeKey = (value: unknown) => normalizeText(value).toLowerCase()
+
+const readFirstText = (...values: unknown[]) => {
+    for (const value of values) {
+        const text = normalizeText(value)
+        if (text) return text
+    }
+
+    return ""
+}
+
+const readNumber = (value: unknown, fallback = 0) => {
+    const numberValue = typeof value === "number" ? value : Number(value)
+    return Number.isFinite(numberValue) ? numberValue : fallback
+}
+
+const requestBelongsToUser = (rawValue: unknown, user: AuthUser | null) => {
+    if (!user) return false
+
+    const raw = asRecord(rawValue)
+    const requester = asRecord(raw.requester)
+    const requesterProfile = asRecord(requester.profile)
+    const partner = asRecord(raw.partner)
+    const userProfile = asRecord(user.profile)
+
+    const userIds = [
+        user.id,
+        user.partnerId,
+        user.identityCode,
+        userProfile.id,
+        userProfile.identityCode,
+        userProfile.kode,
+    ].map(normalizeKey).filter(Boolean)
+
+    const requestIds = [
+        raw.requesterId,
+        raw.userId,
+        raw.partnerId,
+        raw.mitraId,
+        requester.id,
+        requesterProfile.id,
+        requesterProfile.identityCode,
+        requesterProfile.kode,
+        partner.id,
+        partner.identityCode,
+        partner.kode,
+    ].map(normalizeKey).filter(Boolean)
+
+    if (userIds.some((id) => requestIds.includes(id))) return true
+
+    const requesterName = normalizeKey(
+        readFirstText(
+            raw.requesterName,
+            requesterProfile.nama,
+            requesterProfile.name,
+            requester.username
+        )
+    )
+    const identityCode = normalizeKey(user.identityCode)
+
+    return (
+        requesterName === normalizeKey(user.displayName) ||
+        requesterName === normalizeKey(user.username) ||
+        Boolean(identityCode && requesterName.includes(identityCode))
+    )
+}
+
+const mapRequestSummary = (value: unknown): RequestSummary => {
+    const request = asRecord(value)
+    const requester = asRecord(request.requester)
+    const requesterProfile = asRecord(requester.profile)
+    const requestItems = Array.isArray(request.requestItems) ? request.requestItems : []
+
+    return {
+        id: readFirstText(request.id),
+        requestNumber: readFirstText(request.requestNumber, request.nomor, request.id, "-"),
+        requesterName: readFirstText(
+            request.requesterName,
+            requesterProfile.nama,
+            requesterProfile.name,
+            requester.username,
+            "Unknown"
+        ),
+        partnerCategory: readFirstText(request.partnerCategory, requesterProfile.partnerType),
+        status: readFirstText(request.status, "MENUNGGU"),
+        requestedAt: readFirstText(request.requestedAt, request.createdAt, request.updatedAt),
+        itemsCount:
+            typeof request.itemsCount === "number"
+                ? request.itemsCount
+                : requestItems.reduce((total, item) => total + readNumber(asRecord(item).quantity), 0),
+    }
 }
 
 export function useDashboard() {
@@ -72,7 +176,7 @@ export function useDashboard() {
             const visibleRequests = requestData.filter(
                 (req: any) =>
                     user?.role !== "mitra" ||
-                    req.requesterName?.trim().toLowerCase() === user?.displayName?.trim().toLowerCase()
+                    requestBelongsToUser(req, user)
             );
 
             // Grouping by Mitra
@@ -119,15 +223,7 @@ export function useDashboard() {
             setTransactions(flattened);
             setRequests(visibleRequests.slice(0, DASHBOARD_TRANSACTION_LIMIT));
 
-            const mappedRequests: RequestSummary[] = (visibleRequests as any[]).map((r) => ({
-                id: r.id,
-                requestNumber: r.requestNumber,
-                requesterName: r.requesterName || "Unknown",
-                partnerCategory: r.partnerCategory,
-                status: r.status,
-                requestedAt: r.requestedAt || r.createdAt,
-                itemsCount: r.itemsCount ?? 0,
-            }));
+            const mappedRequests = visibleRequests.map(mapRequestSummary);
             setAllRequests(mappedRequests);
             setIsLoadingRequests(false);
 
@@ -188,9 +284,9 @@ export function useDashboard() {
     }, [fetchDashboardData]);
 
     const requestCounts = {
-        menunggu: allRequests.filter((r) => r.status === "MENUNGGU").length,
-        disetujui: allRequests.filter((r) => r.status === "DISETUJUI").length,
-        siap: allRequests.filter((r) => r.status === "SIAP").length,
+        menunggu: allRequests.filter((r) => normalizeKey(r.status) === "menunggu").length,
+        disetujui: allRequests.filter((r) => normalizeKey(r.status) === "disetujui").length,
+        siap: allRequests.filter((r) => normalizeKey(r.status) === "siap").length,
     };
 
     const recentRequests = [...allRequests]

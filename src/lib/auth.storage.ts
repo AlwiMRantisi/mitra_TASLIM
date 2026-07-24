@@ -3,6 +3,20 @@ import type { AuthUser, UserRole } from "@/types/auth";
 const AUTH_STORAGE_KEY = "arxiva-auth-user";
 const AUTH_TOKEN_KEY = "arxiva-auth-token";
 
+const sanitizeProfile = (profile: any): AuthUser["profile"] => {
+	if (!profile || typeof profile !== "object") return undefined;
+
+	const sanitized = { ...profile };
+	if (
+		typeof sanitized.picSignatureUrl === "string" &&
+		sanitized.picSignatureUrl.startsWith("data:image/svg+xml")
+	) {
+		sanitized.picSignatureUrl = null;
+	}
+
+	return sanitized;
+};
+
 export function getStoredUser(): AuthUser | null {
 	try {
 		const storedUser = localStorage.getItem(AUTH_STORAGE_KEY);
@@ -60,6 +74,6 @@ export function normalizeAuthUser(rawUser: any): AuthUser {
 			rawUser?.profile?.code ||
 			rawUser?.code ||
 			(role === "admin" ? "ADM" : "MTR"),
-		profile: rawUser?.profile || undefined,
+		profile: sanitizeProfile(rawUser?.profile),
 	};
 }

@@ -97,9 +97,11 @@ export type DashboardRequest = {
   partnerCategory?: string
   itemsCount?: number
   itemsDetail?: string
+  adminRemarks?: string
   status: string
   notes: string
   requestedAt: string
+  requestedDeliveryDate?: string
   requestItems?: RequestItem[]
   requestAllocations?: RequestAllocation[]
   deliveryDocument?: {

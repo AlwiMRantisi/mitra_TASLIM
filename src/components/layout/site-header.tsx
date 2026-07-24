@@ -39,6 +39,12 @@ export function SiteHeader({ className }: { className?: string }) {
         parent = "Request"
         pageName = "Detail Permintaan"
         parentLink = "#/request"
+    } else if (path === "/partner-request/new") {
+        parent = "Operasional"
+        pageName = "Ajukan Request"
+    } else if (path === "/partner-request/history") {
+        parent = "Operasional"
+        pageName = "Histori Request"
     } else if (path === "/data-barang") {
         parent = "Inventori"
         pageName = "Data Barang"

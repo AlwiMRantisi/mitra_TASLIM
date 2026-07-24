@@ -27,6 +27,8 @@ import {
 import {
   Box,
   CircleStar,
+  ClipboardList,
+  ClipboardPlus,
   Database,
   Handshake,
   HistoryIcon,
@@ -125,6 +127,50 @@ const data = {
       ],
     },
   ],
+  mitraNavMain: [
+    {
+      title: "Operasional",
+      items: [
+        {
+          title: "Barang Keluar",
+          url: "/barang-keluar",
+          icon: (
+            <PackageMinus />
+          ),
+          isActive: false,
+        },
+        {
+          title: "Ajukan Request",
+          url: "/partner-request/new",
+          icon: (
+            <ClipboardPlus />
+          ),
+          isActive: false,
+        },
+        {
+          title: "Histori Request",
+          url: "/partner-request/history",
+          icon: (
+            <ClipboardList />
+          ),
+          isActive: false,
+        },
+      ],
+    },
+    {
+      title: "Inventori",
+      items: [
+        {
+          title: "Data Barang",
+          url: "/data-barang",
+          icon: (
+            <Database />
+          ),
+          isActive: false,
+        },
+      ],
+    },
+  ],
   main: [
     {
       name: "Dashboard",
@@ -152,19 +198,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user, logout } = useAuth()
   const [isLogoutDialogOpen, setIsLogoutDialogOpen] = React.useState(false)
   const isAdmin = user?.role === "admin"
-  const mitraAllowedUrls = new Set([
-    "/barang-masuk",
-    "/request",
-    "/data-barang",
-  ])
-  const visibleNavMain = isAdmin
-    ? data.navMain
-    : data.navMain
-      .map((group) => ({
-        ...group,
-        items: group.items.filter((item) => mitraAllowedUrls.has(item.url)),
-      }))
-      .filter((group) => group.items.length > 0)
+  const visibleNavMain = isAdmin ? data.navMain : data.mitraNavMain
 
   const handleLogout = () => {
     logout()

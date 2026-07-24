@@ -15,6 +15,8 @@ import MitraPage from "@/app/mitra/page";
 import LoginPage from "@/app/login/page";
 import PengaturanPage from "@/app/pengaturan/page";
 import MobileSignPage from "@/app/mobile-sign/page";
+import PartnerRequestNewPage from "@/app/partner-request/new/page";
+import PartnerRequestHistoryPage from "@/app/partner-request/history/page";
 
 export function AppRoutes() {
 	return (
@@ -37,6 +39,22 @@ export function AppRoutes() {
 					element={
 						<ProtectedRoute adminOnly>
 							<PreparePage />
+						</ProtectedRoute>
+					}
+				/>
+				<Route
+					path="partner-request/new"
+					element={
+						<ProtectedRoute mitraOnly>
+							<PartnerRequestNewPage />
+						</ProtectedRoute>
+					}
+				/>
+				<Route
+					path="partner-request/history"
+					element={
+						<ProtectedRoute mitraOnly>
+							<PartnerRequestHistoryPage />
 						</ProtectedRoute>
 					}
 				/>

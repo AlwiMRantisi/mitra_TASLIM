@@ -17,6 +17,9 @@ interface DigitalSignatureDialogProps {
   onSignComplete: () => void;
 }
 
+const isUnsupportedStoredSignature = (value?: string | null) =>
+  typeof value === "string" && value.startsWith("data:image/svg+xml");
+
 export function DigitalSignatureDialog({
   open,
   onOpenChange,
@@ -37,12 +40,23 @@ export function DigitalSignatureDialog({
     if (open && user?.profile?.picSignatureUrl && !qrMode) {
       setTimeout(() => {
         const sigUrl = user?.profile?.picSignatureUrl;
+        if (isUnsupportedStoredSignature(sigUrl)) {
+          sigPad.current?.clear();
+          updateUser({
+            profile: {
+              ...user.profile,
+              picSignatureUrl: null,
+            },
+          });
+          return;
+        }
+
         if (sigPad.current && sigUrl) {
           sigPad.current.fromDataURL(sigUrl);
         }
       }, 150);
     }
-  }, [open, user, qrMode]);
+  }, [open, user, qrMode, updateUser]);
 
   // Clean up polling on unmount or close
   useEffect(() => {

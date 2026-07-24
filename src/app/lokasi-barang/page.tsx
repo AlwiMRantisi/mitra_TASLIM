@@ -9,7 +9,6 @@ import QRCode from "qrcode";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { useNavigate } from "react-router-dom";
 
-import dummyLocations from "@/data/dummy-locations.json";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -87,10 +86,23 @@ export default function LokasiBarangPage() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const loadLocations = async () => {
-  setLocations((dummyLocations as StorageLocation[]).filter(
-    loc => loc.name !== "Keluar" && loc.name !== "Diluar"
-  ));
-};
+    try {
+      const res = await fetch(`${getBaseUrl()}/locations`, {
+        method: "GET",
+        headers: getHeaders(),
+      });
+      if (!res.ok) throw new Error("Gagal mengambil data lokasi");
+      const json = await res.json();
+      const data: StorageLocation[] = json.data || json || [];
+      setLocations(
+        data.filter(
+          (loc) => loc.name !== "Keluar" && loc.name !== "Diluar"
+        )
+      );
+    } catch (error) {
+      toast.error("Gagal mengambil data lokasi dari server.");
+    }
+  };
 
 
   const loadBrands = async () => {
@@ -680,7 +692,7 @@ export default function LokasiBarangPage() {
                 <svg width="120" height="120" viewBox="0 0 120 120" className="drop-shadow-lg" style={{ filter: `drop-shadow(0 0 10px ${glowColor})` }}>
                   {/* Track */}
                   <circle cx="60" cy="60" r={r} fill="none" stroke="#1f2937" strokeWidth="12" />
-                  {/* Progress arc */}
+                  {/* Progress arc — rotate -90° agar arc mulai dari atas (12 o'clock) */}
                   <circle
                     cx="60" cy="60" r={r}
                     fill="none"
@@ -688,7 +700,7 @@ export default function LokasiBarangPage() {
                     strokeWidth="12"
                     strokeLinecap="round"
                     strokeDasharray={`${dash} ${circ}`}
-                    strokeDashoffset={circ / 4}
+                    transform="rotate(-90 60 60)"
                     style={{ transition: "stroke-dasharray 1s cubic-bezier(0.4,0,0.2,1), stroke 0.5s ease" }}
                   />
                   {/* Center text */}

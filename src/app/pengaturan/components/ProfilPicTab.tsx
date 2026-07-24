@@ -13,6 +13,9 @@ import { api, getBaseUrl } from "@/lib/api";
 import QRCode from "qrcode";
 import { getSignatureDataUrl } from "@/lib/trimCanvas";
 
+const isUnsupportedStoredSignature = (value?: string | null) =>
+  typeof value === "string" && value.startsWith("data:image/svg+xml");
+
 export function ProfilPicTab() {
   const { user, updateUser } = useAuth();
   const [picName, setPicName] = useState("");
@@ -29,12 +32,23 @@ export function ProfilPicTab() {
       // Need a small timeout to let the canvas render before loading data URL
       setTimeout(() => {
         const sigUrl = user.profile?.picSignatureUrl;
+        if (isUnsupportedStoredSignature(sigUrl)) {
+          sigPad.current?.clear();
+          updateUser({
+            profile: {
+              ...user.profile,
+              picSignatureUrl: null
+            }
+          });
+          return;
+        }
+
         if (sigUrl && sigPad.current) {
           sigPad.current.fromDataURL(sigUrl);
         }
       }, 100);
     }
-  }, [user]);
+  }, [user, updateUser]);
 
   const handleClear = () => {
     sigPad.current?.clear();

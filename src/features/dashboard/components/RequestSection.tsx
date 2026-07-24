@@ -25,6 +25,7 @@ interface RequestSectionProps {
     counts: RequestCounts
     isLoading: boolean
     className?: string
+    variant?: "admin" | "mitra"
 }
 
 function getStatusBadgeClass(status: string): string {
@@ -84,16 +85,22 @@ function formatDate(dateStr: string): string {
     }
 }
 
-export function RequestSection({ requests, counts, isLoading, className }: RequestSectionProps) {
+export function RequestSection({ requests, counts, isLoading, className, variant = "admin" }: RequestSectionProps) {
     const navigate = useNavigate()
-    const waitingRequests = requests.filter(req => req.status.toUpperCase() === "MENUNGGU")
+    const isMitra = variant === "mitra"
+    const requestTarget = isMitra ? "/partner-request/history" : "/request"
+    const displayedRequests = isMitra
+        ? requests
+        : requests.filter(req => req.status.toUpperCase() === "MENUNGGU")
 
     return (
         <Card className={cn("flex flex-col h-full shadow-sm", className)}>
             <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-base">Request Masuk</CardTitle>
+                <CardTitle className="text-base">
+                    {isMitra ? "Status Request Mitra" : "Request Masuk"}
+                </CardTitle>
                 <div
-                    onClick={() => navigate("/request")}
+                    onClick={() => navigate(requestTarget)}
                     className="rounded-full p-1.5 cursor-pointer bg-muted transition-colors hover:bg-muted/80"
                 >
                     <ArrowUpRight size={14} className="text-muted-foreground" />
@@ -110,7 +117,7 @@ export function RequestSection({ requests, counts, isLoading, className }: Reque
                     ].map((kpi) => (
                         <div
                             key={kpi.label}
-                            onClick={() => navigate(`/request?tab=${kpi.label}`)}
+                            onClick={() => navigate(isMitra ? requestTarget : `/request?tab=${kpi.label}`)}
                             className={cn(
                                 "flex items-center gap-3 p-3 rounded-xl border border-input bg-muted/20 hover:bg-muted/40 cursor-pointer transition-all"
                             )}
@@ -136,12 +143,14 @@ export function RequestSection({ requests, counts, isLoading, className }: Reque
                                 <Skeleton key={i} className="h-8 w-full" />
                             ))}
                         </div>
-                    ) : waitingRequests.length === 0 ? (
+                    ) : displayedRequests.length === 0 ? (
                         <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
                             <div className="size-10 rounded-full bg-muted flex items-center justify-center">
                                 <InboxIcon className="size-5 text-muted-foreground" />
                             </div>
-                            <p className="text-sm text-muted-foreground">Belum ada request terbaru</p>
+                            <p className="text-sm text-muted-foreground">
+                                {isMitra ? "Belum ada status request mitra" : "Belum ada request terbaru"}
+                            </p>
                         </div>
                     ) : (
                         <div className="rounded-lg border overflow-hidden">
@@ -150,18 +159,22 @@ export function RequestSection({ requests, counts, isLoading, className }: Reque
                                     <TableRow className="hover:bg-transparent">
                                         <TableHead className="w-[50px] text-xs h-9">No</TableHead>
                                         <TableHead className="text-xs h-9">No. Permintaan</TableHead>
-                                        <TableHead className="text-xs h-9">Tanggal Masuk</TableHead>
-                                        <TableHead className="text-xs h-9">Mitra</TableHead>
+                                        <TableHead className="text-xs h-9">
+                                            {isMitra ? "Tanggal Request" : "Tanggal Masuk"}
+                                        </TableHead>
+                                        <TableHead className="text-xs h-9">
+                                            {isMitra ? "Jumlah" : "Mitra"}
+                                        </TableHead>
                                         <TableHead className="text-xs h-9">Kategori</TableHead>
                                         <TableHead className="text-right text-xs h-9">Status</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {waitingRequests.map((req, index) => (
+                                    {displayedRequests.map((req, index) => (
                                         <TableRow
                                             key={req.id}
                                             className="cursor-pointer group"
-                                            onClick={() => navigate(`/request?tab=${getStatusLabel(req.status)}`)}
+                                            onClick={() => navigate(isMitra ? requestTarget : `/request?tab=${getStatusLabel(req.status)}`)}
                                         >
                                             <TableCell className="text-[13px] text-muted-foreground py-2.5">
                                                 {index + 1}
@@ -172,11 +185,11 @@ export function RequestSection({ requests, counts, isLoading, className }: Reque
                                             <TableCell className="text-[13px] text-muted-foreground py-2.5 whitespace-nowrap">
                                                 {formatDate(req.requestedAt)}
                                             </TableCell>
-                                            <TableCell className="text-[13px] py-2.5 truncate max-w-[150px]" title={req.requesterName}>
-                                                {req.requesterName}
+                                            <TableCell className="text-[13px] py-2.5 truncate max-w-[150px]" title={isMitra ? `${req.itemsCount} item` : req.requesterName}>
+                                                {isMitra ? req.itemsCount : req.requesterName}
                                             </TableCell>
                                             <TableCell className="text-[13px] py-2.5 text-muted-foreground">
-                                                {req.partnerCategory}
+                                                {req.partnerCategory || "-"}
                                             </TableCell>
                                             <TableCell className="text-right py-2.5">
                                                 <StatusBadge status={req.status} />
