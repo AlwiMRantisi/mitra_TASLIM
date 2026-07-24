@@ -39,9 +39,10 @@ export function PengambilanQrModal({
           const res = await api.post("/signature-session", { requestId: request.id });
           const sessId = res.data.id;
 
-          const baseFrontendUrl = import.meta.env.VITE_FRONTEND_URL || window.location.origin;
-          const mobileUrl = `${baseFrontendUrl}#/mobile-sign/${sessId}`;
+          const backendBaseUrl = getBaseUrl();
+          const mobileUrl = `${backendBaseUrl}/signature-session/${sessId}/mobile`;
           const qrData = await QRCode.toDataURL(mobileUrl, { width: 320, margin: 2 });
+
           setQrCodeDataUrl(qrData);
           setIsLoading(false);
 

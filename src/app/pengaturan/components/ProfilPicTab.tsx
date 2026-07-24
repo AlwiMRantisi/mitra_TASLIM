@@ -74,8 +74,8 @@ export function ProfilPicTab() {
       const res = await api.post(`/signature-session`, { userId: user?.id });
       const sessionId = res.data.id;
       
-      const baseFrontendUrl = import.meta.env.VITE_FRONTEND_URL || window.location.origin;
-      const mobileUrl = `${baseFrontendUrl}#/mobile-sign/${sessionId}`;
+      const backendBaseUrl = getBaseUrl();
+      const mobileUrl = `${backendBaseUrl}/signature-session/${sessionId}/mobile`;
       
       const url = await QRCode.toDataURL(mobileUrl, { width: 300, margin: 2 });
       setQrCodeUrl(url);

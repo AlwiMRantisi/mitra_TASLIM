@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { PenTool, Smartphone, Loader2, Eraser } from "lucide-react";
 import SignatureCanvas from "react-signature-canvas";
 import { toast } from "sonner";
-import { api } from "@/lib/api";
+import { api, getBaseUrl } from "@/lib/api";
 import QRCode from "qrcode";
 import { useAuth } from "@/lib/auth";
 import { getSignatureDataUrl } from "@/lib/trimCanvas";
@@ -60,9 +60,10 @@ export function DigitalSignatureDialog({
       const res = await api.post(`/signature-session`);
       const sessionId = res.data.id;
       
-      const baseFrontendUrl = import.meta.env.VITE_FRONTEND_URL || window.location.origin;
-      const mobileUrl = `${baseFrontendUrl}${window.location.pathname}#/mobile-sign/${sessionId}`;
+      const backendBaseUrl = getBaseUrl();
+      const mobileUrl = `${backendBaseUrl}/signature-session/${sessionId}/mobile`;
       const url = await QRCode.toDataURL(mobileUrl, { width: 300, margin: 2 });
+
       
       setQrCodeUrl(url);
       setQrMode(true);
