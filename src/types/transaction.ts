@@ -105,6 +105,10 @@ export type DashboardRequest = {
   deliveryDocument?: {
     kpSignedById?: string | null
     picSignedById?: string | null
+    filePath?: string | null
+    finalFilePath?: string | null
+    driveFileId?: string | null
+    driveViewUrl?: string | null
   } | null
 }
 

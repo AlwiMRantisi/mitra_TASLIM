@@ -452,14 +452,14 @@ export default function DataBarangPage() {
   const getStatusBadgeProps = (status: StatusUnit) => {
     switch (status) {
       case "Tersedia":
-        return { text: "Tersedia", dotClass: "bg-emerald-500" }
+        return { text: "Tersedia", dotClass: "bg-emerald-500", badgeClass: "bg-emerald-400/10 text-emerald-500" }
       case "Terdistribusi":
-        return { text: "Terdistribusi", dotClass: "bg-sky-500" }
+        return { text: "Terdistribusi", dotClass: "bg-sky-500", badgeClass: "bg-blue-400/10 text-blue-500" }
       case "Rusak":
-        return { text: "Rusak", dotClass: "bg-rose-500" }
+        return { text: "Rusak", dotClass: "bg-rose-500", badgeClass: "bg-rose-400/10 text-rose-500" }
       case "Hilang":
       default:
-        return { text: "Hilang", dotClass: "bg-amber-500" }
+        return { text: "Hilang", dotClass: "bg-amber-500", badgeClass: "bg-amber-400/10 text-amber-500" }
     }
   }
 

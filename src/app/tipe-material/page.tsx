@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { Plus, Edit, Trash2, Search, Box, MoreVertical, Loader2 } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Plus, Edit, Trash2, Search, Box, MoreVertical, Loader2, PackageOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -10,6 +9,14 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetFo
 import { Label } from "@/components/ui/label";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 const getBaseUrl = () => {
   const baseUrl = import.meta.env.URL || import.meta.env.VITE_URL;
@@ -43,14 +50,20 @@ export default function TipeMaterialPage() {
         setTypes(data);
       }
     } catch (e) {
-      toast.error("Gagal mengambil data tipe material.");
+      toast.error("Gagal mengambil data model barang.");
     }
   };
 
   useEffect(() => { loadTypes(); }, []);
 
   const filteredTypes = useMemo(() => {
-    return types.filter(t => t.nama?.toLowerCase().includes(searchQuery.toLowerCase()));
+    const q = searchQuery.toLowerCase();
+    return types.filter(t => 
+      t.nama?.toLowerCase().includes(q) ||
+      t.code?.toLowerCase().includes(q) ||
+      t.brand?.nama?.toLowerCase().includes(q) ||
+      t.materialCategory?.nama?.toLowerCase().includes(q)
+    );
   }, [types, searchQuery]);
 
   const handleOpenSheet = (id?: string) => {
@@ -77,7 +90,7 @@ export default function TipeMaterialPage() {
     }
 
     if (types.some(t => String(t.id) !== String(editId) && t.nama.toLowerCase() === normalizedName.toLowerCase())) {
-      setNameError("Nama tipe material sudah terdaftar.");
+      setNameError("Nama model sudah terdaftar.");
       return;
     }
 
@@ -94,9 +107,9 @@ export default function TipeMaterialPage() {
       if (!res.ok) throw new Error("Gagal menyimpan");
       await loadTypes();
       setIsSheetOpen(false);
-      toast.success(`Berhasil ${editId ? "memperbarui" : "menambahkan"} tipe material`);
+      toast.success(`Berhasil ${editId ? "memperbarui" : "menambahkan"} model barang`);
     } catch (e) {
-      toast.error("Gagal menyimpan tipe material");
+      toast.error("Gagal menyimpan model barang");
     } finally {
       setIsSaving(false);
     }
@@ -109,9 +122,9 @@ export default function TipeMaterialPage() {
       const res = await fetch(`${getBaseUrl()}/material-types/${deleteAlertData.id}`, { method: "DELETE", headers: getHeaders() });
       if (!res.ok) throw new Error("Gagal menghapus");
       await loadTypes();
-      toast.success("Berhasil menghapus tipe material");
+      toast.success("Berhasil menghapus model barang");
     } catch (e) {
-      toast.error("Gagal menghapus tipe material karena sedang digunakan.");
+      toast.error("Gagal menghapus model barang karena sedang digunakan.");
     } finally {
       setIsDeleting(false);
       setDeleteAlertData({ isOpen: false, id: "", name: "" });
@@ -123,49 +136,84 @@ export default function TipeMaterialPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="relative w-full sm:w-72">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
-          <Input placeholder="Cari tipe material..." className="w-full pl-9 bg-neutral-900 border-neutral-800 focus-visible:ring-1 focus-visible:ring-neutral-700" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+          <Input placeholder="Cari model barang..." className="w-full pl-9 bg-neutral-900 border-neutral-800 focus-visible:ring-1 focus-visible:ring-neutral-700" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
         </div>
         <Button className="w-full sm:w-auto gap-2" onClick={() => handleOpenSheet()}>
-          <Plus className="w-4 h-4" /> Tambah Tipe Material
+          <Plus className="w-4 h-4" /> Tambah Model Barang
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 pb-10">
-        {filteredTypes.map(t => (
-          <Card key={t.id} className="overflow-hidden relative group transition-all duration-300 hover:border-neutral-700 hover:bg-neutral-900/60">
-            <CardContent className="px-5 py-5 flex flex-col gap-4">
-              <div className="flex justify-between items-start">
-                <div className="p-2.5 bg-blue-500/10 rounded-xl shrink-0">
-                  <Box className="w-6 h-6 text-blue-400" />
-                </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-neutral-800 text-neutral-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <MoreVertical className="w-4 h-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="bg-neutral-950 border-neutral-800 text-neutral-200">
-                    <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800" onClick={() => handleOpenSheet(t.id)}>
-                      <Edit className="w-4 h-4 mr-2" /> Edit Tipe
-                    </DropdownMenuItem>
-                    <DropdownMenuItem className="text-red-400 focus:bg-red-950/50 focus:text-red-400 cursor-pointer" onClick={() => setDeleteAlertData({ isOpen: true, id: t.id, name: t.nama })}>
-                      <Trash2 className="w-4 h-4 mr-2" /> Hapus Tipe
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-              <div>
-                <h3 className="font-semibold text-lg text-neutral-100 mb-1">{t.nama}</h3>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+      <div className="relative min-h-0 flex-1 rounded-md border border-border/60 bg-card/40 overflow-auto">
+        <Table>
+          <TableHeader className="sticky top-0 z-10 bg-muted/80 backdrop-blur-md">
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="w-16 text-center text-xs font-semibold">No.</TableHead>
+              <TableHead className="text-xs font-semibold">Kode Model</TableHead>
+              <TableHead className="text-xs font-semibold">Nama Model</TableHead>
+              <TableHead className="text-xs font-semibold">Merek</TableHead>
+              <TableHead className="text-xs font-semibold">Kategori</TableHead>
+              <TableHead className="text-right text-xs font-semibold">Total Unit</TableHead>
+              <TableHead className="w-16 text-right"></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredTypes.map((t, index) => (
+              <TableRow key={t.id} className="hover:bg-muted/40 transition-colors text-xs md:text-sm">
+                <TableCell className="text-center font-medium text-muted-foreground text-xs">
+                  {index + 1}
+                </TableCell>
+                <TableCell className="font-mono text-xs text-muted-foreground">
+                  {t.code || '-'}
+                </TableCell>
+                <TableCell className="font-medium text-foreground">
+                  {t.nama}
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  {t.brand?.nama || '-'}
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  {t.materialCategory?.nama || '-'}
+                </TableCell>
+                <TableCell className="text-right text-muted-foreground">
+                  {t._count?.items || 0} Unit
+                </TableCell>
+                <TableCell className="text-right">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-neutral-800 text-neutral-400">
+                        <MoreVertical className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="bg-neutral-950 border-neutral-800 text-neutral-200">
+                      <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800" onClick={() => handleOpenSheet(t.id)}>
+                        <Edit className="w-4 h-4 mr-2" /> Edit Model
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="text-red-400 focus:bg-red-950/50 focus:text-red-400 cursor-pointer" onClick={() => setDeleteAlertData({ isOpen: true, id: t.id, name: t.nama })}>
+                        <Trash2 className="w-4 h-4 mr-2" /> Hapus Model
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+        
         {filteredTypes.length === 0 && (
-          <div className="col-span-full py-16 flex flex-col items-center justify-center text-center">
-            <div className="w-16 h-16 bg-neutral-900 rounded-full flex items-center justify-center mb-4">
-              <Search className="w-8 h-8 text-neutral-600" />
+          <div className="flex min-h-[300px] items-center justify-center px-6 py-12">
+            <div className="flex max-w-md flex-col items-center gap-3 text-center">
+              <div className="flex size-12 items-center justify-center rounded-full border bg-muted/40 text-muted-foreground">
+                <PackageOpen className="size-6" strokeWidth={1.8} />
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-foreground">
+                  Model Barang Tidak Ditemukan
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Data model barang tidak ditemukan atau belum ada data yang ditambahkan.
+                </p>
+              </div>
             </div>
-            <h3 className="text-lg font-medium text-neutral-300 mb-1">Tipe Material Tidak Ditemukan</h3>
           </div>
         )}
       </div>
@@ -173,13 +221,13 @@ export default function TipeMaterialPage() {
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
         <SheetContent className="sm:max-w-md border-neutral-800 bg-neutral-950 p-0 flex flex-col text-neutral-200">
           <SheetHeader className="p-6 border-b border-neutral-800/60 bg-neutral-900/20">
-            <SheetTitle className="text-xl text-neutral-100">{editId ? "Edit Tipe Material" : "Tambah Tipe Material"}</SheetTitle>
-            <SheetDescription className="text-neutral-400">Kelola informasi referensi tipe material utama.</SheetDescription>
+            <SheetTitle className="text-xl text-neutral-100">{editId ? "Edit Model Barang" : "Tambah Model Barang"}</SheetTitle>
+            <SheetDescription className="text-neutral-400">Kelola informasi referensi model barang utama.</SheetDescription>
           </SheetHeader>
           <div className="p-6 flex-1 overflow-y-auto">
             <div className="grid gap-5">
               <div className="space-y-2">
-                <Label>Nama Tipe Material</Label>
+                <Label>Nama Model Barang</Label>
                 <Input value={name} onChange={e => { setName(e.target.value); setNameError(""); }} placeholder="Contoh: Kabel Drop Wire" className={`bg-neutral-900 ${nameError ? "border-destructive" : "border-neutral-800"}`} />
                 {nameError && <p className="text-xs text-destructive">{nameError}</p>}
               </div>

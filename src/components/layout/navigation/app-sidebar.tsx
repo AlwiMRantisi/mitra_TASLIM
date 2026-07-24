@@ -91,7 +91,7 @@ const data = {
           isActive: false,
         },
         {
-          title: "Tipe Material",
+          title: "Model Barang",
           url: "/tipe-material",
           icon: (
             <Box />

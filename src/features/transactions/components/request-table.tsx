@@ -1,7 +1,6 @@
 "use client"
 
 import * as React from "react"
-import { confirm } from "@tauri-apps/plugin-dialog"
 import {
     flexRender,
     getCoreRowModel,
@@ -23,12 +22,10 @@ import { Badge } from "@/components/ui/badge"
 import {
     IconPackage,
     IconLoader,
-    IconDotsVertical,
     IconCircleCheck,
     IconX,
     IconBan,
     IconFileText,
-    IconSignature,
     IconChevronsLeft,
     IconChevronLeft,
     IconChevronRight,
@@ -37,19 +34,12 @@ import {
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
-import { api, getBaseUrl } from "@/lib/api"
+import { getBaseUrl } from "@/lib/api"
 import { openUrl } from "@tauri-apps/plugin-opener"
-import {
-    DropdownMenu,
-    DropdownMenuTrigger,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu"
 import { useNavigate } from "react-router-dom"
 import type { DashboardRequest } from "@/types/transaction"
-import { Check, Edit, Pencil, PencilIcon, ArrowUpDown } from "lucide-react"
-import { useAuth } from "@/lib/auth"
+import { PackageCheck, ArrowUpDown, Check, Edit } from "lucide-react"
+import { PengambilanQrModal } from "./PengambilanQrModal"
 import { Label } from "@/components/ui/label"
 import {
     Select,
@@ -173,7 +163,7 @@ function StatusBadge({ status }: { status: string }) {
     )
 }
 
-function DocumentMenu({
+function BastActions({
     row,
     table,
 }: {
@@ -182,95 +172,108 @@ function DocumentMenu({
 }) {
     const status = row.original.status?.toUpperCase()?.trim()
     const meta = table.options.meta as TableMeta | undefined
-    const { user } = useAuth()
+    const [pengambilanModalOpen, setPengambilanModalOpen] = React.useState(false)
 
-    const [isSigning, setIsSigning] = React.useState(false)
-    const [localDeliveryDocument, setLocalDeliveryDocument] = React.useState(
-        row.original.deliveryDocument
-    )
-
-    const handleOpenPDF = React.useCallback(async (e: React.MouseEvent) => {
+    const handleOpenDraftPDF = React.useCallback(async (e: React.MouseEvent) => {
         e.stopPropagation()
         try {
             const token = localStorage.getItem("arxiva-auth-token") || "";
-            const url = `${getBaseUrl()}/requests/${row.original.id}/bast-pdf?token=${token}`;
+            const url = `${getBaseUrl()}/requests/${row.original.id}/pdf-draft?token=${token}`;
             await openUrl(url);
         } catch (error) {
-            toast.error("Gagal membuka PDF BAST");
+            toast.error("Gagal membuka PDF BAST Draft");
         }
-    }, [row.original.id])
+    }, [row.original.id]);
 
-    const handleSignDocument = React.useCallback(async (e: React.MouseEvent) => {
+    const handleOpenSignedPDF = React.useCallback(async (e: React.MouseEvent) => {
         e.stopPropagation()
-        const isConfirmed = await confirm("Apakah Anda yakin ingin menyematkan tanda tangan Anda pada dokumen BAST ini?")
-        if (!isConfirmed) {
-            return
-        }
-        setIsSigning(true)
         try {
-            const res = await api.post(`/requests/${row.original.id}/sign-bast`);
-            toast.success("Dokumen BAST berhasil ditandatangani");
-
-            // Update lokal deliveryDocument agar tombol langsung refresh
-            setLocalDeliveryDocument(res.data.document)
-
-            // Hanya ubah status jika backend konfirmasi kedua TTD sudah lengkap
-            if (res.data.requestStatus === "SELESAI") {
-                meta?.onStatusChange?.(row.original.id, "Selesai")
-            }
-        } catch (error: any) {
-            toast.error(error.message || "Gagal menandatangani dokumen BAST");
-        } finally {
-            setIsSigning(false)
+            const token = localStorage.getItem("arxiva-auth-token") || "";
+            const url = `${getBaseUrl()}/requests/${row.original.id}/pdf-signed?token=${token}`;
+            await openUrl(url);
+        } catch (error) {
+            toast.error("Gagal membuka PDF BAST Final");
         }
-    }, [meta, row.original.id])
+    }, [row.original.id]);
+
+    const handleOpenDrive = React.useCallback(async (e: React.MouseEvent) => {
+        e.stopPropagation()
+        const driveUrl = row.original.deliveryDocument?.driveViewUrl;
+        if (driveUrl) {
+            await openUrl(driveUrl);
+        } else {
+            toast.error("Link Google Drive belum tersedia");
+        }
+    }, [row.original.deliveryDocument?.driveViewUrl]);
 
     const showBastActions = ["SIAP", "SELESAI", "DITERIMA"].includes(status || "")
 
-    // Tentukan apakah user ini sudah menandatangani
-    const role = user?.role?.toUpperCase()
-    const hasAdminSigned = !!(localDeliveryDocument?.kpSignedById)
-    const hasMitraSigned = !!(localDeliveryDocument?.picSignedById)
-    const iAlreadySigned = role === "ADMIN" ? hasAdminSigned : hasMitraSigned
-
-    // Tombol sign hanya muncul di status SIAP dan belum ditandatangani oleh user ini
-    const canSign = status === "SIAP" && !iAlreadySigned
-
     if (!showBastActions) return null;
+
+    const isSigned = ["SELESAI", "DITERIMA"].includes(status || "");
 
     return (
         <div className="flex items-center justify-center gap-2">
-            <Button
-                variant="outline"
-                size="sm"
-                className="h-8 text-xs text-muted-foreground/70 font-medium cursor-pointer"
-                title="Buka PDF BAST"
-                onClick={handleOpenPDF}
-            >
-                <IconFileText size={18} />
-                BAST
-            </Button>
-            {status === "SIAP" && (
+            {!isSigned ? (
                 <Button
                     variant="outline"
                     size="sm"
-                    className="h-8 text-xs text-muted-foreground/70 font-medium cursor-pointer gap-2"
-                    title={iAlreadySigned ? "Sudah ditandatangani" : "Tanda Tangani BAST"}
-                    onClick={canSign ? handleSignDocument : undefined}
-                    disabled={isSigning || iAlreadySigned}
+                    className="h-8 text-xs text-muted-foreground font-medium cursor-pointer gap-1.5"
+                    title="Buka PDF BAST Draft (Tanpa TTD)"
+                    onClick={handleOpenDraftPDF}
                 >
-                    {iAlreadySigned ? (
-                        <>
-                            <Check size={16} />
-                            Signed
-                        </>
-                    ) : (
-                        <>
-                            {isSigning ? <IconLoader className="animate-spin" size={16} /> : <Pencil size={16} />}
-                            Sign
-                        </>
-                    )}
+                    <IconFileText size={16} />
+                    BAST Draft
                 </Button>
+            ) : (
+                <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs font-medium cursor-pointer gap-1.5 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 dark:bg-emerald-500/20 dark:text-emerald-400 border-emerald-500/20"
+                    title="Buka PDF BAST Final (Ber-TTD)"
+                    onClick={handleOpenSignedPDF}
+                >
+                    <IconFileText size={16} />
+                    BAST Final
+                </Button>
+            )}
+
+            {isSigned && row.original.deliveryDocument?.driveViewUrl && (
+                <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs font-medium cursor-pointer gap-1.5 bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 dark:bg-blue-500/20 dark:text-blue-400 border-blue-500/20"
+                    title="Buka di Google Drive"
+                    onClick={handleOpenDrive}
+                >
+                    Google Drive
+                </Button>
+            )}
+
+            {status === "SIAP" && (
+                <>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs font-medium cursor-pointer gap-1.5 bg-sky-500/10 text-sky-600 hover:bg-sky-500/20 dark:bg-sky-500/20 dark:text-sky-400 border-sky-500/20"
+                        title="Pengambilan Material BAST"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setPengambilanModalOpen(true);
+                        }}
+                    >
+                        <PackageCheck size={16} />
+                        Pengambilan
+                    </Button>
+                    <PengambilanQrModal
+                        isOpen={pengambilanModalOpen}
+                        onOpenChange={setPengambilanModalOpen}
+                        request={row.original}
+                        onSuccess={() => {
+                            meta?.onStatusChange?.(row.original.id, "Selesai");
+                        }}
+                    />
+                </>
             )}
         </div>
     )
@@ -445,12 +448,12 @@ function createColumns(): ColumnDef<DashboardRequest>[] {
         {
             accessorKey: "document",
             header: () => <div className="text-center">Dokumen</div>,
-            cell: ({ row, table }) => <DocumentMenu row={row} table={table} />,
+            cell: ({ row, table }) => <BastActions row={row} table={table} />,
         },
-        // {
-        //     id: "actions",
-        //     cell: ({ row, table }) => <div className="flex items-center justify-center"><ActionMenu row={row} table={table} /></div>,
-        // },
+        {
+            id: "actions",
+            cell: ({ row, table }) => <div className="flex items-center justify-center"><ActionMenu row={row} table={table} /></div>,
+        },
     ]
 }
 

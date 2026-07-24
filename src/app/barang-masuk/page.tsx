@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-import { PackagePlus, ScanLine, X, Loader2, Wrench, Lock } from "lucide-react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { PackagePlus, ScanLine, X, Loader2, Wrench, Lock, ChevronsUpDown, Check, Search } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -227,6 +228,18 @@ export default function BarangMasukPage() {
   const [asalBarang, setAsalBarang] = useState<string>("SBU Regional Jawa Barat");
   const [kondisiBarang, setKondisiBarang] = useState<string>("Baru");
   const [tipeBarang, setTipeBarang] = useState<string>("");
+  const [openModelPopover, setOpenModelPopover] = useState(false);
+  const [modelSearch, setModelSearch] = useState("");
+
+  const filteredModels = useMemo(() => {
+    if (!modelSearch.trim()) return dbModels;
+    const q = modelSearch.toLowerCase();
+    return dbModels.filter((m) => {
+      const nama = (m.nama || "").toLowerCase();
+      const brand = (m.brand?.nama || m.brand?.name || "").toLowerCase();
+      return nama.includes(q) || brand.includes(q);
+    });
+  }, [dbModels, modelSearch]);
   const [isSaving, setIsSaving] = useState(false);
 
   const refreshInventoryItems = useCallback(async () => {
@@ -923,29 +936,83 @@ export default function BarangMasukPage() {
               <div className="flex flex-col gap-3">
 
                 {kondisiBarang === "Baru" && (
-                  <Select
-                    value={tipeBarang}
-                    onValueChange={(value) => {
-                      setTipeBarang(value);
-                      focusKodeBarangInput();
-                    }}
-                  >
+                  <div className="space-y-1.5 mb-1">
                     <Label htmlFor="tipe-barang">Model</Label>
-                    <SelectTrigger id="tipe-barang" className="w-full mb-3 h-10">
-                      <SelectValue placeholder="Pilih Model Default (Opsional)" />
-                    </SelectTrigger>
-                    <Label htmlFor="kode-barang-manual">Kode / SN</Label>
-                    <SelectContent>
-                      <SelectGroup>
-                        {dbModels.map((model) => (
-                          <SelectItem key={model.id} value={model.nama}>
-                            {model.nama} ({model.brand?.nama || model.brand?.name || "Tanpa Merek"})
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
+                    <Popover open={openModelPopover} onOpenChange={setOpenModelPopover}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          id="tipe-barang"
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={openModelPopover}
+                          className="w-full justify-between h-10 px-3 font-normal text-muted-foreground bg-background hover:bg-background"
+                        >
+                          <span className="truncate text-foreground text-xs font-medium">
+                            {tipeBarang
+                              ? (() => {
+                                const found = dbModels.find((m) => m.nama === tipeBarang);
+                                const brandName = found?.brand?.nama || found?.brand?.name;
+                                return brandName ? `${tipeBarang} (${brandName})` : tipeBarang;
+                              })()
+                              : "Pilih Model Default (Opsional)"}
+                          </span>
+                          <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50 text-muted-foreground" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                        <div className="p-2 border-b">
+                          <div className="flex items-center gap-2 px-2.5 py-1.5 border rounded-md bg-muted/20">
+                            <Search className="size-3.5 text-muted-foreground shrink-0" />
+                            <input
+                              className="w-full text-xs bg-transparent outline-none placeholder:text-muted-foreground"
+                              placeholder="Cari nama model / merek..."
+                              value={modelSearch}
+                              onChange={(e) => setModelSearch(e.target.value)}
+                            />
+                            {modelSearch && (
+                              <button
+                                type="button"
+                                className="text-muted-foreground hover:text-foreground text-xs"
+                                onClick={() => setModelSearch("")}
+                              >
+                                <X className="size-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <div className="max-h-56 overflow-y-auto p-2 text-xs">
+                          {filteredModels.length === 0 ? (
+                            <div className="p-3 text-center text-muted-foreground">Model tidak ditemukan</div>
+                          ) : (
+                            filteredModels.map((model) => {
+                              const isSelected = tipeBarang === model.nama;
+                              return (
+                                <div
+                                  key={model.id}
+                                  className={`flex items-center justify-between px-2.5 py-2 rounded cursor-pointer hover:bg-accent transition-colors ${isSelected ? "bg-accent font-semibold text-primary" : ""
+                                    }`}
+                                  onClick={() => {
+                                    setTipeBarang(model.nama);
+                                    setOpenModelPopover(false);
+                                    setModelSearch("");
+                                    focusKodeBarangInput();
+                                  }}
+                                >
+                                  <span>
+                                    {model.nama}
+                                  </span>
+                                  {isSelected && <Check className="size-4 text-primary shrink-0" />}
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                 )}
+
+                <Label htmlFor="kode-barang-manual">Kode / SN</Label>
 
                 <Input
                   ref={inputRef}

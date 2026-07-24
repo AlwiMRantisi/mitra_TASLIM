@@ -1,6 +1,6 @@
 import React from "react"
 import { MoreVertical, Edit, Trash2 } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
+
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import {
@@ -31,7 +31,7 @@ interface BarangTableProps {
   userRole?: string
   currentPage: number
   pageSize: number
-  getStatusBadgeProps: (status: StatusUnit) => { text: string; dotClass: string }
+  getStatusBadgeProps: (status: StatusUnit) => { text: string; dotClass?: string; badgeClass?: string }
   formatTanggal: (tgl: string) => string
   ADMIN_LOCATION: string
 }
@@ -111,17 +111,14 @@ export function BarangTable({
                 <TableCell>{item.merek}</TableCell>
                 <TableCell>{item.kategori}</TableCell>
                 <TableCell className="text-center">
-                  <Badge variant="secondary" className="font-normal gap-1.5 px-2 py-0.5 text-xs">
-                    <div className={`w-1.5 h-1.5 rounded-full ${badge.dotClass}`} />
+                  <div className={`inline-flex items-center justify-center rounded-lg px-2.5 py-2 font-medium text-xs leading-none ${badge.badgeClass || ""}`}>
                     {badge.text}
-                  </Badge>
+                  </div>
                 </TableCell>
                 <TableCell className="text-center">{item.lokasiPenyimpanan}</TableCell>
                 {userRole === "admin" && (
                   <TableCell>
-                    <Badge variant="outline" className="font-normal text-xs">
-                      {item.mitra || ADMIN_LOCATION}
-                    </Badge>
+                    {item.mitra || ADMIN_LOCATION}
                   </TableCell>
                 )}
                 {userRole === "admin" && (

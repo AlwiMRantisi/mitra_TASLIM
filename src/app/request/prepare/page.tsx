@@ -482,7 +482,7 @@ export default function PreparePage() {
                   <TableRow>
                     <TableHead>No</TableHead>
                     <TableHead>Serial Number</TableHead>
-                    <TableHead>Nama Barang</TableHead>
+                    <TableHead>Nama Material</TableHead>
                     <TableHead>Brand</TableHead>
                     <TableHead>Kategori</TableHead>
                     <TableHead></TableHead>

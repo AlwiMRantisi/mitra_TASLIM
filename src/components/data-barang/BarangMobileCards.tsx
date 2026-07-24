@@ -1,6 +1,6 @@
 import React from "react"
 import { Card } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { MoreVertical, Edit, Trash2 } from "lucide-react"
@@ -21,7 +21,7 @@ interface BarangMobileCardsProps {
   onOpenEdit: (item: BarangUnit) => void
   onDelete: (id: string) => void
   userRole?: string
-  getStatusBadgeProps: (status: StatusUnit) => { text: string; dotClass: string }
+  getStatusBadgeProps: (status: StatusUnit) => { text: string; dotClass?: string; badgeClass?: string }
   formatTanggal: (tgl: string) => string
   ADMIN_LOCATION: string
 }
@@ -71,10 +71,9 @@ export function BarangMobileCards({
               </div>
 
               <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                <Badge variant="secondary" className="font-normal gap-1 px-2 py-0.5 text-[11px]">
-                  <div className={`w-1.5 h-1.5 rounded-full ${badge.dotClass}`} />
+                <div className={`inline-flex items-center justify-center rounded-lg px-2.5 py-1 font-semibold text-[11px] leading-none ${badge.badgeClass || ""}`}>
                   {badge.text}
-                </Badge>
+                </div>
                 {userRole === "admin" && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>

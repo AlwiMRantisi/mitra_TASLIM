@@ -2,6 +2,8 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import SignatureCanvas from "react-signature-canvas";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Loader2, CheckCircle2, PenTool } from "lucide-react";
 import { api } from "@/lib/api";
 import { getSignatureDataUrl } from "@/lib/trimCanvas";
@@ -13,6 +15,8 @@ export default function MobileSignPage() {
 	const [status, setStatus] = useState<"loading" | "ready" | "submitting" | "success" | "error" | "expired">("loading");
 	const [errorMsg, setErrorMsg] = useState("");
 	const [hasDrawn, setHasDrawn] = useState(false);
+	const [isPengambilan, setIsPengambilan] = useState(false);
+	const [signerName, setSignerName] = useState("");
 
 	// Set canvas size ONCE when canvas becomes visible - no ResizeObserver to avoid clearing on scroll/keyboard
 	useLayoutEffect(() => {
@@ -38,6 +42,9 @@ export default function MobileSignPage() {
 		const checkSession = async () => {
 			try {
 				const res = await api.get(`/signature-session/${sessionId}`);
+				if (res.data.requestId) {
+					setIsPengambilan(true);
+				}
 				if (res.data.status === "COMPLETED") {
 					setStatus("success");
 				} else {
@@ -62,6 +69,10 @@ export default function MobileSignPage() {
 	};
 
 	const handleSubmit = async () => {
+		if (isPengambilan && !signerName.trim()) {
+			setErrorMsg("Silakan isi nama penerima / PIC.");
+			return;
+		}
 		// Use React state (hasDrawn) to check - more reliable than sigPad.isEmpty() on mobile
 		if (!hasDrawn || !sigPad.current || sigPad.current.isEmpty()) {
 			setErrorMsg("Silakan buat tanda tangan terlebih dahulu.");
@@ -76,7 +87,9 @@ export default function MobileSignPage() {
 
 		try {
 			setStatus("submitting");
-			await api.post(`/signature-session/${sessionId}`, { signatureUrl: dataUrl });
+			const payload: any = { signatureUrl: dataUrl };
+			if (isPengambilan) payload.signerName = signerName.trim();
+			await api.post(`/signature-session/${sessionId}`, payload);
 			setStatus("success");
 		} catch (error: any) {
 			setStatus("ready"); // go back to ready so user can retry
@@ -149,6 +162,21 @@ export default function MobileSignPage() {
 					Hapus
 				</Button>
 			</div>
+
+			{isPengambilan && (
+				<div className="flex-shrink-0 p-4 bg-zinc-900/50 border-b border-zinc-800">
+					<Label htmlFor="signerName" className="text-zinc-300 text-sm mb-2 block">
+						Nama Penerima / PIC <span className="text-red-500">*</span>
+					</Label>
+					<Input
+						id="signerName"
+						value={signerName}
+						onChange={(e) => setSignerName(e.target.value)}
+						placeholder="Masukkan nama Anda..."
+						className="bg-zinc-950 border-zinc-800 text-white placeholder:text-zinc-500"
+					/>
+				</div>
+			)}
 
 			{/* Canvas area - flex-1 fills remaining space */}
 			<div ref={containerRef} className="flex-1 bg-white relative overflow-hidden">
