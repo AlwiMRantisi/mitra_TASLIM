@@ -367,10 +367,10 @@ export default function KategoriBarangPage() {
                 )}
               </div>
               <div className="space-y-2">
-                <Label>Tipe Material</Label>
+                <Label>Model Material</Label>
                 <Select value={typeId} onValueChange={setTypeId}>
                   <SelectTrigger className="bg-neutral-900 border-neutral-800">
-                    <SelectValue placeholder="Pilih Tipe Material" />
+                    <SelectValue placeholder="Pilih Model Material" />
                   </SelectTrigger>
                   <SelectContent className="bg-neutral-950 border-neutral-800">
                     {materialTypes.map(mt => (

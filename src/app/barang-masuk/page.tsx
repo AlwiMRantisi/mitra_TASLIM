@@ -697,8 +697,8 @@ export default function BarangMasukPage() {
       (item) => item.kondisi === "Baru" && !item.tipe
     );
     if (hasIncompleteNewItems) {
-      toast.error("Masih ada barang Baru yang belum memiliki Tipe/Model.", {
-        description: "Silakan lengkapi Tipe/Model di tabel sebelum menyimpan.",
+      toast.error("Masih ada barang Baru yang belum memiliki Model Material.", {
+        description: "Silakan lengkapi Model Material di tabel sebelum menyimpan.",
       });
       return;
     }
@@ -1046,7 +1046,7 @@ export default function BarangMasukPage() {
           </CardHeader>
 
           <CardContent className="flex flex-1 flex-col gap-4">
-            <div className="flex-1 overflow-hidden rounded-lg border">
+            <div className="flex-1 overflow-auto rounded-lg border max-h-[calc(100vh-22rem)]">
               <Table>
                 <TableHeader className="sticky top-0 z-10 bg-muted">
                   <TableRow>
@@ -1054,7 +1054,7 @@ export default function BarangMasukPage() {
                     <TableHead>Serial Number</TableHead>
                     <TableHead>Merek</TableHead>
                     <TableHead>Kategori</TableHead>
-                    <TableHead>Tipe/Model</TableHead>
+                    <TableHead>Model Material</TableHead>
                     <TableHead>Asal</TableHead>
                     <TableHead>Lokasi</TableHead>
                     <TableHead className="w-16 text-center">Aksi</TableHead>

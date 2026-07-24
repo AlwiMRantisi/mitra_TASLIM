@@ -56,7 +56,7 @@ export function SiteHeader({ className }: { className?: string }) {
         pageName = "Lokasi Barang"
     } else if (path === "/tipe-material") {
         parent = "Manajemen Data"
-        pageName = "Tipe Material"
+        pageName = "Model Material"
     } else if (path === "/kategori-barang") {
         parent = "Manajemen Data"
         pageName = "Kategori Barang"

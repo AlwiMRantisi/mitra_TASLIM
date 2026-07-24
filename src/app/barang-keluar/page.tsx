@@ -758,7 +758,7 @@ export default function BarangKeluarPage() {
                   <TableHead>Serial Number</TableHead>
                   <TableHead>Merek</TableHead>
                   <TableHead>Kategori</TableHead>
-                  <TableHead>Tipe/Model</TableHead>
+                  <TableHead>Model Material</TableHead>
                   <TableHead>Asal Lokasi</TableHead>
                   {user?.role !== "mitra" && <TableHead>Mitra</TableHead>}
                   {user?.role === "mitra" && <TableHead>PA / Keterangan</TableHead>}

@@ -399,7 +399,7 @@ export default function DataBarangPage() {
         "Serial Number",
         "Merek",
         "Kategori",
-        "Tipe/Model",
+        "Model Material",
         "Status",
         "Lokasi Penyimpanan",
         "Tempat",
