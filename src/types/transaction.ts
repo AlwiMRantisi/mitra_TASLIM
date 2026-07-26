@@ -24,12 +24,15 @@ export type BarangMasukItem = {
   kategori: KategoriOption;
   tipe?: string;
   lokasi: LokasiOption;
-  status: "Valid" | "Invalid";
+  status: "Valid" | "Invalid" | "Rusak";
   existingItemId?: string;
   source: "KP" | "Mitra" | "Baru";
   asal?: string;
   kondisi?: string;
+  catatan?: string;
+  dismantleCondition?: "good" | "bad";
 };
+
 
 export type BarangKeluarItem = {
   id: number;

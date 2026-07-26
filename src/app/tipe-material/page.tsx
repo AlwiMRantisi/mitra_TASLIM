@@ -230,7 +230,7 @@ export default function TipeMaterialPage() {
                 <TableCell className="text-center font-medium text-muted-foreground text-xs">
                   {index + 1}
                 </TableCell>
-                <TableCell className="font-mono text-xs text-muted-foreground">
+                <TableCell className="text-muted-foreground">
                   {t.code || '-'}
                 </TableCell>
                 <TableCell className="font-medium text-foreground">
