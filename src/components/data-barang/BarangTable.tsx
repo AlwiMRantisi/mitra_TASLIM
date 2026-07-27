@@ -129,17 +129,14 @@ export function BarangTable({
                           <MoreVertical className="size-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-36 text-xs">
+                      <DropdownMenuContent align="end" className="w-28 text-xs">
                         <DropdownMenuItem onClick={() => onOpenEdit(item)}>
-                          <Edit className="size-3.5 mr-2" />
                           Edit Unit
                         </DropdownMenuItem>
-                        <DropdownMenuSeparator />
                         <DropdownMenuItem
-                          className="text-rose-600 focus:text-rose-600"
+                          className="text-destructive focus:bg-destructive/10 focus:text-destructive"
                           onClick={() => onDelete(item.id)}
                         >
-                          <Trash2 className="size-3.5 mr-2" />
                           Hapus
                         </DropdownMenuItem>
                       </DropdownMenuContent>

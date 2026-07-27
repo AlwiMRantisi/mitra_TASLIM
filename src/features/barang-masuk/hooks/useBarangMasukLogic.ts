@@ -395,25 +395,27 @@ export function useBarangMasukLogic() {
           if (!resAdd.ok) throw new Error(`Gagal menambah item ${item.nomor}`);
         }
 
-        const newTransaction = {
-          id: `TRX-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-          tanggal: sessionDate,
-          nomor: sessionNomor,
-          kategori: "Masuk",
-          status: "Selesai",
-          sn: item.nomor,
-          merek: item.merek,
-          asal: item.asal || asalBarang,
-          tujuan: item.lokasi,
-          mitra: user?.role === "mitra" ? (user.displayName || "") : "KP Tasikmalaya",
-          keterangan: item.catatan ? `${item.kondisi}: ${item.catatan}` : `${item.kondisi}`,
-        };
-        const resAddTrx = await fetch(`${getBaseUrl()}/transactions`, {
-          method: "POST",
-          headers: getHeaders(),
-          body: JSON.stringify(newTransaction),
-        });
-        if (!resAddTrx.ok) throw new Error(`Gagal mencatat transaksi ${item.nomor}`);
+        if (itemStatus !== "Rusak") {
+          const newTransaction = {
+            id: `TRX-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+            tanggal: sessionDate,
+            nomor: sessionNomor,
+            kategori: "Masuk",
+            status: "Selesai",
+            sn: item.nomor,
+            merek: item.merek,
+            asal: item.asal || asalBarang,
+            tujuan: item.lokasi,
+            mitra: user?.role === "mitra" ? (user.displayName || "") : "KP Tasikmalaya",
+            keterangan: item.catatan ? `${item.kondisi}: ${item.catatan}` : `${item.kondisi}`,
+          };
+          const resAddTrx = await fetch(`${getBaseUrl()}/transactions`, {
+            method: "POST",
+            headers: getHeaders(),
+            body: JSON.stringify(newTransaction),
+          });
+          if (!resAddTrx.ok) throw new Error(`Gagal mencatat transaksi ${item.nomor}`);
+        }
       }
       toast.success(`${session.barangMasuk.length} barang masuk berhasil disimpan.`);
       session.clearSession();

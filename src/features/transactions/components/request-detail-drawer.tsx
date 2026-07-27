@@ -191,6 +191,8 @@ export function RequestDetailDrawer({
     onClose();
   };
 
+  const isSelesai = displayItem.status?.toUpperCase() === 'SELESAI';
+
   return (
     <Drawer direction={"bottom"} open={open} onOpenChange={(o) => !o && onClose()}>
       <DrawerContent>
@@ -218,6 +220,7 @@ export function RequestDetailDrawer({
                         <TableHead>No. Material</TableHead>
                         <TableHead>Nama Material</TableHead>
                         <TableHead>Merek</TableHead>
+                        {isSelesai && <TableHead>SN</TableHead>}
                         <TableHead className="text-right">Jumlah</TableHead>
                         <TableHead className="text-right">Satuan</TableHead>
                       </TableRow>
@@ -231,6 +234,11 @@ export function RequestDetailDrawer({
                             <TableCell className="font-medium text-muted-foreground" title={ra.materialNumber}>{ra.materialNumber}</TableCell>
                             <TableCell className="truncate max-w-50" title={ra.materialName}>{ra.materialName}</TableCell>
                             <TableCell>{ra.brand}</TableCell>
+                            {isSelesai && (
+                              <TableCell>
+                                {ra.serialNumber || "-"}
+                              </TableCell>
+                            )}
                             <TableCell className="text-right font-medium">{ra.quantity}</TableCell>
                             <TableCell className="text-right font-medium">{ra.unit || "Unit"}</TableCell>
                           </TableRow>

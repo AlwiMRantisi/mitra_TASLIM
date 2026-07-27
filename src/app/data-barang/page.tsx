@@ -386,8 +386,8 @@ export default function DataBarangPage() {
       const exportItems: BarangUnit[] = Array.isArray(result.data)
         ? result.data
         : Array.isArray(result)
-        ? result
-        : []
+          ? result
+          : []
 
       if (exportItems.length === 0) {
         toast.error("Tidak ada data barang yang dapat diekspor.")
@@ -656,23 +656,23 @@ export default function DataBarangPage() {
       <AlertDialog open={!!deleteDialog} onOpenChange={(open) => !open && setDeleteDialog(null)}>
         <AlertDialogContent className="max-w-md">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-base font-bold text-rose-600">
+            <AlertDialogTitle className="text-base text-destructive">
               {deleteDialog?.type === "single"
-                ? `Hapus Unit SN: ${deleteDialog.serialNumber}?`
+                ? `Hapus Unit ${deleteDialog.serialNumber}`
                 : `Hapus ${deleteDialog?.ids.length} Unit Terpilih?`}
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-xs">
+            <AlertDialogDescription className="text-sm">
               Tindakan ini tidak dapat dibatalkan. Unit barang yang dihapus akan terhapus dari sistem inventaris.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="pt-2">
-            <AlertDialogCancel disabled={isDeleting} className="h-8 text-xs">
+            <AlertDialogCancel disabled={isDeleting}>
               Batal
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDelete}
               disabled={isDeleting}
-              className="h-8 text-xs bg-rose-600 hover:bg-rose-700 text-white"
+              variant="destructive"
             >
               {isDeleting ? <Loader2 className="size-3.5 animate-spin" /> : "Ya, Hapus Data"}
             </AlertDialogAction>

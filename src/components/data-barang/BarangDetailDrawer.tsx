@@ -19,9 +19,10 @@ import { Button } from "@/components/ui/button"
 
 import { Card } from "@/components/ui/card"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
-import { Edit, Loader2, History, Info } from "lucide-react"
+import { Edit, Loader2, History, Info, Copy, Check } from "lucide-react"
 import { useIsMobile } from "@/hooks/use-mobile"
 import type { BarangUnit, StatusUnit, RiwayatUnit } from "@/types/inventory"
+import { toast } from "sonner"
 
 interface BarangDetailDrawerProps {
   isOpen: boolean
@@ -51,6 +52,14 @@ export function BarangDetailDrawer({
   const isMobile = useIsMobile()
   const [history, setHistory] = useState<RiwayatUnit[]>([])
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
+  const [isCopied, setIsCopied] = useState(false)
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text)
+    toast.success("Berhasil menyalin Serial Number")
+    setIsCopied(true)
+    setTimeout(() => setIsCopied(false), 2000)
+  }
 
   useEffect(() => {
     if (!isOpen || !detailBarang) return
@@ -185,7 +194,16 @@ export function BarangDetailDrawer({
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <p className="text-muted-foreground">Serial Number (SN)</p>
-                  <p className="text-foreground mt-0.5">{detailBarang.serialNumber}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-mono font-semibold text-foreground mt-0.5">{detailBarang.serialNumber}</p>
+                    <Button size="sm" variant="ghost" onClick={() => copyToClipboard(detailBarang.serialNumber)}>
+                      {isCopied ? (
+                        <Check className="size-3.5 text-green-500 scale-110 transition-transform duration-300" />
+                      ) : (
+                        <Copy className="size-3.5 text-muted-foreground transition-transform duration-300" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Kategori</p>
@@ -302,7 +320,16 @@ export function BarangDetailDrawer({
                 <div className="grid grid-cols-2 gap-3 text-xs">
                   <div>
                     <p className="text-muted-foreground font-medium">Serial Number (SN)</p>
-                    <p className="font-mono font-bold text-foreground mt-0.5">{detailBarang.serialNumber}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-mono font-bold text-foreground mt-0.5">{detailBarang.serialNumber}</p>
+                      <Button size="sm" variant="ghost" onClick={() => copyToClipboard(detailBarang.serialNumber)}>
+                        {isCopied ? (
+                          <Check className="size-3.5 text-green-500 scale-110 transition-transform duration-300" />
+                        ) : (
+                          <Copy className="size-3.5 transition-transform duration-300" />
+                        )}
+                      </Button>
+                    </div>
                   </div>
                   <div>
                     <p className="text-muted-foreground font-medium">Kategori</p>

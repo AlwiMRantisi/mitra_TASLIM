@@ -229,12 +229,12 @@ function BastActions({
                 <Button
                     variant="outline"
                     size="sm"
-                    className="h-8 text-xs font-medium cursor-pointer gap-1.5 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 dark:bg-emerald-500/20 dark:text-emerald-400 border-emerald-500/20"
+                    className="h-8 text-xs font-medium cursor-pointer gap-1.5 text-muted-foreground"
                     title="Buka PDF BAST Final (Ber-TTD)"
                     onClick={handleOpenSignedPDF}
                 >
                     <IconFileText size={16} />
-                    BAST Final
+                    Lihat BAST
                 </Button>
             )}
 
