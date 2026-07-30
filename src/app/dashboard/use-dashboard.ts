@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { DashboardService } from '@/services/dashboard.service';
 import type { Transaction, DashboardTransaction, RequestSummary, ActivityItem } from "@/types/transaction"
-import type { InventoryStats } from "@/types/dashboard"
+import type { InventoryStats, MitraPerformanceMetrics } from "@/types/dashboard"
 import { useAuth } from "@/lib/auth"
 import type { AuthUser } from "@/types/auth"
 
@@ -143,6 +143,7 @@ export function useDashboard() {
         totalItems: 0, tersedia: 0, diluar: 0, rusak: 0, hilang: 0,
     });
     const [mitraDistribution, setMitraDistribution] = useState<{ mitra: string; tersedia: number; diluar: number; total: number }[]>([]);
+    const [mitraPerformanceMetrics, setMitraPerformanceMetrics] = useState<MitraPerformanceMetrics[]>([]);
 
     const [allRequests, setAllRequests] = useState<RequestSummary[]>([]);
     const [recentTransactions, setRecentTransactions] = useState<ActivityItem[]>([]);
@@ -157,10 +158,11 @@ export function useDashboard() {
         isFetchingRef.current = true;
 
         try {
-            const [transactionData, itemData, requestData] = await Promise.all([
+            const [transactionData, itemData, requestData, performanceData] = await Promise.all([
                 DashboardService.fetchTransactions(),
                 DashboardService.fetchItems(),
                 DashboardService.fetchRequests(),
+                DashboardService.fetchMitraPerformance(),
             ]);
 
             const visibleTransactions = transactionData.filter(
@@ -254,6 +256,9 @@ export function useDashboard() {
                 rusak: visibleItems.filter((item: any) => item.status.trim().toLowerCase() === "rusak").length,
                 hilang: visibleItems.filter((item: any) => item.status.trim().toLowerCase() === "hilang").length,
             });
+            
+            setMitraPerformanceMetrics(performanceData);
+            
             setIsLoading(false);
         } catch (error) {
             console.error("Gagal mengambil data dashboard:", error);
@@ -353,6 +358,7 @@ export function useDashboard() {
         timeRange,
         setTimeRange,
         mitraDistribution,
+        mitraPerformanceMetrics,
         transactionSeries,
         inventoryStats,
         requestCounts,

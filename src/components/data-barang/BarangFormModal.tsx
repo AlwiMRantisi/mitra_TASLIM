@@ -89,7 +89,7 @@ export function BarangFormModal({
                 onChange={(e) => setFormData((prev) => ({ ...prev, serialNumber: e.target.value.toUpperCase() }))}
                 className="h-8 uppercase font-mono text-xs"
               />
-              {formErrors.serialNumber && <p className="text-[11px] text-rose-500">{formErrors.serialNumber}</p>}
+              {formErrors.serialNumber && <p className="text-[11px] text-destructive">{formErrors.serialNumber}</p>}
             </div>
 
             {/* Kategori & Merek */}
@@ -111,7 +111,7 @@ export function BarangFormModal({
                     ))}
                   </SelectContent>
                 </Select>
-                {formErrors.kategori && <p className="text-[11px] text-rose-500">{formErrors.kategori}</p>}
+                {formErrors.kategori && <p className="text-[11px] text-destructive">{formErrors.kategori}</p>}
               </div>
 
               <div className="space-y-1">
@@ -122,7 +122,7 @@ export function BarangFormModal({
                   onChange={(e) => setFormData((prev) => ({ ...prev, merek: e.target.value }))}
                   className="h-8 text-xs"
                 />
-                {formErrors.merek && <p className="text-[11px] text-rose-500">{formErrors.merek}</p>}
+                {formErrors.merek && <p className="text-[11px] text-destructive">{formErrors.merek}</p>}
               </div>
             </div>
 
@@ -177,7 +177,7 @@ export function BarangFormModal({
                   </SelectContent>
                 </Select>
                 {formErrors.lokasiPenyimpanan && (
-                  <p className="text-[11px] text-rose-500">{formErrors.lokasiPenyimpanan}</p>
+                  <p className="text-[11px] text-destructive">{formErrors.lokasiPenyimpanan}</p>
                 )}
               </div>
             </div>
@@ -192,7 +192,7 @@ export function BarangFormModal({
                   onChange={(e) => setFormData((prev) => ({ ...prev, tanggalMasuk: e.target.value }))}
                   className="h-8 text-xs"
                 />
-                {formErrors.tanggalMasuk && <p className="text-[11px] text-rose-500">{formErrors.tanggalMasuk}</p>}
+                {formErrors.tanggalMasuk && <p className="text-[11px] text-destructive">{formErrors.tanggalMasuk}</p>}
               </div>
 
               <div className="space-y-1">

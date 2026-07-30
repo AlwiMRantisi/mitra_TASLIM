@@ -179,7 +179,7 @@ export default function DataBarangPage() {
               user.displayName.trim().toLowerCase()
           )
           : data
-          
+
       // Normalisasi nama mitra (khusus admin)
       const normalizedData = visibleData.map((item) => ({
         ...item,
@@ -669,7 +669,7 @@ export default function DataBarangPage() {
       case "Diluar":
         return { text: "Diluar", dotClass: "bg-sky-500" }
       case "Rusak":
-        return { text: "Rusak", dotClass: "bg-rose-500" }
+        return { text: "Rusak", dotClass: "bg-destructive" }
       case "Hilang":
       default:
         return { text: "Hilang", dotClass: "bg-amber-500" }

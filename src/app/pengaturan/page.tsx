@@ -1,23 +1,31 @@
 import { useState, useEffect } from "react"
 import { useAuth } from "@/lib/auth"
 import { toast } from "sonner"
-import { invoke } from "@tauri-apps/api/core"
+// import removed
 import {
   RefreshCw,
   LogOut,
   Cloud,
   Lock,
-  Unlock
+  Unlock,
+  User,
+  Settings,
+  Save,
+  CheckCircle2,
+  AlertCircle
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+// import removed
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
-import { ProfilPicTab } from "./components/ProfilPicTab"
+import { Card } from "@/components/ui/card"
+// import removed
+import { ProfileTab } from "./components/ProfileTab"
+import { SecurityTab } from "./components/SecurityTab"
+import { SignatureTab } from "./components/SignatureTab"
+import { SidebarNav } from "./components/SidebarNav"
 
-const GOOGLE_CLIENT_ID = import.meta.env.GOOGLE_CLIENT_ID || "847352193552-odl1tr4a71os3eddiftnu9en4ncg7mqg.apps.googleusercontent.com";
+// constant removed
 
 /**
  * Helper: Mengembalikan Base URL untuk pemanggilan API.
@@ -53,59 +61,97 @@ export default function PengaturanPage() {
   const [isLoadingFolderId, setIsLoadingFolderId] = useState(true)
   const [isInputActive, setIsInputActive] = useState(false)
 
+  // Active Category State for Sidebar Navigation
+  const [activeCategory, setActiveCategory] = useState("profil")
+
+  const sidebarGroups = [
+    {
+      groupLabel: "Pengaturan Akun",
+      items: [
+        {
+          title: "Profil",
+          id: "profil"
+        },
+        {
+          title: "Keamanan",
+          id: "keamanan"
+        },
+        {
+          title: "Tanda Tangan Digital",
+          id: "ttd-digital"
+        }
+      ]
+    },
+    {
+      groupLabel: "Administration",
+      items: [
+        {
+          title: "Integrasi & Cloud",
+          icon: <Settings className="size-4" />,
+          id: "google-drive",
+          adminOnly: true
+        }
+      ]
+    }
+  ]
+
   useEffect(() => {
     /**
      * Memeriksa status koneksi Google dari backend.
+     * Menggunakan session token yang sama dari frontend.
      */
-    const fetchGoogleStatus = async () => {
+    const checkGoogleConnection = async () => {
       try {
         const token = localStorage.getItem("arxiva-auth-token");
-        if (!token) return;
-
-        const res = await fetch(`${getBaseUrl()}/auth/google/status`, {
-          headers: { Authorization: token }
-        });
-
-        if (res.ok) {
+        if (token) {
+          const res = await fetch(`${getBaseUrl()}/auth/google/status`, {
+            headers: { Authorization: token }
+          });
           const data = await res.json();
-          setIsGoogleConnected(data.googleConnected);
-          if (data.googleEmail) {
-            setGoogleEmail(data.googleEmail);
+          if (data.connected) {
+            setIsGoogleConnected(true);
+            setGoogleEmail(data.email || "");
+          } else {
+            setIsGoogleConnected(false);
           }
         }
       } catch (error) {
-        console.error("Gagal mengambil status Google:", error);
+        console.error("Gagal memeriksa status koneksi Google:", error);
       }
     };
 
     /**
-     * Mengambil konfigurasi ID Folder root Google Drive yang tersimpan di sistem.
+     * Mengambil Folder ID yang tersimpan (biasanya untuk admin, tapi kita bisa buat global)
      */
     const fetchDriveFolderId = async () => {
       try {
+        setIsLoadingFolderId(true);
+        // Panggil endpoint pengaturan sistem
+        // Untuk sekarang, kita gunakan endpoint /api/settings/drive-folder
+        // Pastikan endpoint ini tersedia di backend (atau gunakan preferensi pengguna jika global)
         const token = localStorage.getItem("arxiva-auth-token");
-        if (!token) return;
-
-        const res = await fetch(`${getBaseUrl()}/auth/google/folder-id`, {
-          headers: { Authorization: token }
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          if (data.rootFolderId) {
-            setDriveFolderId(data.rootFolderId);
+        if (token) {
+          // Asumsi ada endpoint untuk ini
+          const res = await fetch(`${getBaseUrl()}/settings/drive-folder`, {
+            headers: { Authorization: token }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.folderId) {
+              setDriveFolderId(data.folderId);
+            }
           }
         }
       } catch (error) {
-        console.error("Gagal mengambil ID Folder Drive:", error);
+        console.error("Gagal mengambil Drive Folder ID:", error);
       } finally {
         setIsLoadingFolderId(false);
       }
-    };
+    }
 
-    fetchGoogleStatus();
+    checkGoogleConnection();
     fetchDriveFolderId();
-  }, [user]);
+  }, []);
 
   /**
    * Menyimpan konfigurasi ID Folder Drive ke backend.
@@ -114,30 +160,37 @@ export default function PengaturanPage() {
   const handleSaveDriveFolderId = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isAdmin) {
-      toast.error("Hanya Admin yang diizinkan untuk mengubah ID Folder Drive.");
+      toast.error("Hanya Admin yang dapat menyimpan Folder ID.");
       return;
     }
+
+    if (!driveFolderId.trim()) {
+      toast.error("Folder ID tidak boleh kosong.");
+      return;
+    }
+
     setIsSavingFolderId(true);
     try {
       const token = localStorage.getItem("arxiva-auth-token");
-      const res = await fetch(`${getBaseUrl()}/auth/google/folder-id`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: token || "",
-        },
-        body: JSON.stringify({ rootFolderId: driveFolderId }),
-      });
+      if (token) {
+        const res = await fetch(`${getBaseUrl()}/settings/drive-folder`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: token
+          },
+          body: JSON.stringify({ folderId: driveFolderId.trim() })
+        });
 
-      if (!res.ok) {
-        throw new Error("Gagal menyimpan ID Folder Drive");
+        if (res.ok) {
+          toast.success("Drive Folder ID berhasil disimpan.");
+          setIsInputActive(false); // Lock input again
+        } else {
+          toast.error("Gagal menyimpan Drive Folder ID.");
+        }
       }
-
-      toast.success("ID Folder Drive berhasil disimpan!");
-      setIsInputActive(false);
-    } catch (error: any) {
-      console.error("Error saving Drive Folder ID:", error);
-      toast.error(error.message || "Gagal menyimpan ID Folder Drive");
+    } catch (error) {
+      toast.error("Terjadi kesalahan saat menyimpan Folder ID.");
     } finally {
       setIsSavingFolderId(false);
     }
@@ -152,46 +205,30 @@ export default function PengaturanPage() {
       toast.error("Hanya Admin yang diizinkan untuk menghubungkan akun Google.");
       return;
     }
+    // Set cookie state to redirect back to settings after auth
+    document.cookie = "auth_redirect=/pengaturan; path=/";
+
+    // Inisiasi OAuth flow dengan backend (bukan Tauri invoke)
+    // Backend akan redirect ke halaman Google Consent
     setIsConnecting(true);
-    toast.info("Membuka browser untuk otentikasi Google...");
-
     try {
-      // Langkah 1: Memanggil fungsi Rust (Tauri API) untuk membuka browser default 
-      // dan menangkap kode otorisasi OAuth dari callback URL lokal.
-      const code = await invoke<string>("google_oauth_login", {
-        clientId: GOOGLE_CLIENT_ID,
-      });
-
-      toast.info("Menukar kode otorisasi...");
-
-      // Langkah 2: Mengirim kode otorisasi tersebut ke backend Node.js.
-      // Backend akan menukarnya dengan Access Token & Refresh Token via Google API.
       const token = localStorage.getItem("arxiva-auth-token");
-      const res = await fetch(`${getBaseUrl()}/auth/google/exchange`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: token || "",
-        },
-        body: JSON.stringify({
-          code,
-          userId: user?.id,
-        }),
-      });
+      if (token) {
+        // Panggil endpoint yang akan mengembalikan URL OAuth Google
+        const res = await fetch(`${getBaseUrl()}/auth/google`, {
+          headers: { Authorization: token }
+        });
+        const data = await res.json();
 
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.message || "Gagal menukar kode otorisasi");
+        if (data.url) {
+          // Buka URL di browser pengguna
+          window.location.href = data.url;
+        } else {
+          toast.error("Gagal mendapatkan URL otentikasi Google.");
+        }
       }
-
-      const data = await res.json();
-      setIsGoogleConnected(data.googleConnected);
-      setGoogleEmail(data.googleEmail);
-      toast.success(`Berhasil menghubungkan akun Google (${data.googleEmail})!`);
-    } catch (error: any) {
-      console.error("OAuth2 Error:", error);
-      const message = typeof error === "string" ? error : error?.message || "Terjadi kesalahan";
-      toast.error(`Gagal menghubungkan Google: ${message}`);
+    } catch (error) {
+      toast.error("Gagal memulai proses koneksi Google.");
     } finally {
       setIsConnecting(false);
     }
@@ -223,173 +260,182 @@ export default function PengaturanPage() {
   };
 
   return (
-    <div className="@container/main flex h-full select-none flex-col gap-6 py-6 w-full mx-auto">
-      {/* Page Header */}
-      <div className="flex flex-col gap-1.5 px-4 lg:px-6">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Pengaturan</h1>
-        <p className="text-sm text-muted-foreground">
-          Pusat kendali untuk mengelola akun, integrasi, dan personalisasi sistem.
-        </p>
-      </div>
-
-      {/* Tabs Container */}
-      <Tabs defaultValue="google-drive" className="px-4 lg:px-6 w-full">
-        <TabsList className="mb-6">
-          <TabsTrigger value="google-drive" className="px-4 py-1.5 text-sm font-medium">Google Drive</TabsTrigger>
-          <TabsTrigger value="profil-pic" className="px-4 py-1.5 text-sm font-medium">Profil & Tanda Tangan</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="profil-pic" className="mt-0">
-          <ProfilPicTab />
-        </TabsContent>
-
-        {/* Tab Content: Google Drive */}
-        <TabsContent value="google-drive" className="flex flex-col gap-6 mt-0">
-          {/* Drive Folder ID */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-b pb-9 pt-2">
-            <div className="flex items-center">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-base font-medium">Drive Folder ID</h2>
-                  {!isAdmin && <Badge variant="secondary" className="text-xs font-normal">Akses Admin</Badge>}
-                </div>
-                <p className="text-muted-foreground text-sm max-w-xl mt-1">Simpan Folder ID Drive untuk menentukan folder root.</p>
-              </div>
-            </div>
-            <div className="flex w-full">
-              <form onSubmit={handleSaveDriveFolderId} className="flex w-full flex-col gap-5">
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                    <Label htmlFor="driveFolderId" className="font-medium">ID Folder Google Drive</Label>
-                  </div>
-                  <div className="relative">
-                    <Input
-                      id="driveFolderId"
-                      value={driveFolderId}
-                      onChange={(e) => setDriveFolderId(e.target.value)}
-                      disabled={!isAdmin || isLoadingFolderId || isSavingFolderId || !isInputActive}
-                      className="p-5 pr-12"
-                    />
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => setIsInputActive(!isInputActive)}
-                      disabled={!isAdmin || isLoadingFolderId || isSavingFolderId}
-                      className="absolute right-2 top-1 text-muted-foreground hover:text-foreground"
-                    >
-                      {isInputActive ? (
-                        <Unlock className="size-4" />
-                      ) : (
-                        <Lock className="size-4" />
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              </form>
-            </div>
+    <div className="@container/main flex h-full select-none flex-col gap-6 w-full mx-auto overflow-hidden">
+      {/* Main Content Layout */}
+      <div className="flex flex-col lg:flex-row lg:space-y-0 flex-1 overflow-hidden">
+        <aside className="lg:w-1/5 shrink-0 overflow-y-auto pb-10 border-r">
+          <div className="border-b px-6 py-3">
+            <span className="text-md font-medium">Settings</span>
           </div>
+          <SidebarNav
+            groups={sidebarGroups}
+            activeId={activeCategory}
+            onSelect={setActiveCategory}
+            isAdmin={isAdmin}
+          />
+        </aside>
 
-          {/* Google OAuth2 */}
-          <Card className="flex flex-col mb-6 h-fit shadow-sm hover:shadow-md transition-all duration-300">
-            <CardHeader className="flex flex-col gap-3 border-b pb-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="space-y-1">
-                <CardTitle className="flex items-center gap-2.5 text-lg font-semibold tracking-tight">
-                  <Cloud className="size-5 text-primary" />
-                  Google OAuth2
-                  {!isAdmin && <Badge variant="secondary" className="text-xs font-normal">Akses Admin</Badge>}
-                </CardTitle>
-                <CardDescription className="text-sm text-muted-foreground">
-                  {isGoogleConnected
-                    ? "Akun Google terhubung untuk seluruh sistem aplikasi (upload file, pembuatan folder, dan sinkronisasi spreadsheet)."
-                    : "Menghubungkan akun Google untuk otentikasi dan akses layanan terintegrasi."}
-                </CardDescription>
+        <div className="flex-1 w-full overflow-y-auto pb-10 px-8">
+          {activeCategory === "profil" && (
+            <div className="flex flex-col gap-6">
+              <ProfileTab />
+            </div>
+          )}
+
+          {activeCategory === "keamanan" && (
+            <div className="flex flex-col gap-6">
+              <SecurityTab />
+            </div>
+          )}
+
+          {activeCategory === "ttd-digital" && (
+            <div className="flex flex-col gap-6">
+              <SignatureTab />
+            </div>
+          )}
+
+          {activeCategory === "google-drive" && (
+            <div className="px-2 pt-14">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-2xl font-medium">Integrasi & Cloud</h1>
+                  <span className="text-sm text-muted-foreground">Kelola layanan pihak ketiga yang terhubung dengan sistem</span>
+                </div>
               </div>
-              <Badge variant="outline" className="w-fit font-medium shadow-sm">
-                {isGoogleConnected ? "OAuth2 Terhubung" : "Belum Terhubung"}
-              </Badge>
-            </CardHeader>
 
-            <CardContent className="flex flex-1 flex-col pt-6">
-              {/* Google Connection Box */}
-              {isGoogleConnected ? (
-                <div className="flex flex-col gap-4 rounded-xl border bg-gradient-to-br from-muted/20 via-background to-muted/30 p-6 shadow-sm backdrop-blur-sm">
-                  <div className="flex flex-col gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-base font-semibold text-foreground tracking-tight">{googleEmail}</span>
-                      <Badge variant="secondary" className="font-normal px-2.5 py-0.5 shadow-sm">OAuth2 Aktif</Badge>
+              <div className="mt-6 space-y-6">
+                <h1 className="text-lg font-medium flex items-center gap-2">
+                  <Cloud className="size-5 text-primary" /> Google Workspace
+                </h1>
+                
+                <Card className="rounded-sm p-0! shadow-sm overflow-hidden mb-6">
+                  {/* Header & OAuth Section */}
+                  <div className="p-6 border-b border-border/50 bg-card">
+                    <div className="flex items-start justify-between mb-6">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <h2 className="text-sm font-medium">Autentikasi Akun</h2>
+                          {!isAdmin && <Badge variant="secondary" className="text-xs font-normal">Akses Admin</Badge>}
+                        </div>
+                      <p className="text-muted-foreground text-sm leading-relaxed max-w-xl">
+                        Hubungkan sistem dengan Google Workspace untuk sinkronisasi penyimpanan dokumen BAST dan layanan cloud lainnya.
+                      </p>
                     </div>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      Akun Google ini saat ini telah terhubung secara aman dengan sistem untuk digunakan oleh seluruh pengguna aplikasi.
-                      {!isAdmin && " (Hanya Admin yang dapat mengubah atau memutuskan tautan akun)."}
-                    </p>
-                  </div>
-                  <div className="flex justify-start pt-2 border-t border-muted">
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={handleDisconnectGoogle}
-                      disabled={!isAdmin || isDisconnecting}
-                      className="gap-2 font-medium shadow-sm transition-all active:scale-98"
-                    >
-                      {isDisconnecting ? (
-                        <>
-                          <RefreshCw className="size-4 animate-spin" />
-                          Memutuskan...
-                        </>
+                    
+                    <div>
+                      {isGoogleConnected ? (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={handleDisconnectGoogle}
+                          disabled={!isAdmin || isDisconnecting}
+                          className="gap-2 text-xs shadow-sm h-9"
+                        >
+                          {isDisconnecting ? <RefreshCw className="size-3.5 animate-spin" /> : <LogOut className="size-3.5" />}
+                          Putuskan Tautan
+                        </Button>
                       ) : (
-                        <>
-                          <LogOut className="size-4" />
-                          Putuskan Tautan Akun
-                        </>
+                        <Button
+                          onClick={handleConnectGoogle}
+                          disabled={!isAdmin || isConnecting}
+                          size="sm"
+                          className="gap-2 text-xs shadow-sm h-9"
+                        >
+                          {isConnecting ? <RefreshCw className="size-3.5 animate-spin" /> : <Cloud className="size-3.5" />}
+                          Hubungkan Google
+                        </Button>
                       )}
-                    </Button>
+                    </div>
+                  </div>
+
+                  <div className="w-full">
+                    {isGoogleConnected ? (
+                      <div className="flex items-center gap-4 rounded-xl border bg-gradient-to-r from-emerald-500/10 via-background to-background p-4 shadow-sm backdrop-blur-sm relative overflow-hidden">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                          <CheckCircle2 className="size-5" />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-semibold text-foreground tracking-tight">Akun Terhubung</span>
+                          <span className="text-xs text-muted-foreground">{googleEmail}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed bg-muted/40 p-6 text-center">
+                        <div className="flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                          <AlertCircle className="size-5" />
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-sm font-medium text-foreground">Google OAuth2 Belum Terhubung</p>
+                          <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                            Anda harus menghubungkan akun Google Admin terlebih dahulu sebelum dapat mengkonfigurasi pengaturan Drive.
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
-              ) : (
-                <div className="flex flex-1 flex-col items-center justify-center gap-5 rounded-xl border border-dashed bg-muted/15 px-6 py-8 text-center transition-all duration-300 hover:bg-muted/25">
-                  <div className="flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-inner">
-                    <Cloud className="size-7" />
+
+                {/* Drive Folder Configuration Section */}
+                <div className={`p-6 transition-opacity duration-300 ${!isGoogleConnected ? 'opacity-50 pointer-events-none select-none' : ''}`}>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="md:col-span-1 space-y-1">
+                      <h3 className="text-sm font-medium">Root Folder ID</h3>
+                      <p className="text-muted-foreground text-xs leading-relaxed">
+                        Tentukan ID dari folder Google Drive tempat semua dokumen BAST akan disimpan.
+                      </p>
+                    </div>
+
+                    <div className="md:col-span-2 flex w-full">
+                      <div className="space-y-3 w-full">
+                        <div className="relative">
+                          <Input
+                            id="driveFolderId"
+                            value={driveFolderId}
+                            onChange={(e) => setDriveFolderId(e.target.value)}
+                            disabled={!isAdmin || isLoadingFolderId || isSavingFolderId || !isInputActive || !isGoogleConnected}
+                            className="p-5 pr-12 bg-background"
+                            placeholder={isGoogleConnected ? "Masukkan Folder ID" : "Hubungkan Google terlebih dahulu"}
+                          />
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => setIsInputActive(!isInputActive)}
+                            disabled={!isAdmin || isLoadingFolderId || isSavingFolderId || !isGoogleConnected}
+                            className="absolute right-2 top-1 text-muted-foreground hover:text-foreground"
+                          >
+                            {isInputActive ? <Unlock className="size-4" /> : <Lock className="size-4" />}
+                          </Button>
+                        </div>
+                        
+                        {!isGoogleConnected && (
+                          <p className="text-xs text-amber-600 dark:text-amber-500 font-medium flex items-center gap-1.5 mt-2">
+                            <AlertCircle className="size-3.5" /> Konfigurasi ini terkunci karena OAuth2 belum terhubung.
+                          </p>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <p className="text-base font-semibold text-foreground tracking-tight">
-                      Hubungkan Akun Google Anda
-                    </p>
-                    <p className="text-xs leading-relaxed text-muted-foreground max-w-md mx-auto">
-                      {isAdmin
-                        ? "Sistem memerlukan izin OAuth2 untuk mengotentikasi dan menghubungkan akun Google Anda dengan layanan aplikasi."
-                        : "Sistem memerlukan izin OAuth2 dari Admin untuk mengotentikasi dan menghubungkan akun Google dengan layanan aplikasi."}
-                    </p>
-                  </div>
-                  <Button
-                    onClick={handleConnectGoogle}
-                    disabled={!isAdmin || isConnecting}
-                    size="default"
-                    className="gap-2 font-medium shadow-sm transition-all active:scale-98"
+                </div>
+
+                {/* Footer Save Button */}
+                <div className="bg-muted/40 px-6 py-4 flex items-center justify-end border-t border-border/50">
+                  <Button 
+                    onClick={handleSaveDriveFolderId} 
+                    disabled={!isAdmin || isLoadingFolderId || isSavingFolderId || !isGoogleConnected} 
+                    className="gap-2"
                   >
-                    {isConnecting ? (
-                      <>
-                        <RefreshCw className="size-4 animate-spin" />
-                        Menghubungkan...
-                      </>
-                    ) : (
-                      <>
-                        <svg className="size-4" viewBox="0 0 24 24">
-                          <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                          <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                          <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                          <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-                        </svg>
-                        Hubungkan dengan Google (OAuth2)
-                      </>
-                    )}
+                    {isSavingFolderId ? <RefreshCw className="size-4 animate-spin" /> : <Save className="size-4" />}
+                    Simpan Konfigurasi
                   </Button>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+
+                </Card>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }

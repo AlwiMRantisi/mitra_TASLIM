@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react"
-import { Eye, EyeOff, PackageSearch, UserRound, Loader2 } from "lucide-react"
+import { Eye, EyeOff, PackageSearch, Loader2 } from "lucide-react"
 import { Navigate, useNavigate } from "react-router-dom"
 
 import { Button } from "@/components/ui/button"
@@ -55,7 +55,7 @@ export default function LoginPage() {
     try {
       // Memanggil fungsi login dari AuthContext (API Call)
       await login(username.trim(), password)
-      
+
       // Jika berhasil, arahkan pengguna kembali ke halaman utama (dashboard)
       navigate("/", { replace: true })
     } catch (error) {
@@ -78,7 +78,7 @@ export default function LoginPage() {
 
       <div className="relative grid w-full max-w-110 overflow-hidden rounded-xl border bg-card shadow-2xl">
         <Card className="rounded-none border-0 bg-transparent py-8 shadow-none sm:py-12">
-          <CardHeader className="px-6 sm:px-10">
+          <CardHeader className="px-6 sm:px-10 pb-8">
             <div className="mb-3 flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary md:hidden">
               <PackageSearch className="size-6" />
             </div>
@@ -92,7 +92,6 @@ export default function LoginPage() {
               <div className="space-y-2">
                 <Label htmlFor="username">Username</Label>
                 <div className="relative">
-                  <UserRound className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     id="username"
                     value={username}
@@ -100,7 +99,7 @@ export default function LoginPage() {
                     autoComplete="username"
                     autoFocus
                     placeholder="Masukkan username"
-                    className="h-11 pl-10"
+                    className="h-9 rounded-sm"
                   />
                 </div>
               </div>
@@ -115,20 +114,20 @@ export default function LoginPage() {
                     onChange={(event) => setPassword(event.target.value)}
                     autoComplete="current-password"
                     placeholder="Masukkan password"
-                    className="h-11 pl-3 pr-10 [&::-ms-reveal]:hidden [&::-ms-clear]:hidden [&::-webkit-credentials-auto-fill-button]:hidden"
+                    className="h-9 rounded-sm pl-3 pr-10 [&::-ms-reveal]:hidden [&::-ms-clear]:hidden [&::-webkit-credentials-auto-fill-button]:hidden"
                   />
                   <button
                     type="button"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center justify-center rounded p-1 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center rounded-sm p-1.5 text-muted-foreground transition-colors duration-200 focus-visible:outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring border border-border cursor-pointer"
                     onClick={() => setShowPassword((current) => !current)}
                     aria-label={
                       showPassword ? "Sembunyikan password" : "Tampilkan password"
                     }
                   >
                     {showPassword ? (
-                      <EyeOff className="size-4" />
+                      <EyeOff className="size-3.5" />
                     ) : (
-                      <Eye className="size-4" />
+                      <Eye className="size-3.5" />
                     )}
                   </button>
                 </div>
@@ -140,7 +139,7 @@ export default function LoginPage() {
                 </p>
               )}
 
-              <Button className="h-11 w-full" disabled={isSubmitting}>
+              <Button className="h-11 w-full cursor-pointer transition-colors duration-200 rounded-sm" disabled={isSubmitting}>
                 {isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 size-4 animate-spin" />

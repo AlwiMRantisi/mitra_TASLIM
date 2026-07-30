@@ -41,7 +41,7 @@ function getStatusBadgeClass(status: string): string {
             return "bg-emerald-500 text-emerald-500"
         case "DITOLAK":
         case "DIBATALKAN":
-            return "bg-rose-500 text-rose-500"
+            return "bg-destructive text-destructive"
         default:
             return "bg-muted-foreground text-muted-foreground"
     }

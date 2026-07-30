@@ -95,7 +95,7 @@ export function SectionCards({
 								<div
 									className={`inline-flex items-center gap-1 text-xs font-medium ${direction === "up"
 										? "text-emerald-600 dark:text-emerald-500"
-										: "text-rose-600 dark:text-rose-500"
+										: "text-destructive dark:text-destructive"
 										}`}>
 									{direction === "up" ? (
 										<TrendingUp className="h-3.5 w-3.5" />

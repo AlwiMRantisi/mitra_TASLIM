@@ -64,5 +64,10 @@ export const DashboardService = {
                 createdAt: t.createdAt || t.tanggal,
             }));
     },
+    
+    async fetchMitraPerformance() {
+        const res = await fetch(`${getBaseUrl()}/dashboard/stats/mitra-performance`, { method: "GET", headers: getHeaders() });
+        const raw = await res.json();
+        return Array.isArray(raw.data) ? raw.data : [];
+    }
 };
-

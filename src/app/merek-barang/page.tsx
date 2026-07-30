@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import {
-  Plus, Edit, Trash2, Search, CircleStar, MoreVertical, Loader2
+  Plus, Edit, Trash2, Search, CircleStar, MoreVertical, Loader2, LayoutGrid, List
 } from "lucide-react";
 /**
  * Helper: Mengembalikan Base URL untuk pemanggilan API.
@@ -47,6 +47,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Merek } from "@/types/inventory";
 
@@ -62,6 +63,17 @@ import type { Merek } from "@/types/inventory";
 export default function MerekBarangPage() {
   const [brands, setBrands] = useState<Merek[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
+
+  useEffect(() => {
+    const savedMode = localStorage.getItem("arxiva_merek_view_mode") as "grid" | "table" | null;
+    if (savedMode) setViewMode(savedMode);
+  }, []);
+
+  const handleViewModeChange = (mode: "grid" | "table") => {
+    setViewMode(mode);
+    localStorage.setItem("arxiva_merek_view_mode", mode);
+  };
 
   // Sheet state
   const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -294,69 +306,183 @@ export default function MerekBarangPage() {
     <div className="p-6 h-full flex flex-col gap-6 text-neutral-100 mx-auto w-full">
 
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="relative w-full sm:w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
-          <Input
-            type="search"
-            placeholder="Cari merek atau identifier..."
-            className="w-full pl-9 bg-neutral-900 border-neutral-800 focus-visible:ring-1 focus-visible:ring-neutral-700"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+        <div className="flex flex-1 items-center gap-4 w-full sm:w-auto">
+          <div className="relative w-full sm:w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
+            <Input
+              type="search"
+              placeholder="Cari merek atau identifier..."
+              className="w-full pl-9 bg-neutral-900 border-neutral-800 focus-visible:ring-1 focus-visible:ring-neutral-700 placeholder:text-sm"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
         </div>
-        <Button className="w-full sm:w-auto" onClick={() => handleOpenSheet()}>
-          <Plus className="w-4 h-4" /> Tambah Merek
+        <div className="flex flex-1 justify-end gap-2 w-full sm:w-auto">
+          <div className="flex flex-wrap gap-1">
+            <Button
+              variant={viewMode === "grid" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => handleViewModeChange("grid")}
+              className={`h-8 px-2.5 rounded-sm active:translate-y-0 active:not-aria-[haspopup]:translate-y-0 transition-none ${viewMode === "grid" ? "bg-neutral-800 text-neutral-100" : "text-neutral-400 hover:text-neutral-200"}`}
+            >
+              <LayoutGrid className="size-3.5" />
+            </Button>
+            <Button
+              variant={viewMode === "table" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => handleViewModeChange("table")}
+              className={`h-8 px-2.5 rounded-sm active:translate-y-0 active:not-aria-[haspopup]:translate-y-0 transition-none ${viewMode === "table" ? "bg-neutral-800 text-neutral-100" : "text-neutral-400 hover:text-neutral-200"}`}
+            >
+              <List className="size-3.5" />
+            </Button>
+          </div>
+          <Button className="h-8 gap-2 rounded-sm" onClick={() => handleOpenSheet()}>
+            <Plus className="w-4 h-4" /> Tambah Merek
+          </Button>
+        </div>
+      </div>
+
+      {/* Mobile view toggle */}
+      <div className="sm:hidden flex items-center p-1 rounded-lg border border-neutral-800 bg-neutral-900/50 w-full">
+        <Button
+          variant={viewMode === "grid" ? "secondary" : "ghost"}
+          size="sm"
+          onClick={() => handleViewModeChange("grid")}
+          className={`flex-1 h-8 active:translate-y-0 active:not-aria-[haspopup]:translate-y-0 transition-none ${viewMode === "grid" ? "bg-neutral-800 text-neutral-100" : "text-neutral-400 hover:text-neutral-200"}`}
+        >
+          <LayoutGrid className="size-4 mr-1.5" />
+          Grid
+        </Button>
+        <Button
+          variant={viewMode === "table" ? "secondary" : "ghost"}
+          size="sm"
+          onClick={() => handleViewModeChange("table")}
+          className={`flex-1 h-8 active:translate-y-0 active:not-aria-[haspopup]:translate-y-0 transition-none ${viewMode === "table" ? "bg-neutral-800 text-neutral-100" : "text-neutral-400 hover:text-neutral-200"}`}
+        >
+          <List className="size-4 mr-1.5" />
+          Table
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 pb-10">
-        {filteredBrands.map(brand => (
-          <Card key={brand.id} className="overflow-hidden relative group transition-all duration-300 hover:border-neutral-700 hover:bg-neutral-900/60">
-            <CardContent className="px-5 flex flex-col gap-4">
-              <div className="flex justify-between items-start">
-                <div className="p-2.5 bg-orange-500/10 rounded-xl shrink-0">
-                  <CircleStar className="w-6 h-6 text-orange-400" />
+      {viewMode === "grid" ? (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 pb-10">
+          {filteredBrands.map(brand => (
+            <Card key={brand.id} className="overflow-hidden relative group transition-all duration-300 hover:border-neutral-700 hover:bg-neutral-900/60">
+              <CardContent className="px-5 flex flex-col gap-4">
+                <div className="flex justify-between items-start">
+                  <div className="p-2.5 bg-orange-500/10 rounded-xl shrink-0">
+                    <CircleStar className="w-6 h-6 text-orange-400" />
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-neutral-800 text-neutral-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <MoreVertical className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="bg-neutral-950 border-neutral-800 text-neutral-200">
+                      <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800" onClick={() => handleOpenSheet(brand.id)}>
+                        <Edit className="w-4 h-4 mr-2" /> Edit Merek
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="text-red-400 focus:bg-red-950/50 focus:text-red-400 cursor-pointer" onClick={() => requestDelete(brand.id, brand.nama)}>
+                        <Trash2 className="w-4 h-4 mr-2" /> Hapus Merek
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-neutral-800 text-neutral-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <MoreVertical className="w-4 h-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="bg-neutral-950 border-neutral-800 text-neutral-200">
-                    <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800" onClick={() => handleOpenSheet(brand.id)}>
-                      <Edit className="w-4 h-4 mr-2" /> Edit Merek
-                    </DropdownMenuItem>
-                    <DropdownMenuItem className="text-red-400 focus:bg-red-950/50 focus:text-red-400 cursor-pointer" onClick={() => requestDelete(brand.id, brand.nama)}>
-                      <Trash2 className="w-4 h-4 mr-2" /> Hapus Merek
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
 
-              <div>
-                <h3 className="font-semibold text-lg text-neutral-100 mb-1">{brand.nama}</h3>
-                <p className="text-sm text-neutral-500 line-clamp-1">{brand.identifier}</p>
-              </div>
+                <div>
+                  <h3 className="font-semibold text-lg text-neutral-100 mb-1">{brand.nama}</h3>
+                  <p className="text-sm text-neutral-500 line-clamp-1">{brand.identifier}</p>
+                </div>
 
-              <div className="mt-auto pt-4 border-t border-neutral-800/60 flex justify-between items-center">
-                <span className="text-xs font-medium text-neutral-500">Total Barang</span>
-                <span className="text-sm font-medium text-neutral-300">{brand.totalItems} Unit</span>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+                <div className="mt-auto pt-4 border-t border-neutral-800/60 flex justify-between items-center">
+                  <span className="text-xs font-medium text-neutral-500">Total Barang</span>
+                  <span className="text-sm font-medium text-neutral-300">{brand.totalItems} Unit</span>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
 
-        {filteredBrands.length === 0 && (
-          <div className="col-span-full py-16 flex flex-col items-center justify-center text-center">
-            <div className="w-16 h-16 bg-neutral-900 rounded-full flex items-center justify-center mb-4">
-              <Search className="w-8 h-8 text-neutral-600" />
+          {filteredBrands.length === 0 && (
+            <div className="col-span-full py-16 flex flex-col items-center justify-center text-center">
+              <div className="w-16 h-16 bg-neutral-900 rounded-full flex items-center justify-center mb-4">
+                <Search className="w-8 h-8 text-neutral-600" />
+              </div>
+              <h3 className="text-lg font-medium text-neutral-300 mb-1">Merek Tidak Ditemukan</h3>
+              <p className="text-sm text-neutral-500 max-w-sm">Coba gunakan kata kunci lain atau tambahkan merek baru.</p>
             </div>
-            <h3 className="text-lg font-medium text-neutral-300 mb-1">Merek Tidak Ditemukan</h3>
-            <p className="text-sm text-neutral-500 max-w-sm">Coba gunakan kata kunci lain atau tambahkan merek baru.</p>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      ) : (
+        <div className="rounded-sm border border-neutral-800 bg-neutral-900/50 overflow-hidden">
+          <Table>
+            <TableHeader className="bg-neutral-900/80">
+              <TableRow className="border-neutral-800 hover:bg-transparent">
+                <TableHead className="text-neutral-400">No.</TableHead>
+                <TableHead className="text-neutral-400">Nama Merek</TableHead>
+                <TableHead className="text-neutral-400">Kode / Identifier</TableHead>
+                <TableHead className="text-neutral-400">Asal</TableHead>
+                <TableHead className="text-neutral-400">Total Unit</TableHead>
+                <TableHead className="text-right text-neutral-400">Aksi</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredBrands.length === 0 ? (
+                <TableRow className="border-neutral-800 hover:bg-transparent">
+                  <TableCell colSpan={6} className="h-32 text-center text-neutral-500">
+                    <div className="flex flex-col items-center justify-center">
+                      <Search className="w-8 h-8 text-neutral-600 mb-2" />
+                      <p>Merek Tidak Ditemukan</p>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredBrands.map((brand, index) => (
+                  <TableRow key={brand.id} className="border-neutral-800 hover:bg-neutral-900/80">
+                    <TableCell className="text-neutral-400">
+                      {index + 1}
+                    </TableCell>
+                    <TableCell className="text-neutral-200">
+                      <div className="flex items-center gap-3">
+                        {brand.nama}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-neutral-400">
+                      {brand.identifier || "-"}
+                    </TableCell>
+                    <TableCell className="text-neutral-400">
+                      {brand.origin || "-"}
+                    </TableCell>
+                    <TableCell className="text-neutral-300 font-medium">
+                      {brand.totalItems} Unit
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="icon" className="h-7 w-7 rounded-sm hover:bg-neutral-800 text-neutral-400 cursor-pointer">
+                            <MoreVertical className="size-3.5" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="rounded-sm bg-card border-accent-foreground text-neutral-200">
+                          <DropdownMenuItem className="px-2 h-8 rounded-sm cursor-pointer focus:bg-neutral-800" onClick={() => handleOpenSheet(brand.id)}>
+                            <Edit className="size-3.5 mr-1" />
+                            <span className="text-xs">Edit Merek</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="px-2 h-8 rounded-sm text-red-400 focus:bg-red-950/50 focus:text-red-400 cursor-pointer" onClick={() => requestDelete(brand.id, brand.nama)}>
+                            <Trash2 className="size-3.5 mr-1" />
+                            <span className="text-xs">Hapus Merek</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
         <SheetContent className="sm:max-w-md border-neutral-800 bg-neutral-950 p-0 flex flex-col text-neutral-200">

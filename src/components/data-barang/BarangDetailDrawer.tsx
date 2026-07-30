@@ -257,7 +257,7 @@ export function BarangDetailDrawer({
           < DialogFooter className="shrink-0 flex-row justify-end gap-1 pt-4 border-t" >
             {userRole === "admin" && (
               <Button
-                size="lg"
+                size="sm"
                 variant="outline"
                 onClick={() => {
                   onOpenChange(false)
@@ -271,7 +271,7 @@ export function BarangDetailDrawer({
             )
             }
             <DialogClose asChild>
-              <Button size="lg" variant="secondary" className="px-4 cursor-pointer">
+              <Button size="sm" variant="default" className="px-4 cursor-pointer">
                 Tutup
               </Button>
             </DialogClose>

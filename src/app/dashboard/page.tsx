@@ -3,6 +3,9 @@ import { ChartBarMixed } from "@/features/dashboard/components/bar-chart"
 import { ChartInboundOutbound } from "@/features/dashboard/components/chart-inbound-outbound"
 import { RequestSection } from "@/features/dashboard/components/RequestSection"
 import { ActivityFeedCard } from "@/features/dashboard/components/ActivityFeedCard"
+import { LeaderboardCard } from "@/features/dashboard/components/LeaderboardCard"
+import { IdleStockAlert } from "@/features/dashboard/components/IdleStockAlert"
+import { ProductivityTable } from "@/features/dashboard/components/ProductivityTable"
 import { useDashboard } from "./use-dashboard"
 
 export default function DashboardPage() {
@@ -16,6 +19,7 @@ export default function DashboardPage() {
         requestCounts,
         recentRequests,
         recentTransactions,
+        mitraPerformanceMetrics,
         isLoadingRequests,
         isLoadingActivity,
         isLoading,
@@ -33,12 +37,35 @@ export default function DashboardPage() {
                 }
             />
 
+            {/* Idle Stock Alert (Admin only) */}
+            {user?.role !== "mitra" && (
+                <div className="px-4 lg:px-6">
+                    <IdleStockAlert metrics={mitraPerformanceMetrics} isLoading={isLoading} />
+                </div>
+            )}
+
+            {/* Row 4: Mitra Performance (Admin only) */}
+            {user?.role !== "mitra" && (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 px-4 lg:px-6">
+                    <LeaderboardCard
+                        metrics={mitraPerformanceMetrics}
+                        isLoading={isLoading}
+                        className="lg:col-span-1"
+                    />
+                    <ProductivityTable
+                        metrics={mitraPerformanceMetrics}
+                        isLoading={isLoading}
+                        className="lg:col-span-2"
+                    />
+                </div>
+            )}
+
             {/* Row 2: Charts (50/50) */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 px-4 lg:px-6">
-                <ChartBarMixed 
-                    data={mitraDistribution} 
+                <ChartBarMixed
+                    data={mitraDistribution}
                     isLoading={isLoading}
-                    className="h-full" 
+                    className="h-full"
                 />
                 <ChartInboundOutbound
                     data={transactionSeries}

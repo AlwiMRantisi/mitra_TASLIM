@@ -38,13 +38,13 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet"
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -95,9 +95,16 @@ const PARTNER_TYPES: PartnerType[] = ["AKTIVASI", "GANGGUAN"]
 const PAGE_SIZE_OPTIONS = [10, 25, 50] as const
 const normalizeIdentityCode = (value: string) => value.trim().toUpperCase()
 
+const slugifyName = (name: string) => {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+}
+
 function EmptyMitraTableState({ isFiltered }: { isFiltered: boolean }) {
   return (
-    <div className="flex min-h-[300px] items-center justify-center px-6 py-12">
+    <div className="flex min-h-75 items-center justify-center px-6 py-12">
       <div className="flex max-w-md flex-col items-center gap-4 text-center">
         <div className="flex size-14 items-center justify-center rounded-full border bg-muted/40 text-muted-foreground">
           {isFiltered ? (
@@ -131,9 +138,7 @@ function TableSkeleton() {
           <TableCell><Skeleton className="h-4 w-16" /></TableCell>
           <TableCell><Skeleton className="h-5 w-20" /></TableCell>
           <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-          <TableCell><Skeleton className="h-4 w-20" /></TableCell>
           <TableCell><Skeleton className="h-4 w-28" /></TableCell>
-          <TableCell className="hidden lg:table-cell"><Skeleton className="h-4 w-32" /></TableCell>
           <TableCell className="hidden lg:table-cell"><Skeleton className="h-4 w-36" /></TableCell>
           <TableCell className="text-center"><Skeleton className="mx-auto h-5 w-16" /></TableCell>
           <TableCell><Skeleton className="ml-auto h-7 w-7" /></TableCell>
@@ -172,7 +177,7 @@ export default function MitraPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [typeFilter, setTypeFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
-  const [isSheetOpen, setIsSheetOpen] = useState(false)
+  const [isModalOpen, setIsModalOpen] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [formData, setFormData] = useState(initialForm)
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
@@ -199,7 +204,7 @@ export default function MitraPage() {
         throw new Error("Gagal memuat data mitra")
       }
       const data = await response.json()
-      
+
       // Standarisasi field user & profile
       const usersList = data.data || data.users || data
       const partnersList: Partner[] = (Array.isArray(usersList) ? usersList : []).filter((u: any) => u.role === "MITRA").map((u: any) => ({
@@ -269,14 +274,14 @@ export default function MitraPage() {
     setCurrentPage(1)
   }, [searchQuery, typeFilter, statusFilter, pageSize])
 
-  const openAddSheet = () => {
+  const openAddModal = () => {
     setEditId(null)
     setFormData(initialForm)
     setFormErrors({})
-    setIsSheetOpen(true)
+    setIsModalOpen(true)
   }
 
-  const openEditSheet = (partner: Partner) => {
+  const openEditModal = (partner: Partner) => {
     setEditId(partner.id)
     setFormData({
       code: partner.code || "",
@@ -292,7 +297,7 @@ export default function MitraPage() {
       confirmPassword: "",
     })
     setFormErrors({})
-    setIsSheetOpen(true)
+    setIsModalOpen(true)
   }
 
   /**
@@ -319,24 +324,6 @@ export default function MitraPage() {
     if (!normalizedName) {
       errors.name = "Nama mitra wajib diisi."
     }
-    if (
-      normalizedEmail &&
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)
-    ) {
-      errors.email = "Format email tidak valid."
-    }
-    if (normalizedUsername.length < 4) {
-      errors.username = "Username minimal 4 karakter."
-    }
-    if (!editId && formData.password.length < 8) {
-      errors.password = "Password minimal 8 karakter."
-    }
-    if (editId && formData.password && formData.password.length < 8) {
-      errors.password = "Password minimal 8 karakter."
-    }
-    if (formData.password !== formData.confirmPassword) {
-      errors.confirmPassword = "Konfirmasi password tidak sama."
-    }
 
     // Validasi duplikasi Nama Mitra
     const hasDuplicateName = partners.some(
@@ -347,16 +334,34 @@ export default function MitraPage() {
     if (hasDuplicateName) {
       errors.name = "Nama mitra sudah terdaftar."
     }
-    
-    // Validasi duplikasi Username login
-    const hasDuplicateUsername = partners.some(
-      (partner) =>
-        partner.username?.trim().toLowerCase() ===
-        normalizedUsername.toLowerCase() && partner.id !== editId
-    )
-    if (hasDuplicateUsername) {
-      errors.username = "Username sudah digunakan."
+
+    // Auto-generate unique username for new partner
+    let finalUsername = normalizedUsername;
+    if (!editId) {
+      if (!finalUsername) {
+        finalUsername = slugifyName(normalizedName);
+      }
+      let counter = 1;
+      let baseUsername = finalUsername;
+      while (partners.some(p => p.username?.trim().toLowerCase() === finalUsername.toLowerCase())) {
+        finalUsername = `${baseUsername}${counter}`;
+        counter++;
+      }
+
+      // Ensure minimum 4 characters for backend
+      if (finalUsername.length < 4) {
+        finalUsername = finalUsername.padEnd(4, '0')
+      }
+    } else {
+      // Validasi duplikasi Username login untuk edit
+      const hasDuplicateUsername = partners.some(
+        (partner) =>
+          partner.username?.trim().toLowerCase() ===
+          finalUsername.toLowerCase() && partner.id !== editId
+      )
+
     }
+
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors)
       toast.error("Periksa kembali data mitra.")
@@ -375,7 +380,7 @@ export default function MitraPage() {
           email: normalizedEmail || "-",
           address: formData.address.trim() || "-",
           isActive: formData.isActive,
-          username: normalizedUsername,
+          username: finalUsername,
           role: "MITRA",
         }
         if (formData.password) {
@@ -405,8 +410,8 @@ export default function MitraPage() {
             email: normalizedEmail || "-",
             address: formData.address.trim() || "-",
             isActive: formData.isActive,
-            username: normalizedUsername,
-            password: formData.password,
+            username: finalUsername,
+            password: "Taslim123!",
             role: "MITRA",
           }),
         })
@@ -417,7 +422,7 @@ export default function MitraPage() {
         }
       }
       await loadPartners()
-      setIsSheetOpen(false)
+      setIsModalOpen(false)
       toast.success(
         editId ? "Data mitra berhasil diperbarui." : "Mitra baru berhasil ditambahkan."
       )
@@ -489,74 +494,63 @@ export default function MitraPage() {
   return (
     <div className="flex h-full flex-col gap-4 p-4 md:p-6 lg:p-8">
       {/* Toolbar */}
-      <Card className="p-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="relative w-full sm:w-72">
-              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Cari mitra, PIC, telepon..."
-                className="pl-9"
-              />
-            </div>
-            <div className="flex gap-2">
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger className="w-[140px]">
-                  <SelectValue placeholder="Jenis mitra" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Semua Jenis</SelectItem>
-                  {PARTNER_TYPES.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {type}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[130px]">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Semua Status</SelectItem>
-                  <SelectItem value="active">Aktif</SelectItem>
-                  <SelectItem value="inactive">Nonaktif</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {/* Result count */}
-            {!isLoading && (
-              <div className="hidden items-center gap-1.5 text-xs text-muted-foreground sm:flex">
-                <Users className="size-3.5" />
-                <span>{filteredPartners.length} mitra</span>
-              </div>
-            )}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="relative w-full sm:w-72">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Cari mitra, PIC, telepon..."
+              className="pl-9 rounded-sm"
+            />
           </div>
-          <Button onClick={openAddSheet} className="gap-2">
-            <Plus className="size-4" />
-            Tambah Mitra
-          </Button>
+          <div className="flex gap-2">
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger className={`w-26 rounded-sm ${typeFilter === 'all' ? 'border-dashed' : ''}`}>
+                <SelectValue placeholder="Jenis mitra" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Jenis</SelectItem>
+                {PARTNER_TYPES.map((type) => (
+                  <SelectItem key={type} value={type}>
+                    {type}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className={`w-26 rounded-sm ${statusFilter === 'all' ? 'border-dashed' : ''}`}>
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Status</SelectItem>
+                <SelectItem value="active">Aktif</SelectItem>
+                <SelectItem value="inactive">Nonaktif</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-      </Card>
+        <Button onClick={openAddModal} className="gap-2">
+          <Plus className="size-4" />
+          Tambah Mitra
+        </Button>
+      </div>
 
       {/* Data Table */}
       <div className="min-h-0 flex-1 rounded-lg border bg-card/20 overflow-auto">
         <Table>
           <TableHeader className="sticky top-0 z-10 bg-muted">
             <TableRow>
-              <TableHead className="w-[50px] text-center">No.</TableHead>
-              <TableHead className="w-[180px]">Nama Mitra</TableHead>
-              <TableHead className="w-[100px]">Kode</TableHead>
-              <TableHead className="w-[110px]">Jenis</TableHead>
-              <TableHead className="w-[150px]">PIC</TableHead>
-              <TableHead className="w-[130px]">Username</TableHead>
-              <TableHead className="w-[140px]">Telepon</TableHead>
-              <TableHead className="hidden lg:table-cell w-[180px]">Email</TableHead>
-              <TableHead className="hidden lg:table-cell w-[180px]">Wilayah</TableHead>
-              <TableHead className="w-[100px] text-center">Status</TableHead>
-              <TableHead className="w-[50px] text-right"></TableHead>
+              <TableHead className="w-12.5 text-center">No.</TableHead>
+              <TableHead className="w-45">Nama Mitra</TableHead>
+              <TableHead className="w-25">Kode</TableHead>
+              <TableHead className="w-27.5">Jenis</TableHead>
+              <TableHead className="w-37.5">PIC</TableHead>
+              <TableHead className="w-35">Telepon</TableHead>
+              <TableHead className="hidden lg:table-cell w-45">Wilayah</TableHead>
+              <TableHead className="w-25 text-center">Status</TableHead>
+              <TableHead className="w-12.5 text-right"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -572,7 +566,7 @@ export default function MitraPage() {
                     {(currentPage - 1) * pageSize + index + 1}
                   </TableCell>
                   <TableCell>
-                    <span className="block max-w-[160px] truncate font-medium">{partner.name}</span>
+                    <span className="block max-w-40 truncate font-medium">{partner.name}</span>
                   </TableCell>
                   <TableCell>
                     <span className="text-muted-foreground">{partner.code}</span>
@@ -585,15 +579,7 @@ export default function MitraPage() {
                     <span className="block max-w-[130px] truncate">{partner.contactPerson}</span>
                   </TableCell>
                   <TableCell>
-                    <span className="block max-w-[120px] truncate text-muted-foreground">
-                      {partner.username ? `${partner.username}` : "—"}
-                    </span>
-                  </TableCell>
-                  <TableCell>
                     <span className="block max-w-[130px] truncate">{partner.phone}</span>
-                  </TableCell>
-                  <TableCell className="hidden lg:table-cell">
-                    <span className="block max-w-[160px] truncate text-muted-foreground">{partner.email}</span>
                   </TableCell>
                   <TableCell className="hidden lg:table-cell">
                     <span className="block max-w-[160px] truncate text-muted-foreground">{partner.address}</span>
@@ -619,7 +605,7 @@ export default function MitraPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-[160px]">
-                        <DropdownMenuItem onClick={() => openEditSheet(partner)}>
+                        <DropdownMenuItem onClick={() => openEditModal(partner)}>
                           <Edit className="size-4 mr-2" />
                           <span>Edit Mitra</span>
                         </DropdownMenuItem>
@@ -646,7 +632,7 @@ export default function MitraPage() {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={11} className="p-0">
+                <TableCell colSpan={9} className="p-0">
                   <EmptyMitraTableState isFiltered={hasActiveFilter} />
                 </TableCell>
               </TableRow>
@@ -705,55 +691,54 @@ export default function MitraPage() {
         </div>
       )}
 
-      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-        <SheetContent className="flex flex-col sm:max-w-lg">
-          <SheetHeader>
-            <SheetTitle>{editId ? "Edit Mitra" : "Tambah Mitra"}</SheetTitle>
-            <SheetDescription>
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="flex flex-col sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>{editId ? "Edit Mitra" : "Tambah Mitra"}</DialogTitle>
+            <DialogDescription>
               Kelola identitas mitra sekaligus akun yang digunakan untuk login.
-            </SheetDescription>
-          </SheetHeader>
-          <div className="flex-1 space-y-5 overflow-y-auto px-4">
-            <div className="space-y-2">
-              <Label htmlFor="partner-code">Kode Mitra</Label>
-              <Input
-                id="partner-code"
-                value={formData.code}
-                onChange={(event) => {
-                  setFormData((current) => ({
-                    ...current,
-                    code: event.target.value.toUpperCase(),
-                  }))
-                  setFormErrors((current) => ({ ...current, code: "" }))
-                }}
-                placeholder="Contoh: MTR-001"
-                className={`font-mono ${formErrors.code ? "border-destructive" : ""
-                  }`}
-              />
-              <p className="text-xs text-muted-foreground">
-                Kode digunakan sebagai identitas Mitra dan boleh sama dengan
-                identitas lain.
-              </p>
-              {formErrors.code && (
-                <p className="text-xs text-destructive">{formErrors.code}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="partner-name">Nama Mitra</Label>
-              <Input
-                id="partner-name"
-                value={formData.name}
-                onChange={(event) => {
-                  setFormData((current) => ({ ...current, name: event.target.value }))
-                  setFormErrors((current) => ({ ...current, name: "" }))
-                }}
-                placeholder="Contoh: PT Telkom Indonesia"
-                className={formErrors.name ? "border-destructive" : ""}
-              />
-              {formErrors.name && (
-                <p className="text-xs text-destructive">{formErrors.name}</p>
-              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 space-y-5 overflow-y-auto p-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="partner-name">Nama Mitra</Label>
+                <Input
+                  id="partner-name"
+                  value={formData.name}
+                  onChange={(event) => {
+                    const newName = event.target.value
+                    setFormData((current) => {
+                      return { ...current, name: newName }
+                    })
+                    setFormErrors((current) => ({ ...current, name: "" }))
+                  }}
+                  placeholder="Contoh: PT Telkom Indonesia"
+                  className={formErrors.name ? "border-destructive" : ""}
+                />
+                {formErrors.name && (
+                  <p className="text-xs text-destructive">{formErrors.name}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="partner-code">Kode Mitra</Label>
+                <Input
+                  id="partner-code"
+                  value={formData.code}
+                  onChange={(event) => {
+                    setFormData((current) => ({
+                      ...current,
+                      code: event.target.value.toUpperCase(),
+                    }))
+                    setFormErrors((current) => ({ ...current, code: "" }))
+                  }}
+                  placeholder="Contoh: MTR-001"
+                  className={`${formErrors.code ? "border-destructive" : ""}`}
+                />
+                {formErrors.code && (
+                  <p className="text-xs text-destructive">{formErrors.code}</p>
+                )}
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -802,22 +787,21 @@ export default function MitraPage() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="contact-person">Penanggung Jawab / PIC</Label>
-              <Input
-                id="contact-person"
-                value={formData.contactPerson}
-                onChange={(event) =>
-                  setFormData((current) => ({
-                    ...current,
-                    contactPerson: event.target.value,
-                  }))
-                }
-                placeholder="Nama kontak utama"
-              />
-            </div>
-
             <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="contact-person">Penanggung Jawab / PIC</Label>
+                <Input
+                  id="contact-person"
+                  value={formData.contactPerson}
+                  onChange={(event) =>
+                    setFormData((current) => ({
+                      ...current,
+                      contactPerson: event.target.value,
+                    }))
+                  }
+                  placeholder="Nama kontak utama"
+                />
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="partner-phone">Telepon</Label>
                 <Input
@@ -829,154 +813,33 @@ export default function MitraPage() {
                   placeholder="08xxxxxxxxxx"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="partner-email">Email</Label>
-                <Input
-                  id="partner-email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(event) => {
-                    setFormData((current) => ({ ...current, email: event.target.value }))
-                    setFormErrors((current) => ({ ...current, email: "" }))
-                  }}
-                  placeholder="mitra@email.com"
-                  className={formErrors.email ? "border-destructive" : ""}
-                />
-                {formErrors.email && (
-                  <p className="text-xs text-destructive">{formErrors.email}</p>
-                )}
-              </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="partner-address">Alamat</Label>
+              <Label htmlFor="partner-address">Wilayah</Label>
               <Input
                 id="partner-address"
                 value={formData.address}
                 onChange={(event) =>
                   setFormData((current) => ({ ...current, address: event.target.value }))
                 }
-                placeholder="Alamat kantor mitra"
+                placeholder="Wilayah kerja mitra"
               />
             </div>
 
-            <div className="border-t pt-5">
-              <div>
 
-              </div>
-            </div>
-
-            <div className="border-t pt-5">
-              <div className="mb-4">
-                <h3 className="font-medium">Akun Login Mitra</h3>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                  Akun ini dibuat oleh admin. Mitra tidak dapat mendaftarkan akun
-                  secara mandiri.
-                </p>
-              </div>
-
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="partner-username">Username</Label>
-                  <Input
-                    id="partner-username"
-                    value={formData.username}
-                    onChange={(event) => {
-                      setFormData((current) => ({
-                        ...current,
-                        username: event.target.value,
-                      }))
-                      setFormErrors((current) => ({
-                        ...current,
-                        username: "",
-                      }))
-                    }}
-                    autoComplete="off"
-                    placeholder="Minimal 4 karakter"
-                    className={formErrors.username ? "border-destructive" : ""}
-                  />
-                  {formErrors.username && (
-                    <p className="text-xs text-destructive">
-                      {formErrors.username}
-                    </p>
-                  )}
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="partner-password">
-                      {editId ? "Password Baru" : "Password"}
-                    </Label>
-                    <Input
-                      id="partner-password"
-                      type="password"
-                      value={formData.password}
-                      onChange={(event) => {
-                        setFormData((current) => ({
-                          ...current,
-                          password: event.target.value,
-                        }))
-                        setFormErrors((current) => ({
-                          ...current,
-                          password: "",
-                        }))
-                      }}
-                      autoComplete="new-password"
-                      placeholder={editId ? "Kosongkan jika tetap" : "Minimal 8 karakter"}
-                      className={formErrors.password ? "border-destructive" : ""}
-                    />
-                    {formErrors.password && (
-                      <p className="text-xs text-destructive">
-                        {formErrors.password}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="partner-password-confirmation">
-                      Konfirmasi Password
-                    </Label>
-                    <Input
-                      id="partner-password-confirmation"
-                      type="password"
-                      value={formData.confirmPassword}
-                      onChange={(event) => {
-                        setFormData((current) => ({
-                          ...current,
-                          confirmPassword: event.target.value,
-                        }))
-                        setFormErrors((current) => ({
-                          ...current,
-                          confirmPassword: "",
-                        }))
-                      }}
-                      autoComplete="new-password"
-                      placeholder="Ulangi password"
-                      className={
-                        formErrors.confirmPassword ? "border-destructive" : ""
-                      }
-                    />
-                    {formErrors.confirmPassword && (
-                      <p className="text-xs text-destructive">
-                        {formErrors.confirmPassword}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
-          <SheetFooter>
-            <Button variant="outline" onClick={() => setIsSheetOpen(false)} disabled={isSaving}>
+          <DialogFooter className="flex flex-row pr-4">
+            <Button variant="outline" onClick={() => setIsModalOpen(false)} disabled={isSaving}>
               Batal
             </Button>
             <Button onClick={handleSave} disabled={isSaving}>
               {isSaving ? <Loader2 className="size-4 mr-2 animate-spin" /> : null}
-              Simpan Mitra
+              Simpan
             </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog
         open={deleteTarget !== null}

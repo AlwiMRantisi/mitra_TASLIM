@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import {
-  Plus, Edit, Trash2, Search, Shapes, MoreVertical, ShieldAlert, Loader2
+  Plus, Edit, Trash2, Search, Shapes, MoreVertical, ShieldAlert, Loader2, LayoutGrid, List
 } from "lucide-react";
 
 /**
@@ -49,6 +49,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 
 import type { Kategori } from "@/types/inventory";
 
@@ -64,6 +66,17 @@ import type { Kategori } from "@/types/inventory";
 export default function KategoriBarangPage() {
   const [categories, setCategories] = useState<Kategori[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
+
+  useEffect(() => {
+    const savedMode = localStorage.getItem("arxiva_kategori_view_mode") as "grid" | "table" | null;
+    if (savedMode) setViewMode(savedMode);
+  }, []);
+
+  const handleViewModeChange = (mode: "grid" | "table") => {
+    setViewMode(mode);
+    localStorage.setItem("arxiva_kategori_view_mode", mode);
+  };
 
   // Sheet state
   const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -96,7 +109,7 @@ export default function KategoriBarangPage() {
         throw new Error("Gagal mengambil data kategori");
       }
       const data = await response.json();
-      
+
       // Standarisasi response (mengingat format backend kadang bisa bervariasi)
       const categoriesList = data.data || data.categories || data;
       setCategories(Array.isArray(categoriesList) ? categoriesList.map((c: any) => ({
@@ -272,74 +285,200 @@ export default function KategoriBarangPage() {
     <div className="p-6 h-full flex flex-col gap-6 text-neutral-100 mx-auto w-full">
 
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="relative w-full sm:w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
-          <Input
-            type="search"
-            placeholder="Cari kategori..."
-            className="w-full pl-9 bg-neutral-900 border-neutral-800 focus-visible:ring-1 focus-visible:ring-neutral-700"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+        <div className="flex flex-1 items-center gap-4 w-full sm:w-auto">
+          <div className="relative w-full sm:w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
+            <Input
+              type="search"
+              placeholder="Cari kategori..."
+              className="w-full pl-9 bg-neutral-900 border-neutral-800 focus-visible:ring-1 focus-visible:ring-neutral-700 placeholder:text-sm"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
         </div>
-        <Button className="w-full sm:w-auto gap-2" onClick={() => handleOpenSheet()}>
-          <Plus className="w-4 h-4" /> Tambah Kategori
+        <div className="flex flex-1 justify-end gap-2 w-full sm:w-auto">
+          <div className="flex flex-wrap gap-1">
+            <Button
+              variant={viewMode === "grid" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => handleViewModeChange("grid")}
+              className={`h-8 px-2.5 rounded-sm active:translate-y-0 active:not-aria-[haspopup]:translate-y-0 transition-none ${viewMode === "grid" ? "bg-neutral-800 text-neutral-100" : "text-neutral-400 hover:text-neutral-200"}`}
+            >
+              <LayoutGrid className="size-3.5" />
+            </Button>
+            <Button
+              variant={viewMode === "table" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => handleViewModeChange("table")}
+              className={`h-8 px-2.5 rounded-sm active:translate-y-0 active:not-aria-[haspopup]:translate-y-0 transition-none ${viewMode === "table" ? "bg-neutral-800 text-neutral-100" : "text-neutral-400 hover:text-neutral-200"}`}
+            >
+              <List className="size-3.5" />
+            </Button>
+          </div>
+          <Button className="h-8 gap-2 rounded-sm" onClick={() => handleOpenSheet()}>
+            <Plus className="w-4 h-4" /> Tambah Kategori
+          </Button>
+        </div>
+      </div>
+
+      {/* Mobile view toggle */}
+      <div className="sm:hidden flex items-center p-1 rounded-lg border border-neutral-800 bg-neutral-900/50 w-full">
+        <Button
+          variant={viewMode === "grid" ? "secondary" : "ghost"}
+          size="sm"
+          onClick={() => handleViewModeChange("grid")}
+          className={`flex-1 h-8 active:translate-y-0 active:not-aria-[haspopup]:translate-y-0 transition-none ${viewMode === "grid" ? "bg-neutral-800 text-neutral-100" : "text-neutral-400 hover:text-neutral-200"}`}
+        >
+          <LayoutGrid className="size-4 mr-1.5" />
+          Grid
+        </Button>
+        <Button
+          variant={viewMode === "table" ? "secondary" : "ghost"}
+          size="sm"
+          onClick={() => handleViewModeChange("table")}
+          className={`flex-1 h-8 active:translate-y-0 active:not-aria-[haspopup]:translate-y-0 transition-none ${viewMode === "table" ? "bg-neutral-800 text-neutral-100" : "text-neutral-400 hover:text-neutral-200"}`}
+        >
+          <List className="size-4 mr-1.5" />
+          Table
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 pb-10">
-        {filteredCategories.map(cat => (
-          <Card key={cat.id} className="overflow-hidden relative group transition-all duration-300 hover:border-neutral-700 hover:bg-neutral-900/60">
-            <CardContent className="px-5 flex flex-col gap-4">
-              <div className="flex justify-between items-start">
-                <div className="p-2.5 bg-blue-500/10 rounded-xl shrink-0">
-                  <Shapes className="w-6 h-6 text-blue-400" />
+      {viewMode === "grid" ? (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 pb-10">
+          {filteredCategories.map(cat => (
+            <Card key={cat.id} className="overflow-hidden relative group transition-all duration-300 hover:border-neutral-700 hover:bg-neutral-900/60">
+              <CardContent className="px-5 flex flex-col gap-4">
+                <div className="flex justify-between items-start">
+                  <div className="p-2.5 bg-blue-500/10 rounded-xl shrink-0">
+                    <Shapes className="w-6 h-6 text-blue-400" />
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-neutral-800 text-neutral-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <MoreVertical className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="bg-neutral-950 border-neutral-800 text-neutral-200">
+                      <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800" onClick={() => handleOpenSheet(cat.id)}>
+                        <Edit className="w-4 h-4 mr-2" /> Edit Kategori
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="text-red-400 focus:bg-red-950/50 focus:text-red-400 cursor-pointer" onClick={() => requestDelete(cat.id, cat.name)}>
+                        <Trash2 className="w-4 h-4 mr-2" /> Hapus Kategori
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-neutral-800 text-neutral-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <MoreVertical className="w-4 h-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="bg-neutral-950 border-neutral-800 text-neutral-200">
-                    <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800" onClick={() => handleOpenSheet(cat.id)}>
-                      <Edit className="w-4 h-4 mr-2" /> Edit Kategori
-                    </DropdownMenuItem>
-                    <DropdownMenuItem className="text-red-400 focus:bg-red-950/50 focus:text-red-400 cursor-pointer" onClick={() => requestDelete(cat.id, cat.name)}>
-                      <Trash2 className="w-4 h-4 mr-2" /> Hapus Kategori
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
 
-              <div>
-                <h3 className="font-semibold text-lg text-neutral-100 mb-1">{cat.name}</h3>
-                <p className="text-sm text-neutral-500 line-clamp-2">{cat.description}</p>
-              </div>
-
-              <div className="mt-auto pt-4 border-t border-neutral-800/60 flex justify-between items-center">
-                <div className="flex items-center gap-2 text-xs font-medium text-neutral-500">
-                  <ShieldAlert className="size-3.5 text-amber-400" />
-                  Safety Stock
+                <div>
+                  <h3 className="font-semibold text-lg text-neutral-100 mb-1">{cat.name}</h3>
+                  <p className="text-sm text-neutral-500 line-clamp-2">{cat.description}</p>
                 </div>
-                <span className="text-sm font-medium text-neutral-300">
-                  {cat.safetyStock} Unit
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
 
-        {filteredCategories.length === 0 && (
-          <div className="col-span-full py-16 flex flex-col items-center justify-center text-center">
-            <div className="w-16 h-16 bg-neutral-900 rounded-full flex items-center justify-center mb-4">
-              <Search className="w-8 h-8 text-neutral-600" />
+                <div className="mt-auto pt-4 border-t border-neutral-800/60 flex justify-between items-center">
+                  <div className="flex items-center gap-2 text-xs font-medium text-neutral-500">
+                    <ShieldAlert className="size-3.5 text-amber-400" />
+                    Safety Stock
+                  </div>
+                  <span className="text-sm font-medium text-neutral-300">
+                    {cat.safetyStock} Unit
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+
+          {filteredCategories.length === 0 && (
+            <div className="col-span-full py-16 flex flex-col items-center justify-center text-center">
+              <div className="w-16 h-16 bg-neutral-900 rounded-full flex items-center justify-center mb-4">
+                <Search className="w-8 h-8 text-neutral-600" />
+              </div>
+              <h3 className="text-lg font-medium text-neutral-300 mb-1">Kategori Tidak Ditemukan</h3>
+              <p className="text-sm text-neutral-500 max-w-sm">Coba gunakan kata kunci lain atau tambahkan kategori baru.</p>
             </div>
-            <h3 className="text-lg font-medium text-neutral-300 mb-1">Kategori Tidak Ditemukan</h3>
-            <p className="text-sm text-neutral-500 max-w-sm">Coba gunakan kata kunci lain atau tambahkan kategori baru.</p>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      ) : (
+        <div className="rounded-sm border border-neutral-800 bg-neutral-900/50 overflow-hidden">
+          <Table>
+            <TableHeader className="bg-neutral-900/80">
+              <TableRow className="border-neutral-800 hover:bg-transparent">
+                <TableHead className="text-neutral-400">No.</TableHead>
+                <TableHead className="text-neutral-400">Nama Kategori</TableHead>
+                <TableHead className="text-neutral-400">Model Material</TableHead>
+                <TableHead className="text-neutral-400">Total Unit</TableHead>
+                <TableHead className="text-neutral-400">Safety Stock</TableHead>
+                <TableHead className="text-neutral-400">Status Stok</TableHead>
+                <TableHead className="text-right text-neutral-400">Aksi</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredCategories.length === 0 ? (
+                <TableRow className="border-neutral-800 hover:bg-transparent">
+                  <TableCell colSpan={7} className="h-32 text-center text-neutral-500">
+                    <div className="flex flex-col items-center justify-center">
+                      <Search className="w-8 h-8 text-neutral-600 mb-2" />
+                      <p>Kategori Tidak Ditemukan</p>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredCategories.map((cat, index) => (
+                  <TableRow key={cat.id} className="border-neutral-800 hover:bg-neutral-900/80">
+                    <TableCell className="text-neutral-400">
+                      {index + 1}
+                    </TableCell>
+                    <TableCell className="text-neutral-200">
+                      <div className="flex items-center gap-3">
+                        {cat.name}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-neutral-400">
+                      {cat.description || "-"}
+                    </TableCell>
+                    <TableCell className="text-neutral-300 font-medium">
+                      {cat.totalItems} Unit
+                    </TableCell>
+                    <TableCell className="text-neutral-300">
+                      {cat.safetyStock} Unit
+                    </TableCell>
+                    <TableCell>
+                      {cat.totalItems >= cat.safetyStock ? (
+                        <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20">
+                          Aman
+                        </Badge>
+                      ) : (
+                        <Badge variant="destructive" className="bg-destructive/10 text-destructive border-destructive/20 hover:bg-destructive/20">
+                          Stok Kritis
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="icon" className="h-7 w-7 rounded-sm hover:bg-neutral-800 text-neutral-400 cursor-pointer">
+                            <MoreVertical className="size-3.5" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="rounded-sm bg-card border-accent-foreground text-neutral-200">
+                          <DropdownMenuItem className="px-2 h-8 rounded-sm cursor-pointer focus:bg-neutral-800" onClick={() => handleOpenSheet(cat.id)}>
+                            <Edit className="size-3.5 mr-1" />
+                            <span className="text-xs">Edit Kategori</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="px-2 h-8 rounded-sm text-red-400 focus:bg-red-950/50 focus:text-red-400 cursor-pointer" onClick={() => requestDelete(cat.id, cat.name)}>
+                            <Trash2 className="size-3.5 mr-1" />
+                            <span className="text-xs">Hapus Kategori</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
         <SheetContent className="sm:max-w-md border-neutral-800 bg-neutral-950 p-0 flex flex-col text-neutral-200">

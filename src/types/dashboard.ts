@@ -32,3 +32,14 @@ export type ChartDataPoint = {
   keluar: number;
   rusak: number;
 };
+
+export type MitraPerformanceMetrics = {
+  id: string;
+  name: string;
+  requestCount: number;
+  totalItems: number;
+  averageLifespanDays: number | null;
+  daysSinceLastRequest: number;
+  isIdleStock: boolean;
+  status: 'Fast' | 'Steady' | 'Slow' | 'Idle' | 'Not Enough Data';
+};

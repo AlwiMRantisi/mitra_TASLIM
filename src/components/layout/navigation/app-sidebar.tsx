@@ -7,23 +7,12 @@ import { NavProjects } from "@/components/layout/navigation/nav-projects"
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
 import {
   Box,
   CircleStar,
@@ -33,7 +22,6 @@ import {
   Handshake,
   HistoryIcon,
   LayoutGrid,
-  LogOut,
   MapPinHouse,
   PackageMinus,
   PackagePlus,
@@ -42,8 +30,6 @@ import {
   Zap,
 } from "lucide-react"
 import { useAuth } from "@/lib/auth"
-import { useNavigate } from "react-router-dom"
-import { NavUser } from "./nav-user"
 
 const data = {
   navMain: [
@@ -194,17 +180,9 @@ const data = {
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const navigate = useNavigate()
-  const { user, logout } = useAuth()
-  const [isLogoutDialogOpen, setIsLogoutDialogOpen] = React.useState(false)
+  const { user } = useAuth()
   const isAdmin = user?.role === "admin"
   const visibleNavMain = isAdmin ? data.navMain : data.mitraNavMain
-
-  const handleLogout = () => {
-    logout()
-    setIsLogoutDialogOpen(false)
-    navigate("/login", { replace: true })
-  }
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -220,7 +198,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <Zap className="size-4" fill="currentColor" />
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-semibold">PT ICON Plus Tasikmalaya</span>
+                <span className="truncate font-semibold text-foreground">PT ICON Plus Tasikmalaya</span>
                 <span className="truncate text-xs">Inventory Management</span>
               </div>
             </SidebarMenuButton>
@@ -231,37 +209,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavProjects main={data.main} />
         <NavMain items={visibleNavMain} />
       </SidebarContent>
-      <SidebarFooter>
-        <NavUser
-          user={{
-            name: user?.displayName || user?.username || "User",
-            email: user?.username || "",
-            avatar: "",
-          }}
-          onLogout={() => setIsLogoutDialogOpen(true)}
-        />
-      </SidebarFooter>
       <SidebarRail />
-      <AlertDialog
-        open={isLogoutDialogOpen}
-        onOpenChange={setIsLogoutDialogOpen}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Konfirmasi logout</AlertDialogTitle>
-            <AlertDialogDescription>
-              Apakah Anda yakin ingin keluar dari akun {user?.displayName}?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Batal</AlertDialogCancel>
-            <AlertDialogAction onClick={handleLogout}>
-              <LogOut className="size-4" />
-              Ya, Keluar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </Sidebar>
   )
 }

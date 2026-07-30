@@ -255,7 +255,7 @@ function BastActions({
                     <Button
                         variant="outline"
                         size="sm"
-                        className="h-8 text-xs font-medium cursor-pointer gap-1.5 bg-sky-500/10 text-sky-600 hover:bg-sky-500/20 dark:bg-sky-500/20 dark:text-sky-400 border-sky-500/20"
+                        className="h-8 text-xs font-medium cursor-pointer gap-1.5"
                         title="Pengambilan Material BAST"
                         onClick={(e) => {
                             e.stopPropagation();

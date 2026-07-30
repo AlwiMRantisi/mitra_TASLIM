@@ -1,8 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Boxes, Loader2, ChevronLeft, ChevronRight } from "lucide-react"
+import { Plus, Search, Edit, Trash2, Boxes, Loader2, ChevronLeft, ChevronRight, MoreVertical } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,15 +23,26 @@ import {
 } from "@/components/ui/select"
 import { toast } from "sonner"
 import { useSearchParams } from "react-router-dom"
-import { saveExportFile } from "@/lib/export-file"
-import * as XLSX from "xlsx"
 import { useAuth } from "@/lib/auth"
 
-import { BarangFilterBar } from "@/components/data-barang/BarangFilterBar"
-import { BarangTable } from "@/components/data-barang/BarangTable"
+
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+
 import { BarangDetailDrawer } from "@/components/data-barang/BarangDetailDrawer"
 import { BarangFormModal } from "@/components/data-barang/BarangFormModal"
-import { BarangMobileCards } from "@/components/data-barang/BarangMobileCards"
 
 import type { StatusUnit, BarangUnit, StorageLocationOption } from "@/types/inventory"
 import type { DeleteDialogState } from "@/types/ui"
@@ -57,28 +69,6 @@ const getHeaders = () => {
 const getLokasiPenyimpanan = (status: StatusUnit, lokasiPenyimpanan: string) =>
   status === "Terdistribusi" ? "Terdistribusi" : lokasiPenyimpanan.trim()
 
-function EmptyBarangTableState({ isFiltered }: { isFiltered: boolean }) {
-  return (
-    <div className="flex min-h-60 items-center justify-center px-6 py-12">
-      <div className="flex max-w-md flex-col items-center gap-3 text-center">
-        <div className="flex size-12 items-center justify-center rounded-full border bg-muted/40 text-muted-foreground">
-          <Boxes className="size-6" strokeWidth={1.8} />
-        </div>
-        <div className="space-y-1">
-          <p className="text-sm font-semibold text-foreground">
-            {isFiltered ? "Tidak ada unit yang cocok" : "Belum ada data barang"}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {isFiltered
-              ? "Coba ubah kata kunci pencarian atau status filter yang sedang aktif."
-              : "Data unit akan tampil di sini setelah barang masuk didaftarkan ke sistem."}
-          </p>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 export default function DataBarangPage() {
   const { user } = useAuth()
   const [searchParams] = useSearchParams()
@@ -92,15 +82,13 @@ export default function DataBarangPage() {
   const [filterStatus, setFilterStatus] = useState("all")
   const [filterCategory, setFilterCategory] = useState("all")
   const [filterBrand, setFilterBrand] = useState("all")
-
+  const [categories, setCategories] = useState<string[]>([])
+  const [brands, setBrands] = useState<string[]>([])
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
 
-  const [categories, setCategories] = useState<string[]>([])
-  const [brands, setBrands] = useState<string[]>([])
   const [dbLocations, setDbLocations] = useState<StorageLocationOption[]>([])
 
-  const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -193,21 +181,20 @@ export default function DataBarangPage() {
         setTotalItems(result.pagination?.totalItems || result.data.length)
         setTotalPages(result.pagination?.totalPages || 1)
 
-        // Populate unique brands list
         const extractedBrands = Array.from(
           new Set(result.data.map((item: BarangUnit) => item.merek).filter(Boolean))
         ) as string[]
         if (extractedBrands.length > 0) {
           setBrands((prev) => Array.from(new Set([...prev, ...extractedBrands])))
         }
-      } else if (Array.isArray(result)) {
-        setBarangList(result)
-        setTotalItems(result.length)
+      } else {
+        setBarangList(Array.isArray(result) ? result : [])
+        setTotalItems(Array.isArray(result) ? result.length : 0)
         setTotalPages(1)
       }
-    } catch (err) {
-      console.error("Error loadItems:", err)
-      toast.error("Gagal memuat data dari server.")
+    } catch (error) {
+      console.error("Gagal memuat data:", error)
+      toast.error("Gagal memuat data barang")
     } finally {
       setIsLoading(false)
     }
@@ -221,14 +208,6 @@ export default function DataBarangPage() {
   useEffect(() => {
     setCurrentPage(1)
   }, [searchTerm, filterStatus, filterCategory, filterBrand, pageSize])
-
-  const handleResetFilter = () => {
-    setSearchTerm("")
-    setFilterStatus("all")
-    setFilterCategory("all")
-    setFilterBrand("all")
-    setCurrentPage(1)
-  }
 
   const handleOpenDetail = (barang: BarangUnit) => {
     setDetailBarang(barang)
@@ -252,21 +231,11 @@ export default function DataBarangPage() {
     setIsFormOpen(true)
   }
 
-  const handleDelete = (id: string) => {
-    const barang = barangList.find((b) => b.id === id)
-    if (!barang) return
+  const handleDelete = (id: string, serialNumber: string) => {
     setDeleteDialog({
       type: "single",
       ids: [id],
-      serialNumber: barang.serialNumber,
-    })
-  }
-
-  const handleBulkDelete = () => {
-    if (selectedIds.length === 0) return
-    setDeleteDialog({
-      type: "bulk",
-      ids: selectedIds,
+      serialNumber,
     })
   }
 
@@ -285,13 +254,8 @@ export default function DataBarangPage() {
         )
       )
 
-      setSelectedIds((prev) => prev.filter((id) => !idsToDelete.includes(id)))
       setDeleteDialog(null)
-      toast.success(
-        deleteDialog.type === "single"
-          ? `Unit dengan SN ${deleteDialog.serialNumber} berhasil dihapus.`
-          : `${idsToDelete.length} unit berhasil dihapus.`
-      )
+      toast.success("Unit berhasil dihapus.")
       loadItems()
     } catch (err) {
       toast.error("Gagal menghapus unit.")
@@ -339,22 +303,16 @@ export default function DataBarangPage() {
           headers: getHeaders(),
           body: JSON.stringify(payload),
         })
-        if (!resAdd.ok) {
-          const err = await resAdd.json().catch(() => ({}))
-          throw new Error(err.message || "Gagal menyimpan unit.")
-        }
-        toast.success(`Unit baru dengan SN ${payload.serialNumber} berhasil didaftarkan!`)
+        if (!resAdd.ok) throw new Error("Gagal menyimpan unit.")
+        toast.success(`Unit baru berhasil didaftarkan!`)
       } else {
         const resUpdate = await fetch(`${getBaseUrl()}/items/${selectedBarang!.id}`, {
           method: "PUT",
           headers: getHeaders(),
           body: JSON.stringify(payload),
         })
-        if (!resUpdate.ok) {
-          const err = await resUpdate.json().catch(() => ({}))
-          throw new Error(err.message || "Gagal memperbarui unit.")
-        }
-        toast.success(`Unit dengan SN ${payload.serialNumber} berhasil diperbarui!`)
+        if (!resUpdate.ok) throw new Error("Gagal memperbarui unit.")
+        toast.success(`Unit berhasil diperbarui!`)
       }
 
       setIsFormOpen(false)
@@ -366,89 +324,6 @@ export default function DataBarangPage() {
     }
   }
 
-  // Task 3.1: Export all matching items for Excel (bypassing active pagination limit)
-  const handleExportExcel = async () => {
-    try {
-      const params = new URLSearchParams()
-      params.append("limit", "0") // 0 means return all matching items
-      if (searchTerm.trim()) params.append("search", searchTerm.trim())
-      if (filterStatus !== "all") params.append("status", filterStatus)
-      if (filterCategory !== "all") params.append("kategori", filterCategory)
-      if (filterBrand !== "all") params.append("merek", filterBrand)
-
-      const res = await fetch(`${getBaseUrl()}/items?${params.toString()}`, {
-        method: "GET",
-        headers: getHeaders(),
-      })
-
-      if (!res.ok) throw new Error("Gagal mengambil data untuk ekspor.")
-      const result = await res.json()
-      const exportItems: BarangUnit[] = Array.isArray(result.data)
-        ? result.data
-        : Array.isArray(result)
-          ? result
-          : []
-
-      if (exportItems.length === 0) {
-        toast.error("Tidak ada data barang yang dapat diekspor.")
-        return
-      }
-
-      const headers = [
-        "No",
-        "Serial Number",
-        "Merek",
-        "Kategori",
-        "Model Material",
-        "Status",
-        "Lokasi Penyimpanan",
-        "Tempat",
-        "Tanggal Masuk",
-        "Tanggal Keluar",
-      ]
-
-      const rows = exportItems.map((item, index) => [
-        index + 1,
-        item.serialNumber,
-        item.merek,
-        item.kategori,
-        item.tipe || "-",
-        item.status,
-        item.lokasiPenyimpanan,
-        item.mitra || ADMIN_LOCATION,
-        item.tanggalMasuk,
-        item.tanggalKeluar || "",
-      ])
-
-      const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows])
-      const workbook = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Data Barang")
-      const buffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" })
-
-      const now = new Date()
-      const dateSuffix = [
-        now.getFullYear(),
-        String(now.getMonth() + 1).padStart(2, "0"),
-        String(now.getDate()).padStart(2, "0"),
-      ].join("-")
-
-      const exportResult = await saveExportFile({
-        fileName: `data-barang-${dateSuffix}.xlsx`,
-        contents: buffer,
-      })
-
-      if (exportResult.saved) {
-        toast.success(
-          `${exportItems.length} data barang berhasil diekspor.`,
-          exportResult.path ? { description: `Disimpan di: ${exportResult.path}` } : undefined
-        )
-      }
-    } catch (err) {
-      console.error("Gagal ekspor Excel:", err)
-      toast.error("Gagal memproses ekspor data barang.")
-    }
-  }
-
   const getStatusBadgeProps = (status: StatusUnit) => {
     switch (status) {
       case "Tersedia":
@@ -456,7 +331,7 @@ export default function DataBarangPage() {
       case "Terdistribusi":
         return { text: "Terdistribusi", dotClass: "bg-sky-500", badgeClass: "bg-blue-400/10 text-blue-500" }
       case "Rusak":
-        return { text: "Rusak", dotClass: "bg-rose-500", badgeClass: "bg-rose-400/10 text-rose-500" }
+        return { text: "Rusak", dotClass: "bg-destructive", badgeClass: "bg-destructive/10 text-destructive" }
       case "Hilang":
       default:
         return { text: "Hilang", dotClass: "bg-amber-500", badgeClass: "bg-amber-400/10 text-amber-500" }
@@ -470,160 +345,176 @@ export default function DataBarangPage() {
     return date.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })
   }
 
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedIds((prev) => Array.from(new Set([...prev, ...barangList.map((b) => b.id)])))
-    } else {
-      const currentIds = new Set(barangList.map((b) => b.id))
-      setSelectedIds((prev) => prev.filter((id) => !currentIds.has(id)))
-    }
-  }
-
-  const handleSelectRow = (checked: boolean, id: string) => {
-    if (checked) {
-      setSelectedIds((prev) => [...prev, id])
-    } else {
-      setSelectedIds((prev) => prev.filter((selectedId) => selectedId !== id))
-    }
-  }
-
-  const availableFormLocations = dbLocations.filter((location) => {
-    if (user?.role === "mitra") {
-      const locOwner = location.owner.trim().toLowerCase()
-      return (
-        locOwner === user.displayName.trim().toLowerCase() ||
-        locOwner === user.username.trim().toLowerCase() ||
-        (user.identityCode && locOwner.includes(user.identityCode.trim().toLowerCase()))
-      )
-    }
-    return true
-  })
-
-  const isFiltered =
-    searchTerm.trim().length > 0 ||
-    filterStatus !== "all" ||
-    filterCategory !== "all" ||
-    filterBrand !== "all"
+  const isFiltered = searchTerm.trim().length > 0 || filterStatus !== "all" || filterCategory !== "all" || filterBrand !== "all"
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 md:p-6 overflow-hidden animate-fade-in">
-      {/* Modular Filter Bar */}
-      <BarangFilterBar
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-        filterStatus={filterStatus}
-        onStatusChange={setFilterStatus}
-        filterCategory={filterCategory}
-        onCategoryChange={setFilterCategory}
-        filterBrand={filterBrand}
-        onBrandChange={setFilterBrand}
-        categories={categories}
-        brands={brands}
-        onResetFilter={handleResetFilter}
-        selectedCount={selectedIds.length}
-        onBulkDelete={handleBulkDelete}
-        onExportExcel={handleExportExcel}
-        userRole={user?.role}
-        hasFilteredData={totalItems > 0}
-      />
-
-      {/* Main Content Area: Table / Cards */}
-      {isLoading ? (
-        <div className="flex flex-1 items-center justify-center py-20 gap-2 text-muted-foreground text-xs">
-          <Loader2 className="size-5 animate-spin text-primary" />
-          <span>Memuat data barang dari server...</span>
-        </div>
-      ) : barangList.length === 0 ? (
-        <EmptyBarangTableState isFiltered={isFiltered} />
-      ) : (
-        <>
-          {/* Desktop Table View */}
-          <div className="hidden md:flex min-h-0 flex-1 flex-col">
-            <BarangTable
-              items={barangList}
-              selectedIds={selectedIds}
-              onSelectAll={handleSelectAll}
-              onSelectRow={handleSelectRow}
-              onItemClick={handleOpenDetail}
-              onOpenEdit={handleOpenEdit}
-              onDelete={handleDelete}
-              userRole={user?.role}
-              currentPage={currentPage}
-              pageSize={pageSize}
-              getStatusBadgeProps={getStatusBadgeProps}
-              formatTanggal={formatTanggal}
-              ADMIN_LOCATION={ADMIN_LOCATION}
+    <div className="p-6 h-full flex flex-col gap-6 text-neutral-100 mx-auto w-full">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center w-full lg:w-auto">
+          <div className="relative w-full sm:w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
+            <Input
+              type="search"
+              placeholder="Cari SN atau barang..."
+              className="w-full pl-9 bg-neutral-900 border-neutral-800 focus-visible:ring-1 focus-visible:ring-neutral-700 placeholder:text-sm"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-
-          {/* Mobile Cards View */}
-          <BarangMobileCards
-            items={barangList}
-            selectedIds={selectedIds}
-            onSelectRow={handleSelectRow}
-            onItemClick={handleOpenDetail}
-            onOpenEdit={handleOpenEdit}
-            onDelete={handleDelete}
-            userRole={user?.role}
-            getStatusBadgeProps={getStatusBadgeProps}
-            formatTanggal={formatTanggal}
-            ADMIN_LOCATION={ADMIN_LOCATION}
-          />
-
-          {/* Pagination Controls Footer */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 px-1 text-xs shrink-0">
-            <div className="text-muted-foreground">
-              Menampilkan <span className="font-medium text-foreground">{barangList.length}</span> dari{" "}
-              <span className="font-medium text-foreground">{totalItems}</span> unit inventaris
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1.5">
-                <span className="text-muted-foreground">Baris:</span>
-                <Select
-                  value={pageSize.toString()}
-                  onValueChange={(val) => setPageSize(parseInt(val, 10))}
-                >
-                  <SelectTrigger className="w-[70px] h-8 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="10">10</SelectItem>
-                    <SelectItem value="20">20</SelectItem>
-                    <SelectItem value="50">50</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="size-8"
-                  disabled={currentPage <= 1}
-                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                >
-                  <ChevronLeft className="size-4" />
-                </Button>
-                <span className="px-2 text-muted-foreground font-medium">
-                  {currentPage} / {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="size-8"
-                  disabled={currentPage >= totalPages}
-                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                >
-                  <ChevronRight className="size-4" />
-                </Button>
-              </div>
-            </div>
+          <div className="flex flex-wrap gap-2">
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
+              <SelectTrigger className={`w-32 rounded-sm bg-neutral-900 border-neutral-800 text-neutral-200 ${filterStatus === 'all' ? 'border-dashed text-neutral-400' : ''}`}>
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent className="bg-neutral-900 border-neutral-800 text-neutral-200">
+                <SelectItem value="all">Status</SelectItem>
+                {STATUS_OPTIONS.map((status) => (
+                  <SelectItem key={status} value={status}>{status}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={filterCategory} onValueChange={setFilterCategory}>
+              <SelectTrigger className={`w-32 rounded-sm bg-neutral-900 border-neutral-800 text-neutral-200 ${filterCategory === 'all' ? 'border-dashed text-neutral-400' : ''}`}>
+                <SelectValue placeholder="Kategori" />
+              </SelectTrigger>
+              <SelectContent className="bg-neutral-900 border-neutral-800 text-neutral-200">
+                <SelectItem value="all">Kategori</SelectItem>
+                {categories.map((c) => (
+                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={filterBrand} onValueChange={setFilterBrand}>
+              <SelectTrigger className={`w-32 rounded-sm bg-neutral-900 border-neutral-800 text-neutral-200 ${filterBrand === 'all' ? 'border-dashed text-neutral-400' : ''}`}>
+                <SelectValue placeholder="Merek" />
+              </SelectTrigger>
+              <SelectContent className="bg-neutral-900 border-neutral-800 text-neutral-200">
+                <SelectItem value="all">Merek</SelectItem>
+                {brands.map((b) => (
+                  <SelectItem key={b} value={b}>{b}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-        </>
-      )}
+        </div>
+        <div className="flex justify-end gap-2 w-full lg:w-auto">
+          {user?.role === "admin" && (
+            <Button className="h-8 gap-2 rounded-sm" onClick={() => { setFormMode("add"); setIsFormOpen(true); }}>
+              <Plus className="w-4 h-4" /> Tambah Barang
+            </Button>
+          )}
+        </div>
+      </div>
 
-      {/* Modular Detail Drawer */}
+      <div className="rounded-sm border border-neutral-800 bg-neutral-900/50 overflow-hidden">
+        <Table>
+          <TableHeader className="bg-neutral-900/80">
+            <TableRow className="border-neutral-800 hover:bg-transparent">
+              <TableHead className="text-neutral-400 w-12">No.</TableHead>
+              <TableHead className="text-neutral-400">Serial Number (SN)</TableHead>
+              <TableHead className="text-neutral-400">Merek</TableHead>
+              <TableHead className="text-neutral-400">Kategori</TableHead>
+              <TableHead className="text-neutral-400 text-center">Status</TableHead>
+              <TableHead className="text-neutral-400 text-center">Lokasi Penyimpanan</TableHead>
+              {user?.role === "admin" && <TableHead className="text-right text-neutral-400">Aksi</TableHead>}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              <TableRow className="border-neutral-800 hover:bg-transparent">
+                <TableCell colSpan={7} className="h-32 text-center text-neutral-500">
+                  <div className="flex flex-col items-center justify-center">
+                    <Loader2 className="w-8 h-8 text-neutral-600 mb-2 animate-spin" />
+                    <p>Memuat data barang...</p>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : barangList.length === 0 ? (
+              <TableRow className="border-neutral-800 hover:bg-transparent">
+                <TableCell colSpan={7} className="h-32 text-center text-neutral-500">
+                  <div className="flex flex-col items-center justify-center">
+                    <Boxes className="w-8 h-8 text-neutral-600 mb-2" />
+                    <p>{isFiltered ? "Tidak ada unit yang cocok" : "Belum ada data barang"}</p>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : (
+              barangList.map((item, index) => {
+                const badge = getStatusBadgeProps(item.status)
+                return (
+                  <TableRow 
+                    key={item.id} 
+                    className="border-neutral-800 hover:bg-neutral-900/80 cursor-pointer"
+                    onClick={() => handleOpenDetail(item)}
+                  >
+                    <TableCell className="text-neutral-400">{(currentPage - 1) * pageSize + index + 1}</TableCell>
+                    <TableCell className="text-neutral-200 font-medium">{item.serialNumber}</TableCell>
+                    <TableCell className="text-neutral-400">{item.merek || "-"}</TableCell>
+                    <TableCell className="text-neutral-400">{item.kategori || "-"}</TableCell>
+                    <TableCell className="text-center">
+                      <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium border border-neutral-800/60 ${badge.badgeClass}`}>
+                        <span className={`size-1.5 rounded-full ${badge.dotClass}`} />
+                        {badge.text}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-center text-neutral-400">{getLokasiPenyimpanan(item.status, item.lokasiPenyimpanan)}</TableCell>
+                    {user?.role === "admin" && (
+                      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="icon" className="h-7 w-7 rounded-sm hover:bg-neutral-800 text-neutral-400 cursor-pointer border-neutral-800">
+                              <MoreVertical className="size-3.5" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="rounded-sm bg-neutral-950 border-neutral-800 text-neutral-200">
+                            <DropdownMenuItem className="px-2 h-8 rounded-sm cursor-pointer focus:bg-neutral-800" onClick={() => handleOpenEdit(item)}>
+                              <Edit className="size-3.5 mr-1" />
+                              <span className="text-xs">Edit Barang</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="px-2 h-8 rounded-sm text-red-400 focus:bg-red-950/50 focus:text-red-400 cursor-pointer" onClick={() => handleDelete(item.id, item.serialNumber)}>
+                              <Trash2 className="size-3.5 mr-1" />
+                              <span className="text-xs">Hapus Barang</span>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                )
+              })
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 px-1 text-xs shrink-0">
+        <div className="text-neutral-500">
+          Menampilkan <span className="font-medium text-neutral-200">{barangList.length}</span> dari{" "}
+          <span className="font-medium text-neutral-200">{totalItems}</span> unit inventaris
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5">
+            <span className="text-neutral-500">Baris:</span>
+            <Select value={pageSize.toString()} onValueChange={(val) => setPageSize(parseInt(val, 10))}>
+              <SelectTrigger className="w-[70px] h-8 text-xs bg-neutral-900 border-neutral-800 text-neutral-200">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-neutral-900 border-neutral-800 text-neutral-200">
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="20">20</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="icon" className="size-8 bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-neutral-200" disabled={currentPage <= 1} onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}><ChevronLeft className="size-4" /></Button>
+            <span className="px-2 text-neutral-400 font-medium">{currentPage} / {totalPages}</span>
+            <Button variant="outline" size="icon" className="size-8 bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-neutral-200" disabled={currentPage >= totalPages} onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}><ChevronRight className="size-4" /></Button>
+          </div>
+        </div>
+      </div>
+
       <BarangDetailDrawer
         isOpen={isDetailOpen}
         onOpenChange={setIsDetailOpen}
@@ -637,7 +528,6 @@ export default function DataBarangPage() {
         getHeaders={getHeaders}
       />
 
-      {/* Modular Form Add/Edit Modal */}
       <BarangFormModal
         isOpen={isFormOpen}
         onOpenChange={setIsFormOpen}
@@ -647,12 +537,11 @@ export default function DataBarangPage() {
         formErrors={formErrors}
         isSaving={isSaving}
         onSubmit={handleSubmitForm}
-        categories={categories}
-        availableFormLocations={availableFormLocations}
+        categories={categories} 
+        availableFormLocations={dbLocations}
         STATUS_OPTIONS={STATUS_OPTIONS}
       />
 
-      {/* Delete Confirmation Alert Dialog */}
       <AlertDialog open={!!deleteDialog} onOpenChange={(open) => !open && setDeleteDialog(null)}>
         <AlertDialogContent className="max-w-md">
           <AlertDialogHeader>

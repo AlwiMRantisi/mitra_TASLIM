@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { Plus, Edit, Trash2, Search, MoreVertical, Loader2, PackageOpen } from "lucide-react";
+import { Plus, Edit, Trash2, Search, MoreVertical, Loader2, PackageOpen, LayoutGrid, List } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -38,6 +39,18 @@ export default function TipeMaterialPage() {
   const [categories, setCategories] = useState<any[]>([]);
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
+
+  useEffect(() => {
+    const savedMode = localStorage.getItem("arxiva_model_view_mode") as "grid" | "table" | null;
+    if (savedMode) setViewMode(savedMode);
+  }, []);
+
+  const handleViewModeChange = (mode: "grid" | "table") => {
+    setViewMode(mode);
+    localStorage.setItem("arxiva_model_view_mode", mode);
+  };
+
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [deleteAlertData, setDeleteAlertData] = useState({ isOpen: false, id: "", name: "" });
@@ -202,89 +215,190 @@ export default function TipeMaterialPage() {
   return (
     <div className="p-6 h-full flex flex-col gap-6 text-neutral-100 mx-auto w-full">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="relative w-full sm:w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
-          <Input placeholder="Cari model material..." className="w-full pl-9 bg-neutral-900 border-neutral-800 focus-visible:ring-1 focus-visible:ring-neutral-700" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+        <div className="flex flex-1 items-center gap-4 w-full sm:w-auto">
+          <div className="relative w-full sm:w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
+            <Input
+              type="search"
+              placeholder="Cari model material..."
+              className="w-full pl-9 bg-neutral-900 border-neutral-800 focus-visible:ring-1 focus-visible:ring-neutral-700 placeholder:text-sm"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
         </div>
-        <Button className="w-full sm:w-auto gap-2" onClick={() => handleOpenSheet()}>
-          <Plus className="w-4 h-4" /> Tambah Model Material
+        <div className="flex flex-1 justify-end gap-2 w-full sm:w-auto">
+          <div className="flex flex-wrap gap-1">
+            <Button
+              variant={viewMode === "grid" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => handleViewModeChange("grid")}
+              className={`h-8 px-2.5 rounded-sm active:translate-y-0 active:not-aria-[haspopup]:translate-y-0 transition-none ${viewMode === "grid" ? "bg-neutral-800 text-neutral-100" : "text-neutral-400 hover:text-neutral-200"}`}
+            >
+              <LayoutGrid className="size-3.5" />
+            </Button>
+            <Button
+              variant={viewMode === "table" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => handleViewModeChange("table")}
+              className={`h-8 px-2.5 rounded-sm active:translate-y-0 active:not-aria-[haspopup]:translate-y-0 transition-none ${viewMode === "table" ? "bg-neutral-800 text-neutral-100" : "text-neutral-400 hover:text-neutral-200"}`}
+            >
+              <List className="size-3.5" />
+            </Button>
+          </div>
+          <Button className="h-8 gap-2 rounded-sm" onClick={() => handleOpenSheet()}>
+            <Plus className="w-4 h-4" /> Tambah Model Material
+          </Button>
+        </div>
+      </div>
+
+      {/* Mobile view toggle */}
+      <div className="sm:hidden flex items-center p-1 rounded-lg border border-neutral-800 bg-neutral-900/50 w-full">
+        <Button
+          variant={viewMode === "grid" ? "secondary" : "ghost"}
+          size="sm"
+          onClick={() => handleViewModeChange("grid")}
+          className={`flex-1 h-8 active:translate-y-0 active:not-aria-[haspopup]:translate-y-0 transition-none ${viewMode === "grid" ? "bg-neutral-800 text-neutral-100" : "text-neutral-400 hover:text-neutral-200"}`}
+        >
+          <LayoutGrid className="size-4 mr-1.5" />
+          Grid
+        </Button>
+        <Button
+          variant={viewMode === "table" ? "secondary" : "ghost"}
+          size="sm"
+          onClick={() => handleViewModeChange("table")}
+          className={`flex-1 h-8 active:translate-y-0 active:not-aria-[haspopup]:translate-y-0 transition-none ${viewMode === "table" ? "bg-neutral-800 text-neutral-100" : "text-neutral-400 hover:text-neutral-200"}`}
+        >
+          <List className="size-4 mr-1.5" />
+          Table
         </Button>
       </div>
 
-      <div className="relative min-h-0 flex-1 rounded-md border border-border/60 bg-card/40 overflow-auto">
-        <Table>
-          <TableHeader className="sticky top-0 z-10 bg-muted/80 backdrop-blur-md">
-            <TableRow className="hover:bg-transparent">
-              <TableHead className="w-16 text-center text-xs font-semibold">No.</TableHead>
-              <TableHead className="text-xs font-semibold">Kode Model</TableHead>
-              <TableHead className="text-xs font-semibold">Nama Model</TableHead>
-              <TableHead className="text-xs font-semibold">Merek</TableHead>
-              <TableHead className="text-xs font-semibold">Kategori</TableHead>
-              <TableHead className="text-right text-xs font-semibold">Total Unit</TableHead>
-              <TableHead className="w-16 text-right"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredTypes.map((t, index) => (
-              <TableRow key={t.id} className="hover:bg-muted/40 transition-colors text-xs md:text-sm">
-                <TableCell className="text-center font-medium text-muted-foreground text-xs">
-                  {index + 1}
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {t.code || '-'}
-                </TableCell>
-                <TableCell className="font-medium text-foreground">
-                  {t.nama}
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {t.brand?.nama || '-'}
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {t.materialCategory?.nama || '-'}
-                </TableCell>
-                <TableCell className="text-right text-muted-foreground">
-                  {t._count?.items || 0} Unit
-                </TableCell>
-                <TableCell className="text-right">
+      {viewMode === "grid" ? (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 pb-10">
+          {filteredTypes.map(t => (
+            <Card key={t.id} className="overflow-hidden relative group transition-all duration-300 hover:border-neutral-700 hover:bg-neutral-900/60">
+              <CardContent className="px-5 py-2 flex flex-col h-full justify-between gap-15">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="font-medium text-xs text-neutral-200 mb-1.5 leading-tight">{t.nama}</h3>
+                    <p className="text-xs text-neutral-400">
+                      {t.brand?.nama || '-'} <span className="text-neutral-600 mx-1">|</span> {t.materialCategory?.nama || '-'}
+                    </p>
+                  </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-neutral-800 text-neutral-400">
+                      <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-neutral-800 text-neutral-400 -mr-2 -mt-1">
                         <MoreVertical className="w-4 h-4" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="bg-neutral-950 border-neutral-800 text-neutral-200">
                       <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800" onClick={() => handleOpenSheet(t.id)}>
-                        <Edit className="w-4 h-4 mr-2" /> Edit Model Material
+                        <Edit className="w-4 h-4 mr-2" /> Edit Model
                       </DropdownMenuItem>
                       <DropdownMenuItem className="text-red-400 focus:bg-red-950/50 focus:text-red-400 cursor-pointer" onClick={() => setDeleteAlertData({ isOpen: true, id: t.id, name: t.nama })}>
-                        <Trash2 className="w-4 h-4 mr-2" /> Hapus Model Material
+                        <Trash2 className="w-4 h-4 mr-2" /> Hapus Model
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+                </div>
 
-        {filteredTypes.length === 0 && (
-          <div className="flex min-h-[300px] items-center justify-center px-6 py-12">
-            <div className="flex max-w-md flex-col items-center gap-3 text-center">
-              <div className="flex size-12 items-center justify-center rounded-full border bg-muted/40 text-muted-foreground">
-                <PackageOpen className="size-6" strokeWidth={1.8} />
+                <div className="flex items-center gap-2.5">
+                  <span className="text-sm text-neutral-300 font-medium">Total {t._count?.items || 0} Unit</span>
+
+                  {t.code && (
+                    <span className="text-xs ml-auto px-2 pb-1 pt-1.5 rounded border border-border">
+                      {t.code}
+                    </span>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+
+          {filteredTypes.length === 0 && (
+            <div className="col-span-full py-16 flex flex-col items-center justify-center text-center">
+              <div className="w-16 h-16 bg-neutral-900 rounded-full flex items-center justify-center mb-4">
+                <Search className="w-8 h-8 text-neutral-600" />
               </div>
-              <div className="space-y-1">
-                <p className="text-sm font-semibold text-foreground">
-                  Model Material Tidak Ditemukan
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Data model material tidak ditemukan atau belum ada data yang ditambahkan.
-                </p>
-              </div>
+              <h3 className="text-lg font-medium text-neutral-300 mb-1">Model Material Tidak Ditemukan</h3>
+              <p className="text-sm text-neutral-500 max-w-sm">Coba gunakan kata kunci lain atau tambahkan model material baru.</p>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      ) : (
+        <div className="rounded-sm border border-neutral-800 bg-neutral-900/50 overflow-hidden">
+          <Table>
+            <TableHeader className="bg-neutral-900/80">
+              <TableRow className="border-neutral-800 hover:bg-transparent">
+                <TableHead className="text-neutral-400">No.</TableHead>
+                <TableHead className="text-neutral-400">Kode Model</TableHead>
+                <TableHead className="text-neutral-400">Nama Model</TableHead>
+                <TableHead className="text-neutral-400">Merek</TableHead>
+                <TableHead className="text-neutral-400">Kategori</TableHead>
+                <TableHead className="text-neutral-400">Total Unit</TableHead>
+                <TableHead className="text-right text-neutral-400">Aksi</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredTypes.length === 0 ? (
+                <TableRow className="border-neutral-800 hover:bg-transparent">
+                  <TableCell colSpan={7} className="h-32 text-center text-neutral-500">
+                    <div className="flex flex-col items-center justify-center">
+                      <Search className="w-8 h-8 text-neutral-600 mb-2" />
+                      <p>Model Material Tidak Ditemukan</p>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredTypes.map((t, index) => (
+                  <TableRow key={t.id} className="border-neutral-800 hover:bg-neutral-900/80">
+                    <TableCell className="text-neutral-400">
+                      {index + 1}
+                    </TableCell>
+                    <TableCell className="text-neutral-400">
+                      {t.code || '-'}
+                    </TableCell>
+                    <TableCell className="text-neutral-200">
+                      <div className="flex items-center gap-3">
+                        {t.nama}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-neutral-400">
+                      {t.brand?.nama || '-'}
+                    </TableCell>
+                    <TableCell className="text-neutral-400">
+                      {t.materialCategory?.nama || '-'}
+                    </TableCell>
+                    <TableCell className="text-neutral-300 font-medium">
+                      {t._count?.items || 0} Unit
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="icon" className="h-7 w-7 rounded-sm hover:bg-neutral-800 text-neutral-400 cursor-pointer">
+                            <MoreVertical className="size-3.5" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="rounded-sm bg-card border-accent-foreground text-neutral-200">
+                          <DropdownMenuItem className="px-2 h-8 rounded-sm cursor-pointer focus:bg-neutral-800" onClick={() => handleOpenSheet(t.id)}>
+                            <Edit className="size-3.5 mr-1" />
+                            <span className="text-xs">Edit Model Material</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="px-2 h-8 rounded-sm text-red-400 focus:bg-red-950/50 focus:text-red-400 cursor-pointer" onClick={() => setDeleteAlertData({ isOpen: true, id: t.id, name: t.nama })}>
+                            <Trash2 className="size-3.5 mr-1" />
+                            <span className="text-xs">Hapus Model Material</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
         <SheetContent className="sm:max-w-md border-neutral-800 bg-neutral-950 p-0 flex flex-col text-neutral-200">

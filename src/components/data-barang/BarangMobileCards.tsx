@@ -46,9 +46,8 @@ export function BarangMobileCards({
         return (
           <Card
             key={item.id}
-            className={`p-3.5 space-y-2.5 transition-all cursor-pointer border-border/60 ${
-              isSelected ? "border-primary bg-primary/5" : "hover:border-border"
-            }`}
+            className={`p-3.5 space-y-2.5 transition-all cursor-pointer border-border/60 ${isSelected ? "border-primary bg-primary/5" : "hover:border-border"
+              }`}
             onClick={() => onItemClick(item)}
           >
             <div className="flex items-start justify-between gap-2">
@@ -88,7 +87,7 @@ export function BarangMobileCards({
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
-                        className="text-rose-600 focus:text-rose-600"
+                        className="text-destructive focus:text-destructive"
                         onClick={() => onDelete(item.id)}
                       >
                         <Trash2 className="size-3.5 mr-2" />

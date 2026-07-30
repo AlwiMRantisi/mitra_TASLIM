@@ -8,16 +8,47 @@ import {
     BreadcrumbPage,
     BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
-import { useLocation } from "react-router-dom"
+import { useLocation, useNavigate } from "react-router-dom"
 import { Notifications } from "@/features/dashboard/components/notifications"
-import { Sun, Moon } from "lucide-react"
+import { Sun, Moon, LogOut, Bell, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useTheme } from "@/components/shared/themeProvider"
+import { useAuth } from "@/lib/auth"
+import React, { useState } from "react"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuGroup,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 export function SiteHeader({ className }: { className?: string }) {
     const location = useLocation()
     const path = location.pathname
     const { theme, setTheme } = useTheme()
+    const { user, logout } = useAuth()
+    const navigate = useNavigate()
+    const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false)
+
+    const handleLogout = () => {
+        logout()
+        setIsLogoutDialogOpen(false)
+        navigate("/login", { replace: true })
+    }
 
     // Determine breadcrumbs based on route
     let parent = "Menu Utama"
@@ -113,8 +144,63 @@ export function SiteHeader({ className }: { className?: string }) {
                         <span className="sr-only">Toggle theme</span>
                     </Button>
                     <Notifications />
+                    
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="rounded-full ring-offset-background transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                                <Avatar className="h-8 w-8">
+                                    <AvatarImage src="" alt={user?.displayName || "User"} />
+                                    <AvatarFallback>{(user?.displayName || "U").slice(0, 2).toUpperCase()}</AvatarFallback>
+                                </Avatar>
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className="w-56" align="end" forceMount>
+                            <DropdownMenuLabel className="font-normal">
+                                <div className="flex flex-col space-y-1">
+                                    <p className="text-sm font-medium leading-none">{user?.displayName || "User"}</p>
+                                    <p className="text-xs leading-none text-muted-foreground">
+                                        {user?.username || ""}
+                                    </p>
+                                </div>
+                            </DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuGroup>
+                                <DropdownMenuItem>
+                                    <User className="mr-2 h-4 w-4" />
+                                    <span>Profil</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem>
+                                    <Bell className="mr-2 h-4 w-4" />
+                                    <span>Notifikasi</span>
+                                </DropdownMenuItem>
+                            </DropdownMenuGroup>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="text-red-400 focus:text-red-400 focus:bg-red-400/10 cursor-pointer" onClick={() => setIsLogoutDialogOpen(true)}>
+                                <LogOut className="mr-2 h-4 w-4" />
+                                <span>Keluar</span>
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
             </div>
+
+            <AlertDialog open={isLogoutDialogOpen} onOpenChange={setIsLogoutDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Konfirmasi logout</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Apakah Anda yakin ingin keluar dari akun {user?.displayName}?
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Batal</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleLogout}>
+                            <LogOut className="mr-2 h-4 w-4" />
+                            Ya, Keluar
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </header>
     )
 }
