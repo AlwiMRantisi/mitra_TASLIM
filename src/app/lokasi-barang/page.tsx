@@ -3,7 +3,8 @@
 import { useState, useMemo, useEffect } from "react";
 import {
   Plus, Edit, Trash2, Power, Layers, Archive, MoreVertical,
-  Search, Box, Loader2, QrCode, Package, SlidersHorizontal
+  Search, Box, Loader2, QrCode, Package, SlidersHorizontal,
+  LayoutGrid, List
 } from "lucide-react";
 import QRCode from "qrcode";
 import { invoke, isTauri } from "@tauri-apps/api/core";
@@ -21,6 +22,8 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import type { StorageLocation } from "@/types/inventory";
 import type { SheetMode } from "@/types/ui";
 
@@ -70,6 +73,17 @@ export default function LokasiBarangPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState<"rak" | "kardus" | "pallet">("rak");
   const [sortBy, setSortBy] = useState<"util-desc" | "util-asc" | "name">("name");
+  const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
+
+  useEffect(() => {
+    const savedMode = localStorage.getItem("arxiva_lokasi_view_mode") as "grid" | "table" | null;
+    if (savedMode) setViewMode(savedMode);
+  }, []);
+
+  const handleViewModeChange = (mode: "grid" | "table") => {
+    setViewMode(mode);
+    localStorage.setItem("arxiva_lokasi_view_mode", mode);
+  };
 
   // Form States
   const [locName, setLocName] = useState("");
@@ -85,6 +99,9 @@ export default function LokasiBarangPage() {
   const [isToggling, setIsToggling] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const ADMIN_LOCATION = "KP Tasikmalaya";
+  const normalizeOwner = (owner?: string | null) => (owner || ADMIN_LOCATION).trim().toLowerCase();
+
   const loadLocations = async () => {
     try {
       const res = await fetch(`${getBaseUrl()}/locations`, {
@@ -94,9 +111,17 @@ export default function LokasiBarangPage() {
       if (!res.ok) throw new Error("Gagal mengambil data lokasi");
       const json = await res.json();
       const data: StorageLocation[] = json.data || json || [];
+      const kpOwner = normalizeOwner(ADMIN_LOCATION);
       setLocations(
         data.filter(
-          (loc) => loc.name !== "Keluar" && loc.name !== "Diluar"
+          (loc) =>
+            loc.name !== "Keluar" &&
+            loc.name !== "Diluar" &&
+            (loc as any).type !== "Partner" &&
+            (loc as any).type !== "PARTNER" &&
+            !loc.name.toUpperCase().startsWith("PT ") &&
+            !loc.name.toUpperCase().startsWith("PT.") &&
+            (normalizeOwner(loc.owner) === kpOwner || normalizeOwner(loc.owner) === "kp")
         )
       );
     } catch (error) {
@@ -563,31 +588,51 @@ export default function LokasiBarangPage() {
       {/* ── 1. HEADER SECTION ── */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-neutral-800/60 pb-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-neutral-50 via-neutral-100 to-neutral-400 bg-clip-text text-transparent">
+          <h1 className="text-2xl font-bold tracking-tight text-neutral-100">
             Lokasi Penyimpanan
           </h1>
           <p className="text-xs text-neutral-400 mt-1.5">
             Kelola tata letak fisik, aturan merek, dan pantau ketersediaan kapasitas rak, kardus, atau pallet.
           </p>
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button className="bg-blue-600 hover:bg-blue-500 text-white font-medium shadow-md shadow-blue-950/20 active:scale-95 transition-all cursor-pointer">
-              <Plus className="w-4 h-4 mr-1.5" /> Tambah Lokasi
+        <div className="flex items-center gap-2">
+          <div className="flex flex-wrap gap-1">
+            <Button
+              variant={viewMode === "grid" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => handleViewModeChange("grid")}
+              className={`h-8 px-2.5 rounded-sm active:translate-y-0 active:not-aria-[haspopup]:translate-y-0 transition-none ${viewMode === "grid" ? "bg-neutral-800 text-neutral-100" : "text-neutral-400 hover:text-neutral-200"}`}
+            >
+              <LayoutGrid className="size-3.5" />
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48 bg-neutral-950 border-neutral-800 text-neutral-200">
-            <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleOpenSheet("add-rak")}>
-              <Layers className="w-4 h-4 mr-2 text-blue-400" /> Tambah Rak
-            </DropdownMenuItem>
-            <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleOpenSheet("add-kardus")}>
-              <Archive className="w-4 h-4 mr-2 text-amber-400" /> Tambah Kardus
-            </DropdownMenuItem>
-            <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleOpenSheet("add-pallet")}>
-              <Package className="w-4 h-4 mr-2 text-emerald-400" /> Tambah Pallet
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+            <Button
+              variant={viewMode === "table" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => handleViewModeChange("table")}
+              className={`h-8 px-2.5 rounded-sm active:translate-y-0 active:not-aria-[haspopup]:translate-y-0 transition-none ${viewMode === "table" ? "bg-neutral-800 text-neutral-100" : "text-neutral-400 hover:text-neutral-200"}`}
+            >
+              <List className="size-3.5" />
+            </Button>
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" className="h-8 gap-2 rounded-sm cursor-pointer">
+                <Plus className="w-4 h-4" /> Tambah Lokasi
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48 bg-neutral-950 border-neutral-800 text-neutral-200">
+              <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleOpenSheet("add-rak")}>
+                <Layers className="w-4 h-4 mr-2 text-blue-400" /> Tambah Rak
+              </DropdownMenuItem>
+              <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleOpenSheet("add-kardus")}>
+                <Archive className="w-4 h-4 mr-2 text-amber-400" /> Tambah Kardus
+              </DropdownMenuItem>
+              <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleOpenSheet("add-pallet")}>
+                <Package className="w-4 h-4 mr-2 text-emerald-400" /> Tambah Pallet
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
       {/* ── 2. WAREHOUSE STATISTICS BANNER ── */}
@@ -800,251 +845,351 @@ export default function LokasiBarangPage() {
         </div>
       </div>
 
-      {/* ── 4. LOCATION CARDS GRID ── */}
-      <div  className="grid gap-6 md:grid-cols-2 xl:grid-cols-3 pb-16">
-        {filteredAndSortedLocations.map(loc => {
-          const isLocActive = loc.isActive;
-          
-          if (loc.type === "Rak") {
-            return (
-              <Card
-                key={loc.id}
-                className={`border-neutral-800 bg-neutral-900/10 flex flex-col relative group transition-all duration-300 hover:border-neutral-700/80 hover:bg-neutral-900/20 hover:shadow-lg hover:shadow-black/20 ${!isLocActive ? 'opacity-60 saturate-50' : ''}`}
-              >
-                {/* Header */}
-                <CardHeader className="pb-3 border-b border-neutral-800/40 bg-neutral-900/5 px-4 pt-4 flex flex-row items-start justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div className="p-1.5 bg-blue-500/10 rounded-lg"><Layers className="w-4 h-4 text-blue-400" /></div>
-                    <div>
-                      <CardTitle className="text-sm font-bold text-neutral-100 flex items-center gap-1.5">
-                        {loc.name}
-                        {!isLocActive && <span className="text-[10px] bg-neutral-850 text-neutral-500 border border-neutral-800 px-1.5 py-0.2 rounded-md font-medium">Nonaktif</span>}
-                      </CardTitle>
-                      <CardDescription className="text-[10px] text-neutral-500 mt-0.5">{loc.levels?.length || 0} Level Penyimpanan</CardDescription>
+      {/* ── 4. LOCATION CARDS GRID / TABLE ── */}
+      {viewMode === "grid" ? (
+        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3 pb-16">
+          {filteredAndSortedLocations.map(loc => {
+            const isLocActive = loc.isActive;
+            
+            if (loc.type === "Rak") {
+              return (
+                <Card
+                  key={loc.id}
+                  className={`border-neutral-800 bg-neutral-900/10 flex flex-col relative group transition-all duration-300 hover:border-neutral-700/80 hover:bg-neutral-900/20 hover:shadow-lg hover:shadow-black/20 ${!isLocActive ? 'opacity-60 saturate-50' : ''}`}
+                >
+                  {/* Header */}
+                  <CardHeader className="pb-3 border-b border-neutral-800/40 bg-neutral-900/5 px-4 pt-4 flex flex-row items-start justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-1.5 bg-blue-500/10 rounded-lg"><Layers className="w-4 h-4 text-blue-400" /></div>
+                      <div>
+                        <CardTitle className="text-sm font-bold text-neutral-100 flex items-center gap-1.5">
+                          {loc.name}
+                          {!isLocActive && <span className="text-[10px] bg-neutral-850 text-neutral-500 border border-neutral-800 px-1.5 py-0.2 rounded-md font-medium">Nonaktif</span>}
+                        </CardTitle>
+                        <CardDescription className="text-[10px] text-neutral-500 mt-0.5">{loc.levels?.length || 0} Level Penyimpanan</CardDescription>
+                      </div>
                     </div>
-                  </div>
 
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full hover:bg-neutral-800 text-neutral-400 cursor-pointer"><MoreVertical className="w-4 h-4" /></Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="bg-neutral-955 border-neutral-800 text-neutral-200">
-                      <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleOpenSheet("edit-rak", { parentId: loc.id })}><Edit className="w-3.5 h-3.5 mr-2" /> Edit Nama Rak</DropdownMenuItem>
-                      <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleOpenSheet("add-level", { parentId: loc.id })}><Plus className="w-3.5 h-3.5 mr-2" /> Tambah Level</DropdownMenuItem>
-                      <DropdownMenuSeparator className="bg-neutral-800" />
-                      <DropdownMenuItem disabled={isToggling} className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleToggleLocation(loc.id)}><Power className="w-3.5 h-3.5 mr-2" /> {isLocActive ? "Nonaktifkan Rak" : "Aktifkan Rak"}</DropdownMenuItem>
-                      <DropdownMenuItem disabled={isDeleting} className="text-red-400 focus:bg-red-950/50 focus:text-red-400 cursor-pointer text-xs" onClick={() => requestDeleteLocation(loc.id, loc.name)}><Trash2 className="w-3.5 h-3.5 mr-2" /> Hapus Rak</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </CardHeader>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full hover:bg-neutral-800 text-neutral-400 cursor-pointer"><MoreVertical className="w-4 h-4" /></Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="bg-neutral-955 border-neutral-800 text-neutral-200">
+                        <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleOpenSheet("edit-rak", { parentId: loc.id })}><Edit className="w-3.5 h-3.5 mr-2" /> Edit Nama Rak</DropdownMenuItem>
+                        <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleOpenSheet("add-level", { parentId: loc.id })}><Plus className="w-3.5 h-3.5 mr-2" /> Tambah Level</DropdownMenuItem>
+                        <DropdownMenuSeparator className="bg-neutral-800" />
+                        <DropdownMenuItem disabled={isToggling} className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleToggleLocation(loc.id)}><Power className="w-3.5 h-3.5 mr-2" /> {isLocActive ? "Nonaktifkan Rak" : "Aktifkan Rak"}</DropdownMenuItem>
+                        <DropdownMenuItem disabled={isDeleting} className="text-red-400 focus:bg-red-950/50 focus:text-red-400 cursor-pointer text-xs" onClick={() => requestDeleteLocation(loc.id, loc.name)}><Trash2 className="w-3.5 h-3.5 mr-2" /> Hapus Rak</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </CardHeader>
 
-                {/* Content: Compact List of Levels */}
-                <CardContent className="p-3 flex-1 flex flex-col gap-2.5">
-                  {loc.levels?.map(lvl => {
-                    const isLvlEffectiveActive = isLocActive && lvl.isActive;
-                    const { pct, barClass, textClass, label } = getProgressStyles(lvl.usedCapacity, lvl.capacity, "bg-blue-500");
+                  {/* Content: Compact List of Levels */}
+                  <CardContent className="p-3 flex-1 flex flex-col gap-2.5">
+                    {loc.levels?.map(lvl => {
+                      const isLvlEffectiveActive = isLocActive && lvl.isActive;
+                      const { pct, barClass, textClass, label } = getProgressStyles(lvl.usedCapacity, lvl.capacity, "bg-blue-500");
 
-                    return (
-                      <div
-                        key={lvl.id}
-                        onClick={() => navigate(`/data-barang?search=${encodeURIComponent(`${loc.name} - ${lvl.name}`)}`)}
-                        className={`p-2.5 rounded-xl border transition-all ${
-                          isLvlEffectiveActive 
-                            ? 'border-neutral-800/80 bg-neutral-955/20 hover:border-neutral-700/60 hover:bg-neutral-955/40 cursor-pointer' 
-                            : 'border-neutral-850/50 bg-neutral-900/5 opacity-55'
-                        } flex flex-col gap-2 group/level`}
-                      >
-                        <div className="flex justify-between items-center">
-                          <span className="font-semibold text-xs text-neutral-200">{lvl.name}</span>
-                          <div className="flex gap-1.5 items-center" onClick={e => e.stopPropagation()}>
-                            <span className="px-1.5 py-0.5 rounded bg-neutral-900 border border-neutral-850 text-[10px] text-neutral-400 max-w-[90px] truncate font-medium">
-                              {lvl.brandRule}
+                      return (
+                        <div
+                          key={lvl.id}
+                          onClick={() => navigate(`/data-barang?search=${encodeURIComponent(`${loc.name} - ${lvl.name}`)}`)}
+                          className={`p-2.5 rounded-xl border transition-all ${
+                            isLvlEffectiveActive 
+                              ? 'border-neutral-800/80 bg-neutral-955/20 hover:border-neutral-700/60 hover:bg-neutral-955/40 cursor-pointer' 
+                              : 'border-neutral-850/50 bg-neutral-900/5 opacity-55'
+                          } flex flex-col gap-2 group/level`}
+                        >
+                          <div className="flex justify-between items-center">
+                            <span className="font-semibold text-xs text-neutral-200">{lvl.name}</span>
+                            <div className="flex gap-1.5 items-center" onClick={e => e.stopPropagation()}>
+                              <span className="px-1.5 py-0.5 rounded bg-neutral-900 border border-neutral-850 text-[10px] text-neutral-400 max-w-[90px] truncate font-medium">
+                                {lvl.brandRule}
+                              </span>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-6 w-6 rounded-full opacity-60 group-hover/level:opacity-100 transition-opacity hover:bg-neutral-800 text-neutral-400 cursor-pointer"
+                                  >
+                                    <MoreVertical className="w-3 h-3" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="bg-neutral-955 border-neutral-800 text-neutral-200">
+                                  <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleOpenSheet("edit-level", { parentId: loc.id, levelId: lvl.id })}><Edit className="w-3.5 h-3.5 mr-2" /> Edit Level</DropdownMenuItem>
+                                  <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleDownloadQrCode(lvl.sheetUrl, `${loc.name} - ${lvl.name}`)}><QrCode className="w-3.5 h-3.5 mr-2" /> Simpan QR Code</DropdownMenuItem>
+                                  <DropdownMenuSeparator className="bg-neutral-800" />
+                                  <DropdownMenuItem disabled={!isLocActive || isToggling} className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleToggleLevel(loc.id, lvl.id)}><Power className="w-3.5 h-3.5 mr-2" /> {lvl.isActive ? "Nonaktifkan Level" : "Aktifkan Level"}</DropdownMenuItem>
+                                  <DropdownMenuItem disabled={isDeleting} className="text-red-400 focus:bg-red-950/50 focus:text-red-400 cursor-pointer text-xs" onClick={() => requestDeleteLevel(lvl.id, lvl.name)}><Trash2 className="w-3.5 h-3.5 mr-2" /> Hapus Level</DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          </div>
+
+                          {/* Progress Bar & Details */}
+                          <div className="flex justify-between items-center text-[10px] text-neutral-500 font-medium">
+                            <span>Kapasitas</span>
+                            <span>
+                              <strong className="text-neutral-300">{lvl.usedCapacity}</strong>
+                              <span className="text-neutral-600 font-normal"> / {lvl.capacity} Unit</span>
                             </span>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon" 
-                                  className="h-6 w-6 rounded-full opacity-60 group-hover/level:opacity-100 transition-opacity hover:bg-neutral-800 text-neutral-400 cursor-pointer"
-                                >
-                                  <MoreVertical className="w-3 h-3" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="bg-neutral-955 border-neutral-800 text-neutral-200">
-                                <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleOpenSheet("edit-level", { parentId: loc.id, levelId: lvl.id })}><Edit className="w-3.5 h-3.5 mr-2" /> Edit Level</DropdownMenuItem>
-                                <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleDownloadQrCode(lvl.sheetUrl, `${loc.name} - ${lvl.name}`)}><QrCode className="w-3.5 h-3.5 mr-2" /> Simpan QR Code</DropdownMenuItem>
-                                <DropdownMenuSeparator className="bg-neutral-800" />
-                                <DropdownMenuItem disabled={!isLocActive || isToggling} className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleToggleLevel(loc.id, lvl.id)}><Power className="w-3.5 h-3.5 mr-2" /> {lvl.isActive ? "Nonaktifkan Level" : "Aktifkan Level"}</DropdownMenuItem>
-                                <DropdownMenuItem disabled={isDeleting} className="text-red-400 focus:bg-red-950/50 focus:text-red-400 cursor-pointer text-xs" onClick={() => requestDeleteLevel(lvl.id, lvl.name)}><Trash2 className="w-3.5 h-3.5 mr-2" /> Hapus Level</DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 h-1.5 bg-neutral-950 rounded-full overflow-hidden shadow-inner">
+                              <div className={`h-full rounded-full transition-all duration-500 ${barClass}`} style={{ width: `${pct}%` }} />
+                            </div>
+                            <span className={`text-[10px] font-bold w-7 text-right ${textClass}`}>{label}</span>
                           </div>
                         </div>
+                      );
+                    })}
+                    {(!loc.levels || loc.levels.length === 0) && (
+                      <div className="text-center p-4 border border-dashed border-neutral-800/80 rounded-xl text-neutral-500 text-xs flex flex-col items-center justify-center gap-1.5 py-8">
+                        <Box className="w-6 h-6 text-neutral-800 mb-1" />
+                        <p>Belum memiliki level.</p>
+                        <Button variant="link" className="text-blue-400 text-[11px] h-auto p-0 cursor-pointer" onClick={(e) => { e.stopPropagation(); handleOpenSheet("add-level", { parentId: loc.id }); }}>
+                          Tambah level sekarang
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            }
 
-                        {/* Progress Bar & Details */}
-                        <div className="flex justify-between items-center text-[10px] text-neutral-500 font-medium">
-                          <span>Kapasitas</span>
-                          <span>
-                            <strong className="text-neutral-300">{lvl.usedCapacity}</strong>
-                            <span className="text-neutral-600 font-normal"> / {lvl.capacity} Unit</span>
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 h-1.5 bg-neutral-950 rounded-full overflow-hidden shadow-inner">
-                            <div className={`h-full rounded-full transition-all duration-500 ${barClass}`} style={{ width: `${pct}%` }} />
-                          </div>
-                          <span className={`text-[10px] font-bold w-7 text-right ${textClass}`}>{label}</span>
+            if (loc.type === "Kardus") {
+              const { pct, barClass, textClass, label } = getProgressStyles(loc.usedCapacity || 0, loc.capacity || 0, "bg-amber-400");
+
+              return (
+                <Card
+                  key={loc.id}
+                  className={`border-neutral-800 bg-neutral-900/10 overflow-hidden flex flex-col relative group transition-all duration-300 hover:border-neutral-700/80 hover:bg-neutral-900/20 hover:shadow-md hover:shadow-black/20 cursor-pointer ${!isLocActive ? 'opacity-60 saturate-50' : ''}`}
+                  onClick={() => navigate(`/data-barang?search=${encodeURIComponent(loc.name)}`)}
+                >
+                  <CardContent className="p-4 flex flex-col gap-3">
+                    <div className="flex justify-between items-start">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 bg-amber-500/10 rounded-lg shrink-0"><Archive className="w-4 h-4 text-amber-400" /></div>
+                        <div>
+                          <CardTitle className="text-sm font-bold text-neutral-100 flex items-center gap-1.5">
+                            {loc.name}
+                            {!isLocActive && <span className="text-[10px] bg-neutral-850 text-neutral-500 border border-neutral-800 px-1.5 py-0.2 rounded-md font-medium">Nonaktif</span>}
+                          </CardTitle>
+                          <CardDescription className="text-[10px] text-neutral-500 mt-0.5">Penyimpanan Kardus</CardDescription>
                         </div>
                       </div>
-                    );
-                  })}
-                  {(!loc.levels || loc.levels.length === 0) && (
-                    <div className="text-center p-4 border border-dashed border-neutral-800/80 rounded-xl text-neutral-500 text-xs flex flex-col items-center justify-center gap-1.5 py-8">
-                      <Box className="w-6 h-6 text-neutral-800 mb-1" />
-                      <p>Belum memiliki level.</p>
-                      <Button variant="link" className="text-blue-400 text-[11px] h-auto p-0 cursor-pointer" onClick={(e) => { e.stopPropagation(); handleOpenSheet("add-level", { parentId: loc.id }); }}>
-                        Tambah level sekarang
-                      </Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          }
 
-          if (loc.type === "Kardus") {
-            const { pct, barClass, textClass, label } = getProgressStyles(loc.usedCapacity || 0, loc.capacity || 0, "bg-amber-500");
-
-            return (
-              <Card
-                key={loc.id}
-                className={`border-neutral-800 bg-neutral-900/10 overflow-hidden flex flex-col relative group transition-all duration-300 hover:border-neutral-700/80 hover:bg-neutral-900/20 hover:shadow-md hover:shadow-black/20 cursor-pointer ${!isLocActive ? 'opacity-60 saturate-50' : ''}`}
-                onClick={() => navigate(`/data-barang?search=${encodeURIComponent(loc.name)}`)}
-              >
-                <CardContent className="p-4 flex flex-col gap-3">
-                  <div className="flex justify-between items-start">
-                    <div className="flex items-center gap-2">
-                      <div className="p-1.5 bg-amber-500/10 rounded-lg shrink-0"><Archive className="w-4 h-4 text-amber-400" /></div>
-                      <div>
-                        <CardTitle className="text-sm font-bold text-neutral-100 flex items-center gap-1.5">
-                          {loc.name}
-                          {!isLocActive && <span className="text-[10px] bg-neutral-850 text-neutral-500 border border-neutral-800 px-1.5 py-0.2 rounded-md font-medium">Nonaktif</span>}
-                        </CardTitle>
-                        <CardDescription className="text-[10px] text-neutral-500 mt-0.5">Penyimpanan Kardus</CardDescription>
+                      <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                        <span className="px-1.5 py-0.5 rounded bg-neutral-900 border border-neutral-850 text-[10px] text-neutral-400 font-medium">
+                          {loc.brandRule || "Campuran"}
+                        </span>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full hover:bg-neutral-800 text-neutral-400 cursor-pointer"><MoreVertical className="w-3.5 h-3.5" /></Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="bg-neutral-955 border-neutral-800 text-neutral-200">
+                            <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleOpenSheet("edit-kardus", { parentId: loc.id })}><Edit className="w-3.5 h-3.5 mr-2" /> Edit Kardus</DropdownMenuItem>
+                            <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleDownloadQrCode(loc.sheetUrl, loc.name)}><QrCode className="w-3.5 h-3.5 mr-2" /> Simpan QR Code</DropdownMenuItem>
+                            <DropdownMenuSeparator className="bg-neutral-800" />
+                            <DropdownMenuItem disabled={isToggling} className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleToggleLocation(loc.id)}><Power className="w-3.5 h-3.5 mr-2" /> {isLocActive ? "Nonaktifkan Kardus" : "Aktifkan Kardus"}</DropdownMenuItem>
+                            <DropdownMenuItem disabled={isDeleting} className="text-red-400 focus:bg-red-950/50 focus:text-red-400 cursor-pointer text-xs" onClick={() => requestDeleteLocation(loc.id, loc.name)}><Trash2 className="w-3.5 h-3.5 mr-2" /> Hapus Kardus</DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                      <span className="px-1.5 py-0.5 rounded bg-neutral-900 border border-neutral-850 text-[10px] text-neutral-400 font-medium">
-                        {loc.brandRule || "Campuran"}
-                      </span>
+                    <div className="space-y-1.5 mt-auto">
+                      <div className="flex justify-between items-center text-[10px] font-medium text-neutral-500">
+                        <span>Kapasitas</span>
+                        <span>
+                          <strong className="text-neutral-300">{loc.usedCapacity || 0}</strong>
+                          <span className="text-neutral-600 font-normal"> / {loc.capacity || 0} Unit</span>
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-1.5 bg-neutral-950 rounded-full overflow-hidden shadow-inner">
+                          <div className={`h-full rounded-full transition-all duration-500 ${barClass}`} style={{ width: `${pct}%` }} />
+                        </div>
+                        <span className={`text-[10px] font-bold w-7 text-right ${textClass}`}>{label}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            }
+
+            if (loc.type === "Pallet") {
+              const { pct, barClass, textClass, label } = getProgressStyles(loc.usedCapacity || 0, loc.capacity || 0, "bg-emerald-500");
+
+              return (
+                <Card
+                  key={loc.id}
+                  className={`border-neutral-800 bg-neutral-900/10 overflow-hidden flex flex-col relative group transition-all duration-300 hover:border-neutral-700/80 hover:bg-neutral-900/20 hover:shadow-md hover:shadow-black/20 cursor-pointer ${!isLocActive ? 'opacity-60 saturate-50' : ''}`}
+                  onClick={() => navigate(`/data-barang?search=${encodeURIComponent(loc.name)}`)}
+                >
+                  <CardContent className="p-4 flex flex-col gap-3">
+                    <div className="flex justify-between items-start">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 bg-emerald-500/10 rounded-lg shrink-0"><Package className="w-4 h-4 text-emerald-400" /></div>
+                        <div>
+                          <CardTitle className="text-sm font-bold text-neutral-100 flex items-center gap-1.5">
+                            {loc.name}
+                            {!isLocActive && <span className="text-[10px] bg-neutral-850 text-neutral-500 border border-neutral-800 px-1.5 py-0.2 rounded-md font-medium">Nonaktif</span>}
+                          </CardTitle>
+                          <CardDescription className="text-[10px] text-neutral-500 mt-0.5">Penyimpanan Pallet</CardDescription>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                        <span className="px-1.5 py-0.5 rounded bg-neutral-900 border border-neutral-850 text-[10px] text-neutral-400 font-medium">
+                          {loc.brandRule || "Campuran"}
+                        </span>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full hover:bg-neutral-800 text-neutral-400 cursor-pointer"><MoreVertical className="w-3.5 h-3.5" /></Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="bg-neutral-955 border-neutral-800 text-neutral-200">
+                            <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleOpenSheet("edit-pallet", { parentId: loc.id })}><Edit className="w-3.5 h-3.5 mr-2" /> Edit Pallet</DropdownMenuItem>
+                            <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleDownloadQrCode(loc.sheetUrl, loc.name)}><QrCode className="w-3.5 h-3.5 mr-2" /> Simpan QR Code</DropdownMenuItem>
+                            <DropdownMenuSeparator className="bg-neutral-800" />
+                            <DropdownMenuItem disabled={isToggling} className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleToggleLocation(loc.id)}><Power className="w-3.5 h-3.5 mr-2" /> {isLocActive ? "Nonaktifkan Pallet" : "Aktifkan Pallet"}</DropdownMenuItem>
+                            <DropdownMenuItem disabled={isDeleting} className="text-red-400 focus:bg-red-950/50 focus:text-red-400 cursor-pointer text-xs" onClick={() => requestDeleteLocation(loc.id, loc.name)}><Trash2 className="w-3.5 h-3.5 mr-2" /> Hapus Pallet</DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5 mt-auto">
+                      <div className="flex justify-between items-center text-[10px] font-medium text-neutral-500">
+                        <span>Kapasitas</span>
+                        <span>
+                          <strong className="text-neutral-300">{loc.usedCapacity || 0}</strong>
+                          <span className="text-neutral-600 font-normal"> / {loc.capacity || 0} Unit</span>
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-1.5 bg-neutral-950 rounded-full overflow-hidden shadow-inner">
+                          <div className={`h-full rounded-full transition-all duration-500 ${barClass}`} style={{ width: `${pct}%` }} />
+                        </div>
+                        <span className={`text-[10px] font-bold w-7 text-right ${textClass}`}>{label}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            }
+
+            return null;
+          })}
+          {filteredAndSortedLocations.length === 0 && (
+            <div className="col-span-full py-24 flex flex-col items-center justify-center text-center">
+              <div className="w-16 h-16 bg-neutral-900 border border-neutral-800 rounded-2xl flex items-center justify-center mb-4"><Search className="w-8 h-8 text-neutral-600" /></div>
+              <h3 className="text-lg font-bold text-neutral-200">Tidak Ada Lokasi</h3>
+              <p className="text-neutral-500 text-xs max-w-sm mt-1">Kami tidak menemukan lokasi penyimpanan yang sesuai dengan kata kunci atau filter tipe Anda.</p>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="rounded-sm border border-neutral-800 bg-neutral-900/50 overflow-hidden mb-10">
+          <Table>
+            <TableHeader className="bg-neutral-900/80">
+              <TableRow className="border-neutral-800 hover:bg-transparent">
+                <TableHead className="text-neutral-400 font-medium">Nama Lokasi</TableHead>
+                <TableHead className="text-neutral-400 font-medium">Tipe</TableHead>
+                <TableHead className="text-neutral-400 font-medium">Aturan Merek</TableHead>
+                <TableHead className="text-neutral-400 font-medium">Okupansi Kapasitas</TableHead>
+                <TableHead className="text-neutral-400 font-medium text-center">Status</TableHead>
+                <TableHead className="text-neutral-400 font-medium text-right">Aksi</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredAndSortedLocations.map((loc) => {
+                const isRak = loc.type === "Rak";
+                const totalCap = isRak
+                  ? (loc.levels?.reduce((a, b) => a + b.capacity, 0) || 0)
+                  : (loc.capacity || 0);
+                const usedCap = isRak
+                  ? (loc.levels?.reduce((a, b) => a + b.usedCapacity, 0) || 0)
+                  : (loc.usedCapacity || 0);
+                const brandRule = isRak ? "Multi-Level" : (loc.brandRule || "Campuran");
+                const pct = totalCap > 0 ? Math.round((usedCap / totalCap) * 100) : 0;
+
+                return (
+                  <TableRow key={loc.id} className="border-neutral-800/60 hover:bg-neutral-900/40">
+                    <TableCell className="font-medium text-neutral-200">
+                      <div className="flex items-center gap-2">
+                        {isRak ? <Layers className="w-4 h-4 text-blue-400" /> : loc.type === "Kardus" ? <Archive className="w-4 h-4 text-amber-400" /> : <Package className="w-4 h-4 text-emerald-400" />}
+                        <span>{loc.name}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-neutral-400 text-xs">
+                      {loc.type} {isRak ? `(${loc.levels?.length || 0} Level)` : ""}
+                    </TableCell>
+                    <TableCell className="text-neutral-400 text-xs">
+                      {brandRule}
+                    </TableCell>
+                    <TableCell className="text-neutral-300 text-xs">
+                      <div className="flex items-center gap-2">
+                        <div className="w-24 bg-neutral-955 rounded-full h-2 overflow-hidden border border-neutral-800">
+                          <div
+                            className={`h-full ${pct >= 100 ? "bg-red-500" : pct > 70 ? "bg-amber-500" : "bg-blue-500"}`}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                        <span className="font-semibold text-[11px]">{usedCap}/{totalCap} ({pct}%)</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Badge variant={loc.isActive ? "secondary" : "outline"} className={`text-[10px] ${loc.isActive ? "bg-neutral-800 text-neutral-200" : "text-neutral-500"}`}>
+                        {loc.isActive ? "Aktif" : "Nonaktif"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full hover:bg-neutral-800 text-neutral-400 cursor-pointer"><MoreVertical className="w-3.5 h-3.5" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-neutral-800 text-neutral-400 cursor-pointer">
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="bg-neutral-955 border-neutral-800 text-neutral-200">
-                          <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleOpenSheet("edit-kardus", { parentId: loc.id })}><Edit className="w-3.5 h-3.5 mr-2" /> Edit Kardus</DropdownMenuItem>
-                          <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleDownloadQrCode(loc.sheetUrl, loc.name)}><QrCode className="w-3.5 h-3.5 mr-2" /> Simpan QR Code</DropdownMenuItem>
-                          <DropdownMenuSeparator className="bg-neutral-800" />
-                          <DropdownMenuItem disabled={isToggling} className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleToggleLocation(loc.id)}><Power className="w-3.5 h-3.5 mr-2" /> {isLocActive ? "Nonaktifkan Kardus" : "Aktifkan Kardus"}</DropdownMenuItem>
-                          <DropdownMenuItem disabled={isDeleting} className="text-red-400 focus:bg-red-950/50 focus:text-red-400 cursor-pointer text-xs" onClick={() => requestDeleteLocation(loc.id, loc.name)}><Trash2 className="w-3.5 h-3.5 mr-2" /> Hapus Kardus</DropdownMenuItem>
+                          {isRak ? (
+                            <>
+                              <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleOpenSheet("edit-rak", { parentId: loc.id })}>
+                                <Edit className="w-3.5 h-3.5 mr-2" /> Edit Nama Rak
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleOpenSheet("add-level", { parentId: loc.id })}>
+                                <Plus className="w-3.5 h-3.5 mr-2" /> Tambah Level
+                              </DropdownMenuItem>
+                            </>
+                          ) : (
+                            <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleOpenSheet(loc.type === "Kardus" ? "edit-kardus" : "edit-pallet", { parentId: loc.id })}>
+                              <Edit className="w-3.5 h-3.5 mr-2" /> Edit {loc.type}
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem disabled={isToggling} className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleToggleLocation(loc.id)}>
+                            <Power className="w-3.5 h-3.5 mr-2" /> {loc.isActive ? "Nonaktifkan" : "Aktifkan"}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem disabled={isDeleting} className="text-red-400 focus:bg-red-950/50 focus:text-red-400 cursor-pointer text-xs" onClick={() => requestDeleteLocation(loc.id, loc.name)}>
+                            <Trash2 className="w-3.5 h-3.5 mr-2" /> Hapus
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5 mt-auto">
-                    <div className="flex justify-between items-center text-[10px] font-medium text-neutral-500">
-                      <span>Kapasitas</span>
-                      <span>
-                        <strong className="text-neutral-300">{loc.usedCapacity || 0}</strong>
-                        <span className="text-neutral-600 font-normal"> / {loc.capacity || 0} Unit</span>
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 h-1.5 bg-neutral-950 rounded-full overflow-hidden shadow-inner">
-                        <div className={`h-full rounded-full transition-all duration-500 ${barClass}`} style={{ width: `${pct}%` }} />
-                      </div>
-                      <span className={`text-[10px] font-bold w-7 text-right ${textClass}`}>{label}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          }
-
-          // Pallet
-          if (loc.type === "Pallet") {
-            const { pct, barClass, textClass, label } = getProgressStyles(loc.usedCapacity || 0, loc.capacity || 0, "bg-emerald-500");
-
-            return (
-              <Card
-                key={loc.id}
-                className={`border-neutral-800 bg-neutral-900/10 overflow-hidden flex flex-col relative group transition-all duration-300 hover:border-neutral-700/80 hover:bg-neutral-900/20 hover:shadow-md hover:shadow-black/20 cursor-pointer ${!isLocActive ? 'opacity-60 saturate-50' : ''}`}
-                onClick={() => navigate(`/data-barang?search=${encodeURIComponent(loc.name)}`)}
-              >
-                <CardContent className="p-4 flex flex-col gap-3">
-                  <div className="flex justify-between items-start">
-                    <div className="flex items-center gap-2">
-                      <div className="p-1.5 bg-emerald-500/10 rounded-lg shrink-0"><Package className="w-4 h-4 text-emerald-400" /></div>
-                      <div>
-                        <CardTitle className="text-sm font-bold text-neutral-100 flex items-center gap-1.5">
-                          {loc.name}
-                          {!isLocActive && <span className="text-[10px] bg-neutral-850 text-neutral-500 border border-neutral-800 px-1.5 py-0.2 rounded-md font-medium">Nonaktif</span>}
-                        </CardTitle>
-                        <CardDescription className="text-[10px] text-neutral-500 mt-0.5">Penyimpanan Pallet</CardDescription>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                      <span className="px-1.5 py-0.5 rounded bg-neutral-900 border border-neutral-850 text-[10px] text-neutral-400 font-medium">
-                        {loc.brandRule || "Campuran"}
-                      </span>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full hover:bg-neutral-800 text-neutral-400 cursor-pointer"><MoreVertical className="w-3.5 h-3.5" /></Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="bg-neutral-955 border-neutral-800 text-neutral-200">
-                          <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleOpenSheet("edit-pallet", { parentId: loc.id })}><Edit className="w-3.5 h-3.5 mr-2" /> Edit Pallet</DropdownMenuItem>
-                          <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleDownloadQrCode(loc.sheetUrl, loc.name)}><QrCode className="w-3.5 h-3.5 mr-2" /> Simpan QR Code</DropdownMenuItem>
-                          <DropdownMenuSeparator className="bg-neutral-800" />
-                          <DropdownMenuItem disabled={isToggling} className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleToggleLocation(loc.id)}><Power className="w-3.5 h-3.5 mr-2" /> {isLocActive ? "Nonaktifkan Pallet" : "Aktifkan Pallet"}</DropdownMenuItem>
-                          <DropdownMenuItem disabled={isDeleting} className="text-red-400 focus:bg-red-950/50 focus:text-red-400 cursor-pointer text-xs" onClick={() => requestDeleteLocation(loc.id, loc.name)}><Trash2 className="w-3.5 h-3.5 mr-2" /> Hapus Pallet</DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5 mt-auto">
-                    <div className="flex justify-between items-center text-[10px] font-medium text-neutral-500">
-                      <span>Kapasitas</span>
-                      <span>
-                        <strong className="text-neutral-300">{loc.usedCapacity || 0}</strong>
-                        <span className="text-neutral-600 font-normal"> / {loc.capacity || 0} Unit</span>
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 h-1.5 bg-neutral-950 rounded-full overflow-hidden shadow-inner">
-                        <div className={`h-full rounded-full transition-all duration-500 ${barClass}`} style={{ width: `${pct}%` }} />
-                      </div>
-                      <span className={`text-[10px] font-bold w-7 text-right ${textClass}`}>{label}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          }
-
-          return null;
-        })}
-        {filteredAndSortedLocations.length === 0 && (
-          <div className="col-span-full py-24 flex flex-col items-center justify-center text-center">
-            <div className="w-16 h-16 bg-neutral-900 border border-neutral-800 rounded-2xl flex items-center justify-center mb-4"><Search className="w-8 h-8 text-neutral-600" /></div>
-            <h3 className="text-lg font-bold text-neutral-200">Tidak Ada Lokasi</h3>
-            <p className="text-neutral-500 text-xs max-w-sm mt-1">Kami tidak menemukan lokasi penyimpanan yang sesuai dengan kata kunci atau filter tipe Anda.</p>
-          </div>
-        )}
-      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+              {filteredAndSortedLocations.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-32 text-center text-neutral-500 text-xs">
+                    Lokasi tidak ditemukan.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
       {/* ── 5. FORM SHEET ── */}
       <Sheet open={sheetMode !== "closed"} onOpenChange={(open) => !open && setSheetMode("closed")}>

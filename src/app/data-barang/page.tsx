@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Plus, Search, Edit, Trash2, Boxes, Loader2, ChevronLeft, ChevronRight, MoreVertical } from "lucide-react"
+import { Plus, Search, Edit, Trash2, Boxes, Loader2, ChevronLeft, ChevronRight, MoreVertical, Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -43,6 +43,10 @@ import {
 
 import { BarangDetailDrawer } from "@/components/data-barang/BarangDetailDrawer"
 import { BarangFormModal } from "@/components/data-barang/BarangFormModal"
+import { ExportExcelModal } from "@/components/data-barang/ExportExcelModal"
+import { formatItemStatus, formatItemLocation } from "@/lib/status-helper"
+import { saveExportFile } from "@/lib/export-file"
+import * as XLSX from "xlsx"
 
 import type { StatusUnit, BarangUnit, StorageLocationOption } from "@/types/inventory"
 import type { DeleteDialogState } from "@/types/ui"
@@ -66,8 +70,7 @@ const getHeaders = () => {
   return headers
 }
 
-const getLokasiPenyimpanan = (status: StatusUnit, lokasiPenyimpanan: string) =>
-  status === "Terdistribusi" ? "Terdistribusi" : lokasiPenyimpanan.trim()
+// getLokasiPenyimpanan removed in favor of formatItemLocation from status-helper
 
 export default function DataBarangPage() {
   const { user } = useAuth()
@@ -98,6 +101,8 @@ export default function DataBarangPage() {
 
   // Form modal state
   const [isFormOpen, setIsFormOpen] = useState(false)
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
   const [formMode, setFormMode] = useState<"add" | "edit">("add")
   const [selectedBarang, setSelectedBarang] = useState<BarangUnit | null>(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -135,8 +140,14 @@ export default function DataBarangPage() {
           const locationsData = rawLoc.data || rawLoc
           const locs: StorageLocationOption[] = []
           if (Array.isArray(locationsData)) {
+            const isMitraRole = user?.role === "mitra"
+            const normKp = ADMIN_LOCATION.trim().toLowerCase()
             locationsData.forEach((loc: any) => {
               const owner = loc.owner || ADMIN_LOCATION
+              const normOwner = owner.trim().toLowerCase()
+              if (!isMitraRole && (normOwner !== normKp && normOwner !== "kp" || loc.type === "Partner" || loc.type === "PARTNER" || loc.name.toUpperCase().startsWith("PT ") || loc.name.toUpperCase().startsWith("PT."))) {
+                return
+              }
               if (loc.type === "Rak" && loc.levels) {
                 loc.levels.forEach((lvl: any) =>
                   locs.push({ name: `${loc.name} - ${lvl.name}`, owner })
@@ -223,12 +234,90 @@ export default function DataBarangPage() {
       merek: barang.merek,
       tipe: barang.tipe || "",
       status: barang.status,
-      lokasiPenyimpanan: getLokasiPenyimpanan(barang.status, barang.lokasiPenyimpanan),
+      lokasiPenyimpanan: barang.lokasiPenyimpanan.trim(),
       tanggalMasuk: barang.tanggalMasuk,
       tanggalKeluar: barang.tanggalKeluar || "",
     })
     setFormErrors({})
     setIsFormOpen(true)
+  }
+
+  const handleExportExcel = async (selectedColumns: string[]) => {
+    setIsExporting(true)
+    try {
+      const dataToExport = barangList
+
+      if (dataToExport.length === 0) {
+        toast.error("Tidak ada data untuk diekspor.")
+        setIsExporting(false)
+        return
+      }
+
+      // Map data based on selected columns
+      const mappedData = dataToExport.map((item) => {
+        const row: Record<string, any> = {}
+        selectedColumns.forEach((colKey) => {
+          switch (colKey) {
+            case "serialNumber":
+              row["Serial Number (SN)"] = item.serialNumber
+              break
+            case "kategori":
+              row["Kategori Material"] = item.kategori
+              break
+            case "merek":
+              row["Merek"] = item.merek
+              break
+            case "tipe":
+              row["Model / Tipe"] = item.tipe || "-"
+              break
+            case "status":
+              row["Status Barang"] = item.status
+              break
+            case "lokasiPenyimpanan":
+              row["Lokasi Penyimpanan"] = item.lokasiPenyimpanan
+              break
+            case "tanggalMasuk":
+              row["Tanggal Masuk"] = formatTanggal(item.tanggalMasuk)
+              break
+            case "tanggalKeluar":
+              row["Tanggal Keluar"] = item.tanggalKeluar ? formatTanggal(item.tanggalKeluar) : "-"
+              break
+            default:
+              row[colKey] = (item as any)[colKey]
+          }
+        })
+        return row
+      })
+
+      const worksheet = XLSX.utils.json_to_sheet(mappedData)
+      const workbook = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Data Barang")
+
+      const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" })
+      const now = new Date()
+      const fileName = `Data_Barang_Arxiva_${now.toISOString().split("T")[0]}.xlsx`
+
+      const res = await saveExportFile({
+        fileName,
+        contents: excelBuffer,
+      })
+
+      if (res.saved) {
+        if (res.path) {
+          toast.success(`Berhasil mengekspor data ke ${res.path}`)
+        } else {
+          toast.success("Berhasil mengekspor data.")
+        }
+        setIsExportModalOpen(false)
+      } else {
+        toast.error("Gagal mengekspor data.")
+      }
+    } catch (err) {
+      console.error("Export error:", err)
+      toast.error("Terjadi kesalahan saat mengekspor data.")
+    } finally {
+      setIsExporting(false)
+    }
   }
 
   const handleDelete = (id: string, serialNumber: string) => {
@@ -269,7 +358,7 @@ export default function DataBarangPage() {
     if (isSaving) return
 
     const errors: Record<string, string> = {}
-    const lokasiPenyimpanan = getLokasiPenyimpanan(formData.status, formData.lokasiPenyimpanan)
+    const lokasiPenyimpanan = formData.lokasiPenyimpanan.trim()
 
     if (!formData.serialNumber.trim()) errors.serialNumber = "Serial number wajib diisi"
     if (!formData.kategori.trim()) errors.kategori = "Kategori wajib diisi"
@@ -329,7 +418,11 @@ export default function DataBarangPage() {
       case "Tersedia":
         return { text: "Tersedia", dotClass: "bg-emerald-500", badgeClass: "bg-emerald-400/10 text-emerald-500" }
       case "Terdistribusi":
-        return { text: "Terdistribusi", dotClass: "bg-sky-500", badgeClass: "bg-blue-400/10 text-blue-500" }
+        const formatted = formatItemStatus(status, user?.role);
+        if (formatted === "Tersedia") {
+          return { text: formatted, dotClass: "bg-emerald-500", badgeClass: "bg-emerald-400/10 text-emerald-500" }
+        }
+        return { text: formatted, dotClass: "bg-sky-500", badgeClass: "bg-blue-400/10 text-blue-500" }
       case "Rusak":
         return { text: "Rusak", dotClass: "bg-destructive", badgeClass: "bg-destructive/10 text-destructive" }
       case "Hilang":
@@ -356,17 +449,17 @@ export default function DataBarangPage() {
             <Input
               type="search"
               placeholder="Cari SN atau barang..."
-              className="w-full pl-9 bg-neutral-900 border-neutral-800 focus-visible:ring-1 focus-visible:ring-neutral-700 placeholder:text-sm"
+              className="w-full pl-9 bg-card border-border focus-visible:ring-1 focus-visible:ring-neutral-700 placeholder:text-sm"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
           <div className="flex flex-wrap gap-2">
             <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className={`w-32 rounded-sm bg-neutral-900 border-neutral-800 text-neutral-200 ${filterStatus === 'all' ? 'border-dashed text-neutral-400' : ''}`}>
+              <SelectTrigger className={`w-32 rounded-sm bg-card border-border text-foreground ${filterStatus === 'all' ? 'border-dashed text-muted-foreground' : ''}`}>
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
-              <SelectContent className="bg-neutral-900 border-neutral-800 text-neutral-200">
+              <SelectContent className="bg-card border-border text-foreground">
                 <SelectItem value="all">Status</SelectItem>
                 {STATUS_OPTIONS.map((status) => (
                   <SelectItem key={status} value={status}>{status}</SelectItem>
@@ -374,10 +467,10 @@ export default function DataBarangPage() {
               </SelectContent>
             </Select>
             <Select value={filterCategory} onValueChange={setFilterCategory}>
-              <SelectTrigger className={`w-32 rounded-sm bg-neutral-900 border-neutral-800 text-neutral-200 ${filterCategory === 'all' ? 'border-dashed text-neutral-400' : ''}`}>
+              <SelectTrigger className={`w-32 rounded-sm bg-card border-border text-foreground ${filterCategory === 'all' ? 'border-dashed text-muted-foreground' : ''}`}>
                 <SelectValue placeholder="Kategori" />
               </SelectTrigger>
-              <SelectContent className="bg-neutral-900 border-neutral-800 text-neutral-200">
+              <SelectContent className="bg-card border-border text-foreground">
                 <SelectItem value="all">Kategori</SelectItem>
                 {categories.map((c) => (
                   <SelectItem key={c} value={c}>{c}</SelectItem>
@@ -385,10 +478,10 @@ export default function DataBarangPage() {
               </SelectContent>
             </Select>
             <Select value={filterBrand} onValueChange={setFilterBrand}>
-              <SelectTrigger className={`w-32 rounded-sm bg-neutral-900 border-neutral-800 text-neutral-200 ${filterBrand === 'all' ? 'border-dashed text-neutral-400' : ''}`}>
+              <SelectTrigger className={`w-32 rounded-sm bg-card border-border text-foreground ${filterBrand === 'all' ? 'border-dashed text-muted-foreground' : ''}`}>
                 <SelectValue placeholder="Merek" />
               </SelectTrigger>
-              <SelectContent className="bg-neutral-900 border-neutral-800 text-neutral-200">
+              <SelectContent className="bg-card border-border text-foreground">
                 <SelectItem value="all">Merek</SelectItem>
                 {brands.map((b) => (
                   <SelectItem key={b} value={b}>{b}</SelectItem>
@@ -399,29 +492,34 @@ export default function DataBarangPage() {
         </div>
         <div className="flex justify-end gap-2 w-full lg:w-auto">
           {user?.role === "admin" && (
-            <Button className="h-8 gap-2 rounded-sm" onClick={() => { setFormMode("add"); setIsFormOpen(true); }}>
-              <Plus className="w-4 h-4" /> Tambah Barang
-            </Button>
+            <>
+              <Button variant="outline" className="h-8 gap-2 rounded-sm bg-card border-border text-foreground cursor-pointer" onClick={() => setIsExportModalOpen(true)}>
+                <Download className="w-4 h-4" /> Export Excel
+              </Button>
+              <Button className="h-8 gap-2 rounded-sm cursor-pointer" onClick={() => { setFormMode("add"); setIsFormOpen(true); }}>
+                <Plus className="w-4 h-4" /> Tambah Barang
+              </Button>
+            </>
           )}
         </div>
       </div>
 
-      <div className="rounded-sm border border-neutral-800 bg-neutral-900/50 overflow-hidden">
+      <div className="rounded-sm border border-border bg-muted/50 overflow-hidden">
         <Table>
-          <TableHeader className="bg-neutral-900/80">
-            <TableRow className="border-neutral-800 hover:bg-transparent">
-              <TableHead className="text-neutral-400 w-12">No.</TableHead>
-              <TableHead className="text-neutral-400">Serial Number (SN)</TableHead>
-              <TableHead className="text-neutral-400">Merek</TableHead>
-              <TableHead className="text-neutral-400">Kategori</TableHead>
-              <TableHead className="text-neutral-400 text-center">Status</TableHead>
-              <TableHead className="text-neutral-400 text-center">Lokasi Penyimpanan</TableHead>
-              {user?.role === "admin" && <TableHead className="text-right text-neutral-400">Aksi</TableHead>}
+          <TableHeader className="bg-muted/80">
+            <TableRow className="border-border hover:bg-transparent">
+              <TableHead className="text-muted-foreground w-12">No.</TableHead>
+              <TableHead className="text-muted-foreground">Serial Number (SN)</TableHead>
+              <TableHead className="text-muted-foreground">Merek</TableHead>
+              <TableHead className="text-muted-foreground">Kategori</TableHead>
+              <TableHead className="text-muted-foreground text-center">Status</TableHead>
+              <TableHead className="text-muted-foreground text-center">Lokasi Penyimpanan</TableHead>
+              {user?.role === "admin" && <TableHead className="text-right text-muted-foreground">Aksi</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow className="border-neutral-800 hover:bg-transparent">
+              <TableRow className="border-border hover:bg-transparent">
                 <TableCell colSpan={7} className="h-32 text-center text-neutral-500">
                   <div className="flex flex-col items-center justify-center">
                     <Loader2 className="w-8 h-8 text-neutral-600 mb-2 animate-spin" />
@@ -430,7 +528,7 @@ export default function DataBarangPage() {
                 </TableCell>
               </TableRow>
             ) : barangList.length === 0 ? (
-              <TableRow className="border-neutral-800 hover:bg-transparent">
+              <TableRow className="border-border hover:bg-transparent">
                 <TableCell colSpan={7} className="h-32 text-center text-neutral-500">
                   <div className="flex flex-col items-center justify-center">
                     <Boxes className="w-8 h-8 text-neutral-600 mb-2" />
@@ -442,31 +540,31 @@ export default function DataBarangPage() {
               barangList.map((item, index) => {
                 const badge = getStatusBadgeProps(item.status)
                 return (
-                  <TableRow 
-                    key={item.id} 
-                    className="border-neutral-800 hover:bg-neutral-900/80 cursor-pointer"
+                  <TableRow
+                    key={item.id}
+                    className="border-border hover:bg-muted/80 cursor-pointer"
                     onClick={() => handleOpenDetail(item)}
                   >
-                    <TableCell className="text-neutral-400">{(currentPage - 1) * pageSize + index + 1}</TableCell>
-                    <TableCell className="text-neutral-200 font-medium">{item.serialNumber}</TableCell>
-                    <TableCell className="text-neutral-400">{item.merek || "-"}</TableCell>
-                    <TableCell className="text-neutral-400">{item.kategori || "-"}</TableCell>
+                    <TableCell className="text-muted-foreground">{(currentPage - 1) * pageSize + index + 1}</TableCell>
+                    <TableCell className="text-foreground font-medium">{item.serialNumber}</TableCell>
+                    <TableCell className="text-muted-foreground">{item.merek || "-"}</TableCell>
+                    <TableCell className="text-muted-foreground">{item.kategori || "-"}</TableCell>
                     <TableCell className="text-center">
-                      <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium border border-neutral-800/60 ${badge.badgeClass}`}>
+                      <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium border border-border/60 ${badge.badgeClass}`}>
                         <span className={`size-1.5 rounded-full ${badge.dotClass}`} />
                         {badge.text}
                       </div>
                     </TableCell>
-                    <TableCell className="text-center text-neutral-400">{getLokasiPenyimpanan(item.status, item.lokasiPenyimpanan)}</TableCell>
+                    <TableCell className="text-center text-muted-foreground">{formatItemLocation(item.lokasiPenyimpanan, item.mitra)}</TableCell>
                     {user?.role === "admin" && (
                       <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="icon" className="h-7 w-7 rounded-sm hover:bg-neutral-800 text-neutral-400 cursor-pointer border-neutral-800">
+                            <Button variant="outline" size="icon" className="h-7 w-7 rounded-sm hover:bg-neutral-800 text-muted-foreground cursor-pointer border-border">
                               <MoreVertical className="size-3.5" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="rounded-sm bg-neutral-950 border-neutral-800 text-neutral-200">
+                          <DropdownMenuContent align="end" className="rounded-sm bg-neutral-950 border-border text-foreground">
                             <DropdownMenuItem className="px-2 h-8 rounded-sm cursor-pointer focus:bg-neutral-800" onClick={() => handleOpenEdit(item)}>
                               <Edit className="size-3.5 mr-1" />
                               <span className="text-xs">Edit Barang</span>
@@ -489,18 +587,18 @@ export default function DataBarangPage() {
 
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 px-1 text-xs shrink-0">
         <div className="text-neutral-500">
-          Menampilkan <span className="font-medium text-neutral-200">{barangList.length}</span> dari{" "}
-          <span className="font-medium text-neutral-200">{totalItems}</span> unit inventaris
+          Menampilkan <span className="font-medium text-foreground">{barangList.length}</span> dari{" "}
+          <span className="font-medium text-foreground">{totalItems}</span> unit inventaris
         </div>
 
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5">
             <span className="text-neutral-500">Baris:</span>
             <Select value={pageSize.toString()} onValueChange={(val) => setPageSize(parseInt(val, 10))}>
-              <SelectTrigger className="w-[70px] h-8 text-xs bg-neutral-900 border-neutral-800 text-neutral-200">
+              <SelectTrigger className="w-[70px] h-8 text-xs bg-card border-border text-foreground">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="bg-neutral-900 border-neutral-800 text-neutral-200">
+              <SelectContent className="bg-card border-border text-foreground">
                 <SelectItem value="10">10</SelectItem>
                 <SelectItem value="20">20</SelectItem>
                 <SelectItem value="50">50</SelectItem>
@@ -508,9 +606,9 @@ export default function DataBarangPage() {
             </Select>
           </div>
           <div className="flex items-center gap-1">
-            <Button variant="outline" size="icon" className="size-8 bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-neutral-200" disabled={currentPage <= 1} onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}><ChevronLeft className="size-4" /></Button>
-            <span className="px-2 text-neutral-400 font-medium">{currentPage} / {totalPages}</span>
-            <Button variant="outline" size="icon" className="size-8 bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-neutral-200" disabled={currentPage >= totalPages} onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}><ChevronRight className="size-4" /></Button>
+            <Button variant="outline" size="icon" className="size-8 bg-card border-border text-muted-foreground hover:text-foreground" disabled={currentPage <= 1} onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}><ChevronLeft className="size-4" /></Button>
+            <span className="px-2 text-muted-foreground font-medium">{currentPage} / {totalPages}</span>
+            <Button variant="outline" size="icon" className="size-8 bg-card border-border text-muted-foreground hover:text-foreground" disabled={currentPage >= totalPages} onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}><ChevronRight className="size-4" /></Button>
           </div>
         </div>
       </div>
@@ -537,9 +635,16 @@ export default function DataBarangPage() {
         formErrors={formErrors}
         isSaving={isSaving}
         onSubmit={handleSubmitForm}
-        categories={categories} 
+        categories={categories}
         availableFormLocations={dbLocations}
         STATUS_OPTIONS={STATUS_OPTIONS}
+      />
+
+      <ExportExcelModal
+        isOpen={isExportModalOpen}
+        onOpenChange={setIsExportModalOpen}
+        onExport={handleExportExcel}
+        isExporting={isExporting}
       />
 
       <AlertDialog open={!!deleteDialog} onOpenChange={(open) => !open && setDeleteDialog(null)}>

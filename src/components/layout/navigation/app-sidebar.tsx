@@ -17,7 +17,6 @@ import {
   Box,
   CircleStar,
   ClipboardList,
-  ClipboardPlus,
   Database,
   Handshake,
   HistoryIcon,
@@ -118,26 +117,18 @@ const data = {
       title: "Operasional",
       items: [
         {
-          title: "Barang Keluar",
+          title: "Request Material",
+          url: "/partner-request",
+          icon: (
+            <ClipboardList />
+          ),
+          isActive: true,
+        },
+        {
+          title: "Penggunaan Barang",
           url: "/barang-keluar",
           icon: (
             <PackageMinus />
-          ),
-          isActive: false,
-        },
-        {
-          title: "Ajukan Request",
-          url: "/partner-request/new",
-          icon: (
-            <ClipboardPlus />
-          ),
-          isActive: false,
-        },
-        {
-          title: "Histori Request",
-          url: "/partner-request/history",
-          icon: (
-            <ClipboardList />
           ),
           isActive: false,
         },
@@ -183,6 +174,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user } = useAuth()
   const isAdmin = user?.role === "admin"
   const visibleNavMain = isAdmin ? data.navMain : data.mitraNavMain
+  const visibleMain = isAdmin ? data.main : data.main.filter(item => item.name !== "Dashboard")
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -206,7 +198,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavProjects main={data.main} />
+        <NavProjects main={visibleMain} />
         <NavMain items={visibleNavMain} />
       </SidebarContent>
       <SidebarRail />

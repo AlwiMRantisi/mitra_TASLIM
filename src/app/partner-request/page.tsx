@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 import {
   AlertTriangle,
@@ -28,6 +27,7 @@ import { api, getBaseUrl } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { openUrl } from "@tauri-apps/plugin-opener"
 import { DigitalSignatureDialog } from "@/app/request/components/DigitalSignatureDialog"
+import { RequestFormModal } from "@/features/partner-request/components/RequestFormModal"
 import type { AuthUser } from "@/types/auth"
 import type { DashboardRequest, RequestItem } from "@/types/transaction"
 
@@ -35,7 +35,6 @@ const PAGE_SIZE = 10
 
 type StatusKey =
   | "menunggu"
-  | "disetujui"
   | "siap"
   | "selesai"
   | "diterima"
@@ -44,19 +43,17 @@ type StatusKey =
   | "tolak"
 
 const STATUS_STYLE: Record<StatusKey, string> = {
-  menunggu: "bg-amber-500/10 text-amber-600 border-amber-500/20",
-  disetujui: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
-  siap: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
-  selesai: "bg-muted text-muted-foreground border-border",
-  diterima: "bg-muted text-muted-foreground border-border",
-  ditolak: "bg-red-500/10 text-red-600 border-red-500/20",
-  dibatalkan: "bg-red-500/10 text-red-600 border-red-500/20",
-  tolak: "bg-red-500/10 text-red-600 border-red-500/20",
+  menunggu: "text-muted-foreground bg-neutral-500/20 border-0",
+  siap: "text-amber-600 bg-amber-700/10 dark:border-amber-500/10 dark:border-1 border-0",
+  selesai: "text-emerald-600/80 bg-emerald-700/10 dark:border-emerald-500/10 border-emerald-500/10",
+  diterima: "text-emerald-600/80 bg-emerald-700/10 dark:border-emerald-500/10 border-emerald-500/10",
+  ditolak: "text-destructive bg-red-400/10 border-0",
+  dibatalkan: "text-destructive bg-red-400/10 border-0",
+  tolak: "text-destructive bg-red-400/10 border-0",
 }
 
 const STATUS_LABEL: Record<StatusKey, string> = {
   menunggu: "Menunggu",
-  disetujui: "Disetujui",
   siap: "Siap",
   selesai: "Selesai",
   diterima: "Diterima",
@@ -150,9 +147,9 @@ const normalizeRequest = (value: unknown): DashboardRequest => {
   const deliveryDocument =
     request.deliveryDocument != null
       ? {
-          kpSignedById: normalizeText(rawDoc.kpSignedById) || null,
-          picSignedById: normalizeText(rawDoc.picSignedById) || null,
-        }
+        kpSignedById: normalizeText(rawDoc.kpSignedById) || null,
+        picSignedById: normalizeText(rawDoc.picSignedById) || null,
+      }
       : null
 
   return {
@@ -270,14 +267,13 @@ function StatusBadge({ status }: { status: string }) {
   const label = key ? STATUS_LABEL[key] : normalizeText(status) || "-"
 
   return (
-    <Badge variant="outline" className={`px-2 py-1 text-xs font-medium ${styleClass}`}>
-      {label}
+    <Badge variant="outline" className={`flex items-center justify-center gap-1 px-2 py-2.5 ${styleClass}`}>
+      <span>{label}</span>
     </Badge>
   )
 }
 
 export default function PartnerRequestHistoryPage() {
-  const navigate = useNavigate()
   const { user } = useAuth()
 
   const [allRequests, setAllRequests] = useState<DashboardRequest[]>([])
@@ -285,6 +281,7 @@ export default function PartnerRequestHistoryPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
+  const [isRequestModalOpen, setIsRequestModalOpen] = useState(false)
 
   // BAST state
   const [signDialogOpen, setSignDialogOpen] = useState(false)
@@ -356,12 +353,12 @@ export default function PartnerRequestHistoryPage() {
         prev.map((req) =>
           req.id === signingRequestId
             ? {
-                ...req,
-                deliveryDocument: {
-                  ...req.deliveryDocument,
-                  picSignedById: user?.id ?? "signed",
-                },
-              }
+              ...req,
+              deliveryDocument: {
+                ...req.deliveryDocument,
+                picSignedById: user?.id ?? "signed",
+              },
+            }
             : req
         )
       )
@@ -408,22 +405,14 @@ export default function PartnerRequestHistoryPage() {
     <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8 animate-fade-in">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Riwayat Permintaan</h1>
+          <h1 className="text-lg font-medium">Riwayat Permintaan</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
             Pantau status semua permintaan material yang telah Anda ajukan
           </p>
         </div>
-        <Button
-          id="btn-ajukan-request-baru"
-          className="shrink-0 gap-2 cursor-pointer"
-          onClick={() => navigate("/partner-request/new")}
-        >
-          <FilePlus className="h-4 w-4" />
-          Ajukan Request Baru
-        </Button>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-4">
         <div className="relative max-w-sm flex-1">
           <Search className="absolute left-3 top-[9px] size-4 text-muted-foreground" />
           <Input
@@ -435,45 +424,43 @@ export default function PartnerRequestHistoryPage() {
           />
         </div>
         <Button
-          variant="outline"
-          size="icon"
-          className="cursor-pointer"
-          onClick={fetchRequests}
-          disabled={isLoading}
-          aria-label="Muat ulang riwayat permintaan"
+          id="btn-ajukan-request-baru"
+          className="shrink-0 gap-2 cursor-pointer"
+          onClick={() => setIsRequestModalOpen(true)}
         >
-          <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+          <FilePlus className="h-4 w-4" />
+          Ajukan Request Baru
         </Button>
       </div>
 
-      <div className="overflow-hidden rounded-lg border">
-        <Table className="min-w-[900px]">
-          <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead className="w-12 pl-4">No</TableHead>
-              <TableHead>No. Request</TableHead>
-              <TableHead>Tanggal</TableHead>
-              <TableHead>Item</TableHead>
-              <TableHead className="text-center">Total</TableHead>
-              <TableHead className="text-center">Status</TableHead>
-              <TableHead>Catatan Admin</TableHead>
-              <TableHead className="text-center">Dokumen BAST</TableHead>
+      <div className="rounded-sm border border-neutral-800 bg-neutral-900/50 overflow-hidden">
+        <Table className="min-w-225">
+          <TableHeader className="bg-neutral-900/80">
+            <TableRow className="border-neutral-800 hover:bg-transparent">
+              <TableHead className="w-12 pl-4 text-neutral-400">No</TableHead>
+              <TableHead className="text-neutral-400">No. Request</TableHead>
+              <TableHead className="text-neutral-400">Tanggal</TableHead>
+              <TableHead className="text-neutral-400">Item</TableHead>
+              <TableHead className="text-center text-neutral-400">Total</TableHead>
+              <TableHead className="text-center text-neutral-400">Status</TableHead>
+              <TableHead className="text-neutral-400">Catatan Admin</TableHead>
+              <TableHead className="text-center text-neutral-400">Dokumen BAST</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow>
+              <TableRow className="border-neutral-800 hover:bg-transparent">
                 <TableCell colSpan={8} className="h-32 text-center">
-                  <div className="flex items-center justify-center gap-2 text-muted-foreground">
-                    <Loader2 className="h-5 w-5 animate-spin" />
+                  <div className="flex items-center justify-center gap-2 text-neutral-500">
+                    <Loader2 className="h-5 w-5 animate-spin text-neutral-600" />
                     <span>Memuat riwayat permintaan...</span>
                   </div>
                 </TableCell>
               </TableRow>
             ) : loadError ? (
-              <TableRow>
+              <TableRow className="border-neutral-800 hover:bg-transparent">
                 <TableCell colSpan={8} className="h-48 text-center">
-                  <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                  <div className="flex flex-col items-center gap-3 text-neutral-500">
                     <AlertTriangle className="h-10 w-10 text-destructive/70" />
                     <p className="text-sm font-medium">{loadError}</p>
                     <Button
@@ -489,10 +476,10 @@ export default function PartnerRequestHistoryPage() {
                 </TableCell>
               </TableRow>
             ) : paginatedRequests.length === 0 ? (
-              <TableRow>
+              <TableRow className="border-neutral-800 hover:bg-transparent">
                 <TableCell colSpan={8} className="h-48 text-center">
-                  <div className="flex flex-col items-center gap-3 text-muted-foreground">
-                    <ClipboardList className="h-10 w-10 opacity-30" />
+                  <div className="flex flex-col items-center gap-3 text-neutral-500">
+                    <ClipboardList className="h-10 w-10 text-neutral-600 mb-2" />
                     {searchTerm ? (
                       <p className="text-sm">Tidak ada hasil untuk pencarian ini</p>
                     ) : (
@@ -502,7 +489,7 @@ export default function PartnerRequestHistoryPage() {
                         <Button
                           size="sm"
                           className="mt-1 gap-1.5 cursor-pointer"
-                          onClick={() => navigate("/partner-request/new")}
+                          onClick={() => setIsRequestModalOpen(true)}
                         >
                           <FilePlus className="h-4 w-4" />
                           Ajukan Request
@@ -524,28 +511,28 @@ export default function PartnerRequestHistoryPage() {
                 const isOpeningPdf = openingPdfId === req.id
 
                 return (
-                  <TableRow key={req.id || req.requestNumber} className="hover:bg-muted/40">
-                    <TableCell className="pl-4 text-muted-foreground">
+                  <TableRow key={req.id || req.requestNumber} className="border-neutral-800 hover:bg-neutral-900/80 cursor-pointer">
+                    <TableCell className="pl-4 text-neutral-400">
                       {(currentPage - 1) * PAGE_SIZE + idx + 1}
                     </TableCell>
-                    <TableCell className="font-mono text-sm font-medium">
+                    <TableCell className="text-sm font-medium text-neutral-200">
                       {req.requestNumber || "-"}
                     </TableCell>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">
+                    <TableCell className="whitespace-nowrap text-neutral-400">
                       {formatDate(req.requestedAt)}
                     </TableCell>
-                    <TableCell className="max-w-[260px]">
+                    <TableCell className="max-w-[260px] text-neutral-400">
                       <span className="block truncate text-sm" title={itemSummary}>
                         {itemSummary}
                       </span>
                     </TableCell>
-                    <TableCell className="text-center text-sm font-medium">
+                    <TableCell className="text-center text-sm font-medium text-neutral-200">
                       {req.itemsCount ?? "-"}
                     </TableCell>
                     <TableCell className="text-center">
                       <StatusBadge status={req.status} />
                     </TableCell>
-                    <TableCell className="max-w-[220px] text-sm text-muted-foreground">
+                    <TableCell className="max-w-[220px] text-sm text-neutral-400">
                       <span className="block truncate" title={adminRemarks}>
                         {adminRemarks}
                       </span>
@@ -642,7 +629,7 @@ export default function PartnerRequestHistoryPage() {
         </div>
       )}
 
-      {/* BAST Digital Signature Dialog */}
+      {/* Signing Dialog for BAST */}
       <DigitalSignatureDialog
         open={signDialogOpen}
         onOpenChange={(open) => {
@@ -652,6 +639,13 @@ export default function PartnerRequestHistoryPage() {
         title="Tanda Tangan Digital BAST"
         description="Berikan tanda tangan Anda sebagai pihak penerima untuk dokumen BAST ini."
         onSignComplete={handleSignComplete}
+      />
+
+      {/* Form Modal */}
+      <RequestFormModal
+        isOpen={isRequestModalOpen}
+        onClose={() => setIsRequestModalOpen(false)}
+        onSuccess={fetchRequests}
       />
     </div>
   )

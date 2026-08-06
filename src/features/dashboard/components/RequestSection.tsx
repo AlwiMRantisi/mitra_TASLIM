@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom"
-import { ArrowUpRight, InboxIcon, Clock, CheckCircle2, Package } from "lucide-react"
+import { ArrowUpRight, InboxIcon, Clock,  Package } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
@@ -16,7 +16,6 @@ import { Badge } from "@/components/ui/badge"
 
 interface RequestCounts {
     menunggu: number
-    disetujui: number
     siap: number
 }
 
@@ -32,8 +31,6 @@ function getStatusBadgeClass(status: string): string {
     switch (status.toUpperCase()) {
         case "MENUNGGU":
             return "bg-gray-500 text-gray-500"
-        case "DISETUJUI":
-            return "bg-blue-500 text-blue-500"
         case "SIAP":
             return "bg-purple-500 text-purple-500"
         case "DITERIMA":
@@ -62,7 +59,6 @@ function StatusBadge({ status }: { status: string }) {
 function getStatusLabel(status: string): string {
     const map: Record<string, string> = {
         MENUNGGU: "Menunggu",
-        DISETUJUI: "Disetujui",
         SIAP: "Siap",
         DITERIMA: "Diterima",
         SELESAI: "Selesai",
@@ -108,11 +104,10 @@ export function RequestSection({ requests, counts, isLoading, className, variant
             </CardHeader>
 
             <CardContent className="p-0 flex-1 flex flex-col">
-                {/* 3 Mini KPI Cards */}
-                <div className="grid grid-cols-3 gap-2.5 px-4 pb-4">
+                {/* 2 Mini KPI Cards */}
+                <div className="grid grid-cols-2 gap-2.5 px-4 pb-4">
                     {[
                         { label: "Menunggu", count: counts.menunggu, icon: Clock },
-                        { label: "Disetujui", count: counts.disetujui, icon: CheckCircle2 },
                         { label: "Siap", count: counts.siap, icon: Package },
                     ].map((kpi) => (
                         <div

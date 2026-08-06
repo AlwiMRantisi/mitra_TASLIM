@@ -41,7 +41,7 @@ const chartConfig = {
         color: "oklch(0.696 0.17 162.48)",
     },
     keluar: {
-        label: "Barang Keluar",
+        label: "Distribusi Barang",
         color: "oklch(0.685 0.169 237.323)",
     },
     rusak: {

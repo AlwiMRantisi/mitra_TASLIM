@@ -252,7 +252,7 @@ export function useDashboard() {
             setInventoryStats({
                 totalItems: visibleItems.length,
                 tersedia: visibleItems.filter((item: any) => item.status.trim().toLowerCase() === "tersedia").length,
-                diluar: visibleItems.filter((item: any) => item.status.trim().toLowerCase() === "diluar").length,
+                diluar: visibleItems.filter((item: any) => item.status.trim().toLowerCase() === "diluar" || item.status.trim().toLowerCase() === "terdistribusi").length,
                 rusak: visibleItems.filter((item: any) => item.status.trim().toLowerCase() === "rusak").length,
                 hilang: visibleItems.filter((item: any) => item.status.trim().toLowerCase() === "hilang").length,
             });
@@ -290,7 +290,6 @@ export function useDashboard() {
 
     const requestCounts = {
         menunggu: allRequests.filter((r) => normalizeKey(r.status) === "menunggu").length,
-        disetujui: allRequests.filter((r) => normalizeKey(r.status) === "disetujui").length,
         siap: allRequests.filter((r) => normalizeKey(r.status) === "siap").length,
     };
 

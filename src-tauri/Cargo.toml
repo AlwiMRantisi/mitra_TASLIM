@@ -23,9 +23,6 @@ tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-rusqlite = { version = "0.40.1", features = ["bundled"] }
-argon2 = "0.5"
-rand_core = { version = "0.6", features = ["getrandom"] }
 tiny_http = "0.12"
 open = "5"
 url = "2"

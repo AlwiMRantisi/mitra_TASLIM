@@ -1,5 +1,4 @@
-import React from "react"
-import { MoreVertical, Edit, Trash2 } from "lucide-react"
+import { MoreVertical } from "lucide-react"
 
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
@@ -16,9 +15,10 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator,
+  
 } from "@/components/ui/dropdown-menu"
 import type { BarangUnit, StatusUnit } from "@/types/inventory"
+import { formatItemLocation } from "@/lib/status-helper"
 
 interface BarangTableProps {
   items: BarangUnit[]
@@ -48,7 +48,7 @@ export function BarangTable({
   currentPage,
   pageSize,
   getStatusBadgeProps,
-  formatTanggal,
+  
   ADMIN_LOCATION,
 }: BarangTableProps) {
   const isAllSelected =
@@ -115,7 +115,7 @@ export function BarangTable({
                     {badge.text}
                   </div>
                 </TableCell>
-                <TableCell className="text-center">{item.lokasiPenyimpanan}</TableCell>
+                <TableCell className="text-center">{formatItemLocation(item.lokasiPenyimpanan, item.mitra)}</TableCell>
                 {userRole === "admin" && (
                   <TableCell>
                     {item.mitra || ADMIN_LOCATION}

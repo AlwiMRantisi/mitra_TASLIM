@@ -291,7 +291,7 @@ export default function KategoriBarangPage() {
             <Input
               type="search"
               placeholder="Cari kategori..."
-              className="w-full pl-9 bg-neutral-900 border-neutral-800 focus-visible:ring-1 focus-visible:ring-neutral-700 placeholder:text-sm"
+              className="w-full pl-9 bg-card border-border focus-visible:ring-1 focus-visible:ring-neutral-700 placeholder:text-sm"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -303,7 +303,7 @@ export default function KategoriBarangPage() {
               variant={viewMode === "grid" ? "secondary" : "ghost"}
               size="sm"
               onClick={() => handleViewModeChange("grid")}
-              className={`h-8 px-2.5 rounded-sm active:translate-y-0 active:not-aria-[haspopup]:translate-y-0 transition-none ${viewMode === "grid" ? "bg-neutral-800 text-neutral-100" : "text-neutral-400 hover:text-neutral-200"}`}
+              className={`h-8 px-2.5 rounded-sm active:translate-y-0 active:not-aria-[haspopup]:translate-y-0 transition-none ${viewMode === "grid" ? "bg-neutral-800 text-neutral-100" : "text-muted-foreground hover:text-foreground"}`}
             >
               <LayoutGrid className="size-3.5" />
             </Button>
@@ -311,7 +311,7 @@ export default function KategoriBarangPage() {
               variant={viewMode === "table" ? "secondary" : "ghost"}
               size="sm"
               onClick={() => handleViewModeChange("table")}
-              className={`h-8 px-2.5 rounded-sm active:translate-y-0 active:not-aria-[haspopup]:translate-y-0 transition-none ${viewMode === "table" ? "bg-neutral-800 text-neutral-100" : "text-neutral-400 hover:text-neutral-200"}`}
+              className={`h-8 px-2.5 rounded-sm active:translate-y-0 active:not-aria-[haspopup]:translate-y-0 transition-none ${viewMode === "table" ? "bg-neutral-800 text-neutral-100" : "text-muted-foreground hover:text-foreground"}`}
             >
               <List className="size-3.5" />
             </Button>
@@ -323,12 +323,12 @@ export default function KategoriBarangPage() {
       </div>
 
       {/* Mobile view toggle */}
-      <div className="sm:hidden flex items-center p-1 rounded-lg border border-neutral-800 bg-neutral-900/50 w-full">
+      <div className="sm:hidden flex items-center p-1 rounded-lg border border-border bg-muted/50 w-full">
         <Button
           variant={viewMode === "grid" ? "secondary" : "ghost"}
           size="sm"
           onClick={() => handleViewModeChange("grid")}
-          className={`flex-1 h-8 active:translate-y-0 active:not-aria-[haspopup]:translate-y-0 transition-none ${viewMode === "grid" ? "bg-neutral-800 text-neutral-100" : "text-neutral-400 hover:text-neutral-200"}`}
+          className={`flex-1 h-8 active:translate-y-0 active:not-aria-[haspopup]:translate-y-0 transition-none ${viewMode === "grid" ? "bg-neutral-800 text-neutral-100" : "text-muted-foreground hover:text-foreground"}`}
         >
           <LayoutGrid className="size-4 mr-1.5" />
           Grid
@@ -337,7 +337,7 @@ export default function KategoriBarangPage() {
           variant={viewMode === "table" ? "secondary" : "ghost"}
           size="sm"
           onClick={() => handleViewModeChange("table")}
-          className={`flex-1 h-8 active:translate-y-0 active:not-aria-[haspopup]:translate-y-0 transition-none ${viewMode === "table" ? "bg-neutral-800 text-neutral-100" : "text-neutral-400 hover:text-neutral-200"}`}
+          className={`flex-1 h-8 active:translate-y-0 active:not-aria-[haspopup]:translate-y-0 transition-none ${viewMode === "table" ? "bg-neutral-800 text-neutral-100" : "text-muted-foreground hover:text-foreground"}`}
         >
           <List className="size-4 mr-1.5" />
           Table
@@ -347,7 +347,7 @@ export default function KategoriBarangPage() {
       {viewMode === "grid" ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 pb-10">
           {filteredCategories.map(cat => (
-            <Card key={cat.id} className="overflow-hidden relative group transition-all duration-300 hover:border-neutral-700 hover:bg-neutral-900/60">
+            <Card key={cat.id} className="overflow-hidden relative group transition-all duration-300 hover:border-border/80 hover:bg-muted/60">
               <CardContent className="px-5 flex flex-col gap-4">
                 <div className="flex justify-between items-start">
                   <div className="p-2.5 bg-blue-500/10 rounded-xl shrink-0">
@@ -355,11 +355,11 @@ export default function KategoriBarangPage() {
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-neutral-800 text-neutral-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-neutral-800 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
                         <MoreVertical className="w-4 h-4" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="bg-neutral-950 border-neutral-800 text-neutral-200">
+                    <DropdownMenuContent align="end" className="bg-neutral-950 border-border text-foreground">
                       <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800" onClick={() => handleOpenSheet(cat.id)}>
                         <Edit className="w-4 h-4 mr-2" /> Edit Kategori
                       </DropdownMenuItem>
@@ -375,12 +375,12 @@ export default function KategoriBarangPage() {
                   <p className="text-sm text-neutral-500 line-clamp-2">{cat.description}</p>
                 </div>
 
-                <div className="mt-auto pt-4 border-t border-neutral-800/60 flex justify-between items-center">
+                <div className="mt-auto pt-4 border-t border-border/60 flex justify-between items-center">
                   <div className="flex items-center gap-2 text-xs font-medium text-neutral-500">
                     <ShieldAlert className="size-3.5 text-amber-400" />
                     Safety Stock
                   </div>
-                  <span className="text-sm font-medium text-neutral-300">
+                  <span className="text-sm font-medium text-foreground">
                     {cat.safetyStock} Unit
                   </span>
                 </div>
@@ -390,31 +390,31 @@ export default function KategoriBarangPage() {
 
           {filteredCategories.length === 0 && (
             <div className="col-span-full py-16 flex flex-col items-center justify-center text-center">
-              <div className="w-16 h-16 bg-neutral-900 rounded-full flex items-center justify-center mb-4">
+              <div className="w-16 h-16 bg-card rounded-full flex items-center justify-center mb-4">
                 <Search className="w-8 h-8 text-neutral-600" />
               </div>
-              <h3 className="text-lg font-medium text-neutral-300 mb-1">Kategori Tidak Ditemukan</h3>
+              <h3 className="text-lg font-medium text-foreground mb-1">Kategori Tidak Ditemukan</h3>
               <p className="text-sm text-neutral-500 max-w-sm">Coba gunakan kata kunci lain atau tambahkan kategori baru.</p>
             </div>
           )}
         </div>
       ) : (
-        <div className="rounded-sm border border-neutral-800 bg-neutral-900/50 overflow-hidden">
+        <div className="rounded-sm border border-border bg-muted/50 overflow-hidden">
           <Table>
-            <TableHeader className="bg-neutral-900/80">
-              <TableRow className="border-neutral-800 hover:bg-transparent">
-                <TableHead className="text-neutral-400">No.</TableHead>
-                <TableHead className="text-neutral-400">Nama Kategori</TableHead>
-                <TableHead className="text-neutral-400">Model Material</TableHead>
-                <TableHead className="text-neutral-400">Total Unit</TableHead>
-                <TableHead className="text-neutral-400">Safety Stock</TableHead>
-                <TableHead className="text-neutral-400">Status Stok</TableHead>
-                <TableHead className="text-right text-neutral-400">Aksi</TableHead>
+            <TableHeader className="bg-muted/80">
+              <TableRow className="border-border hover:bg-transparent">
+                <TableHead className="text-muted-foreground">No.</TableHead>
+                <TableHead className="text-muted-foreground">Nama Kategori</TableHead>
+                <TableHead className="text-muted-foreground">Model Material</TableHead>
+                <TableHead className="text-muted-foreground">Total Unit</TableHead>
+                <TableHead className="text-muted-foreground">Safety Stock</TableHead>
+                <TableHead className="text-muted-foreground">Status Stok</TableHead>
+                <TableHead className="text-right text-muted-foreground">Aksi</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredCategories.length === 0 ? (
-                <TableRow className="border-neutral-800 hover:bg-transparent">
+                <TableRow className="border-border hover:bg-transparent">
                   <TableCell colSpan={7} className="h-32 text-center text-neutral-500">
                     <div className="flex flex-col items-center justify-center">
                       <Search className="w-8 h-8 text-neutral-600 mb-2" />
@@ -424,22 +424,22 @@ export default function KategoriBarangPage() {
                 </TableRow>
               ) : (
                 filteredCategories.map((cat, index) => (
-                  <TableRow key={cat.id} className="border-neutral-800 hover:bg-neutral-900/80">
-                    <TableCell className="text-neutral-400">
+                  <TableRow key={cat.id} className="border-border hover:bg-muted/80">
+                    <TableCell className="text-muted-foreground">
                       {index + 1}
                     </TableCell>
-                    <TableCell className="text-neutral-200">
+                    <TableCell className="text-foreground">
                       <div className="flex items-center gap-3">
                         {cat.name}
                       </div>
                     </TableCell>
-                    <TableCell className="text-neutral-400">
+                    <TableCell className="text-muted-foreground">
                       {cat.description || "-"}
                     </TableCell>
-                    <TableCell className="text-neutral-300 font-medium">
+                    <TableCell className="text-foreground font-medium">
                       {cat.totalItems} Unit
                     </TableCell>
-                    <TableCell className="text-neutral-300">
+                    <TableCell className="text-foreground">
                       {cat.safetyStock} Unit
                     </TableCell>
                     <TableCell>
@@ -456,11 +456,11 @@ export default function KategoriBarangPage() {
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="outline" size="icon" className="h-7 w-7 rounded-sm hover:bg-neutral-800 text-neutral-400 cursor-pointer">
+                          <Button variant="outline" size="icon" className="h-7 w-7 rounded-sm hover:bg-neutral-800 text-muted-foreground cursor-pointer">
                             <MoreVertical className="size-3.5" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="rounded-sm bg-card border-accent-foreground text-neutral-200">
+                        <DropdownMenuContent align="end" className="rounded-sm bg-card border-accent-foreground text-foreground">
                           <DropdownMenuItem className="px-2 h-8 rounded-sm cursor-pointer focus:bg-neutral-800" onClick={() => handleOpenSheet(cat.id)}>
                             <Edit className="size-3.5 mr-1" />
                             <span className="text-xs">Edit Kategori</span>
@@ -481,10 +481,10 @@ export default function KategoriBarangPage() {
       )}
 
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-        <SheetContent className="sm:max-w-md border-neutral-800 bg-neutral-950 p-0 flex flex-col text-neutral-200">
-          <SheetHeader className="p-6 border-b border-neutral-800/60 bg-neutral-900/20">
+        <SheetContent className="sm:max-w-md border-border bg-neutral-950 p-0 flex flex-col text-foreground">
+          <SheetHeader className="p-6 border-b border-border/60 bg-muted/20">
             <SheetTitle className="text-xl text-neutral-100">{editId ? "Edit Kategori" : "Tambah Kategori Baru"}</SheetTitle>
-            <SheetDescription className="text-neutral-400">
+            <SheetDescription className="text-muted-foreground">
               Isi formulir di bawah ini untuk mengelola informasi kategori.
             </SheetDescription>
           </SheetHeader>
@@ -499,7 +499,7 @@ export default function KategoriBarangPage() {
                     setNameError("")
                   }}
                   placeholder="Contoh: Router & Switch"
-                  className={`bg-neutral-900 ${nameError ? "border-destructive" : "border-neutral-800"}`}
+                  className={`bg-card ${nameError ? "border-destructive" : "border-border"}`}
                 />
                 {nameError && (
                   <p className="text-xs text-destructive">{nameError}</p>
@@ -508,10 +508,10 @@ export default function KategoriBarangPage() {
               <div className="space-y-2">
                 <Label>Model Material</Label>
                 <Select value={typeId} onValueChange={setTypeId}>
-                  <SelectTrigger className="bg-neutral-900 border-neutral-800">
+                  <SelectTrigger className="bg-card border-border">
                     <SelectValue placeholder="Pilih Model Material" />
                   </SelectTrigger>
-                  <SelectContent className="bg-neutral-950 border-neutral-800">
+                  <SelectContent className="bg-neutral-950 border-border">
                     {materialTypes.map(mt => (
                       <SelectItem key={mt.id} value={String(mt.id)}>{mt.nama}</SelectItem>
                     ))}
@@ -530,7 +530,7 @@ export default function KategoriBarangPage() {
                     setSafetyStock(Number(event.target.value))
                     setSafetyStockError("")
                   }}
-                  className={`bg-neutral-900 ${safetyStockError ? "border-destructive" : "border-neutral-800"}`}
+                  className={`bg-card ${safetyStockError ? "border-destructive" : "border-border"}`}
                 />
                 <p className="text-xs text-neutral-500">
                   Indikator akan menandai stok menipis ketika jumlah barang tersedia
@@ -542,8 +542,8 @@ export default function KategoriBarangPage() {
               </div>
             </div>
           </div>
-          <SheetFooter className="p-6 border-t border-neutral-800/60 bg-neutral-900/20 flex sm:justify-end gap-3 sm:gap-2">
-            <Button variant="outline" onClick={() => setIsSheetOpen(false)} className="hover:bg-neutral-800 text-neutral-300" disabled={isSaving}>Batal</Button>
+          <SheetFooter className="p-6 border-t border-border/60 bg-muted/20 flex sm:justify-end gap-3 sm:gap-2">
+            <Button variant="outline" onClick={() => setIsSheetOpen(false)} className="hover:bg-neutral-800 text-foreground" disabled={isSaving}>Batal</Button>
             <Button onClick={handleSave} disabled={isSaving}>
               {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
               Simpan Perubahan
@@ -556,7 +556,7 @@ export default function KategoriBarangPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle>
-            <AlertDialogDescription className="text-neutral-400">
+            <AlertDialogDescription className="text-muted-foreground">
               Tindakan ini tidak dapat dibatalkan dan semua data terkait akan dihapus.
             </AlertDialogDescription>
           </AlertDialogHeader>

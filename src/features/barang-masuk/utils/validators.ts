@@ -30,6 +30,7 @@ export const isValidMitraInboundSource = (
   const isOutbound =
     status === "keluar" ||
     status === "diluar" ||
+    status === "terdistribusi" ||
     location === "keluar" ||
     location === "diluar";
 

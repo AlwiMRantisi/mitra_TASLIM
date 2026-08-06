@@ -11,14 +11,14 @@ import {
   Power,
   Search,
   Trash2,
-  Users,
+  
   Loader2,
 } from "lucide-react"
 import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
+import {} from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -352,14 +352,6 @@ export default function MitraPage() {
       if (finalUsername.length < 4) {
         finalUsername = finalUsername.padEnd(4, '0')
       }
-    } else {
-      // Validasi duplikasi Username login untuk edit
-      const hasDuplicateUsername = partners.some(
-        (partner) =>
-          partner.username?.trim().toLowerCase() ===
-          finalUsername.toLowerCase() && partner.id !== editId
-      )
-
     }
 
     if (Object.keys(errors).length > 0) {

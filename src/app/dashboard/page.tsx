@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { SectionCards } from "@/features/dashboard/components/section-cards"
 import { ChartBarMixed } from "@/features/dashboard/components/bar-chart"
 import { ChartInboundOutbound } from "@/features/dashboard/components/chart-inbound-outbound"
@@ -9,6 +10,8 @@ import { ProductivityTable } from "@/features/dashboard/components/ProductivityT
 import { useDashboard } from "./use-dashboard"
 
 export default function DashboardPage() {
+    const [hoveredMitraId, setHoveredMitraId] = useState<string | null>(null);
+
     const {
         user,
         inventoryStats,
@@ -50,11 +53,15 @@ export default function DashboardPage() {
                     <LeaderboardCard
                         metrics={mitraPerformanceMetrics}
                         isLoading={isLoading}
+                        activeHoverId={hoveredMitraId}
+                        onHoverMitra={setHoveredMitraId}
                         className="lg:col-span-1"
                     />
                     <ProductivityTable
                         metrics={mitraPerformanceMetrics}
                         isLoading={isLoading}
+                        activeHoverId={hoveredMitraId}
+                        onHoverMitra={setHoveredMitraId}
                         className="lg:col-span-2"
                     />
                 </div>

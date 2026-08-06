@@ -1,4 +1,3 @@
-import React from "react"
 import { Search, Trash2, Download, Plus, RotateCcw } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -144,7 +143,7 @@ export function BarangFilterBar({
           <Button
             variant="outline"
             size="sm"
-            className="h-9 gap-1.5"
+            className="h-9 gap-1.5 cursor-pointer"
             onClick={onExportExcel}
             disabled={!hasFilteredData}
           >

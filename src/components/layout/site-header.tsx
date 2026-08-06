@@ -14,7 +14,7 @@ import { Sun, Moon, LogOut, Bell, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useTheme } from "@/components/shared/themeProvider"
 import { useAuth } from "@/lib/auth"
-import React, { useState } from "react"
+import { useState } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
     DropdownMenu,
@@ -61,7 +61,7 @@ export function SiteHeader({ className }: { className?: string }) {
         pageName = "Barang Masuk"
     } else if (path === "/barang-keluar") {
         parent = "Operasional"
-        pageName = "Barang Keluar"
+        pageName = "Distribusi Barang"
     } else if (path === "/request") {
         parent = "Operasional"
         pageName = "Request"
@@ -144,10 +144,10 @@ export function SiteHeader({ className }: { className?: string }) {
                         <span className="sr-only">Toggle theme</span>
                     </Button>
                     <Notifications />
-                    
+
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="rounded-full ring-offset-background transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                            <Button variant="ghost" size="icon" className="rounded-full ring-offset-background transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer">
                                 <Avatar className="h-8 w-8">
                                     <AvatarImage src="" alt={user?.displayName || "User"} />
                                     <AvatarFallback>{(user?.displayName || "U").slice(0, 2).toUpperCase()}</AvatarFallback>
@@ -155,27 +155,27 @@ export function SiteHeader({ className }: { className?: string }) {
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent className="w-56" align="end" forceMount>
-                            <DropdownMenuLabel className="font-normal">
+                            <DropdownMenuLabel className="font-normal py-2">
                                 <div className="flex flex-col space-y-1">
                                     <p className="text-sm font-medium leading-none">{user?.displayName || "User"}</p>
-                                    <p className="text-xs leading-none text-muted-foreground">
-                                        {user?.username || ""}
-                                    </p>
                                 </div>
                             </DropdownMenuLabel>
                             <DropdownMenuSeparator />
                             <DropdownMenuGroup>
-                                <DropdownMenuItem>
+                                <DropdownMenuItem className="cursor-pointer">
                                     <User className="mr-2 h-4 w-4" />
                                     <span>Profil</span>
                                 </DropdownMenuItem>
-                                <DropdownMenuItem>
+                                <DropdownMenuItem className="cursor-pointer">
                                     <Bell className="mr-2 h-4 w-4" />
                                     <span>Notifikasi</span>
                                 </DropdownMenuItem>
                             </DropdownMenuGroup>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-red-400 focus:text-red-400 focus:bg-red-400/10 cursor-pointer" onClick={() => setIsLogoutDialogOpen(true)}>
+                            <DropdownMenuItem
+                                variant="destructive"
+                                className="cursor-pointer focus:bg-destructive/10 focus:text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                onClick={() => setIsLogoutDialogOpen(true)}
+                            >
                                 <LogOut className="mr-2 h-4 w-4" />
                                 <span>Keluar</span>
                             </DropdownMenuItem>
@@ -193,9 +193,9 @@ export function SiteHeader({ className }: { className?: string }) {
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel>Batal</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleLogout}>
-                            <LogOut className="mr-2 h-4 w-4" />
+                        <AlertDialogCancel className="cursor-pointer">Batal</AlertDialogCancel>
+                        <AlertDialogAction variant="destructive" className="cursor-pointer" onClick={handleLogout}>
+                            <LogOut className="mr-1 h-4 w-4" />
                             Ya, Keluar
                         </AlertDialogAction>
                     </AlertDialogFooter>

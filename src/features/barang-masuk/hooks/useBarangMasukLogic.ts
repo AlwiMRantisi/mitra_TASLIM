@@ -180,7 +180,7 @@ export function useBarangMasukLogic() {
       recommendedLocation = getMitraDefaultLocation(user.displayName || "");
     }
 
-    if (!isMitraUser && existingItem && normalizeStatus(existingItem.status) !== "keluar" && normalizeStatus(existingItem.status) !== "diluar") {
+    if (!isMitraUser && existingItem && normalizeStatus(existingItem.status) !== "keluar" && normalizeStatus(existingItem.status) !== "diluar" && normalizeStatus(existingItem.status) !== "terdistribusi") {
       if (recommendedLocation && recommendedLocation.trim().toLowerCase() === (existingItem.lokasiPenyimpanan || "").trim().toLowerCase()) {
         const alternativeLocation = dbLocations.find(
           (loc) => (session.kuota[loc.name] ?? 0) > 0 && loc.name.trim().toLowerCase() !== (existingItem.lokasiPenyimpanan || "").trim().toLowerCase()
@@ -312,7 +312,7 @@ export function useBarangMasukLogic() {
         }
 
         if (item.existingItemId && !existingItem) return true;
-        if (existingItem && normalizeStatus(existingItem.status) !== "keluar" && normalizeStatus(existingItem.status) !== "diluar") {
+        if (existingItem && normalizeStatus(existingItem.status) !== "keluar" && normalizeStatus(existingItem.status) !== "diluar" && normalizeStatus(existingItem.status) !== "terdistribusi") {
           return item.lokasi.trim().toLowerCase() === (existingItem.lokasiPenyimpanan || "").trim().toLowerCase();
         }
         return false;
@@ -331,7 +331,7 @@ export function useBarangMasukLogic() {
               ? `Barang belum bisa diterima — masih berstatus "${existingItem.status}" di "${existingItem.lokasiPenyimpanan || "gudang KP"}". Scan keluar dari KP terlebih dahulu.`
               : "Barang tidak ditemukan di data KP. Hubungi Admin untuk mendaftarkan barang ini."
             : existingItem
-              ? normalizeStatus(existingItem.status) !== "keluar" && normalizeStatus(existingItem.status) !== "diluar"
+              ? normalizeStatus(existingItem.status) !== "keluar" && normalizeStatus(existingItem.status) !== "diluar" && normalizeStatus(existingItem.status) !== "terdistribusi"
                 ? "Barang sudah berstatus Tersedia di lokasi tersebut dan tidak dapat dimasukkan kembali kecuali pindah penyimpanan."
                 : "Barang tidak dapat diproses sebagai masuk kembali."
               : "Data barang keluar tidak lagi ditemukan.",

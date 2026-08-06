@@ -15,8 +15,16 @@ import MitraPage from "@/app/mitra/page";
 import LoginPage from "@/app/login/page";
 import PengaturanPage from "@/app/pengaturan/page";
 import MobileSignPage from "@/app/mobile-sign/page";
-import PartnerRequestNewPage from "@/app/partner-request/new/page";
-import PartnerRequestHistoryPage from "@/app/partner-request/history/page";
+import PartnerRequestPage from "@/app/partner-request/page";
+import { useAuth } from "@/lib/auth";
+
+function IndexRoute() {
+	const { user } = useAuth();
+	if (user?.role === "mitra") {
+		return <Navigate to="/partner-request" replace />;
+	}
+	return <DashboardPage />;
+}
 
 export function AppRoutes() {
 	return (
@@ -30,7 +38,7 @@ export function AppRoutes() {
 						<Layout />
 					</ProtectedRoute>
 				}>
-				<Route index element={<DashboardPage />} />
+				<Route index element={<IndexRoute />} />
 				<Route path="barang-masuk" element={<BarangMasukPage />} />
 				<Route path="barang-keluar" element={<BarangKeluarPage />} />
 				<Route path="request" element={<DataTransaksiPage />} />
@@ -43,18 +51,10 @@ export function AppRoutes() {
 					}
 				/>
 				<Route
-					path="partner-request/new"
+					path="partner-request"
 					element={
 						<ProtectedRoute mitraOnly>
-							<PartnerRequestNewPage />
-						</ProtectedRoute>
-					}
-				/>
-				<Route
-					path="partner-request/history"
-					element={
-						<ProtectedRoute mitraOnly>
-							<PartnerRequestHistoryPage />
+							<PartnerRequestPage />
 						</ProtectedRoute>
 					}
 				/>

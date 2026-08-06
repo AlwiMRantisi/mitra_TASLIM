@@ -101,7 +101,7 @@ export function InboundFormCard({
           {user?.role === "mitra" && (
             <div className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2.5 text-xs leading-5 text-sky-600 dark:text-sky-400 space-y-1">
               <p className="font-semibold">Ketentuan Penerimaan Barang Mitra</p>
-              <p>Barang hanya dapat diterima jika sudah berstatus <span className="font-semibold">Keluar</span> atau <span className="font-semibold">Diluar</span> dari KP. Barang yang masih tersimpan di gudang KP tidak dapat dipindah ke gudang mitra.</p>
+              <p>Barang hanya dapat diterima jika sudah berstatus <span className="font-semibold">Keluar</span> atau <span className="font-semibold">Terdistribusi/Diluar</span> dari KP. Barang yang masih tersimpan di gudang KP tidak dapat dipindah ke gudang mitra.</p>
             </div>
           )}
         </div>

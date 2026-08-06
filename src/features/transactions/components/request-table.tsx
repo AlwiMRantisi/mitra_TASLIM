@@ -38,7 +38,7 @@ import { getBaseUrl } from "@/lib/api"
 import { openUrl } from "@tauri-apps/plugin-opener"
 import { useNavigate } from "react-router-dom"
 import type { DashboardRequest } from "@/types/transaction"
-import { PackageCheck, ArrowUpDown, Check, Edit } from "lucide-react"
+import { PackageCheck, ArrowUpDown,  Edit } from "lucide-react"
 import { PengambilanQrModal } from "./PengambilanQrModal"
 import { Label } from "@/components/ui/label"
 import {
@@ -121,13 +121,12 @@ export type DataTableProps = {
 // Constants
 // ─────────────────────────────────────────────
 
-type StatusKey = "Menunggu" | "Disetujui" | "Siap" | "Selesai" | "Ditolak" | "Dibatalkan"
+type StatusKey = "Menunggu" | "Siap" | "Selesai" | "Ditolak" | "Dibatalkan"
 
 const STATUS_CONFIG: Record<StatusKey, { icon: typeof IconLoader; dotClass: string }> = {
     Menunggu: {
         icon: IconLoader, dotClass: "text-muted-foreground bg-neutral-500/20 border-0"
     },
-    Disetujui: { icon: IconCircleCheck, dotClass: "dark:text-green-600/80 dark:bg-green-300/10 border-0 text-emerald-700 bg-emerald-100/80" },
     Siap: { icon: IconPackage, dotClass: "text-amber-600 bg-amber-700/10 dark:border-amber-500/10 dark:border-1 border-0" },
     Selesai: { icon: IconCircleCheck, dotClass: "text-emerald-600/80 bg-emerald-700/10 dark:border-emerald-500/10 border-emerald-500/10" },
     Ditolak: { icon: IconX, dotClass: "text-destructive bg-red-400/10 border-0" },
@@ -309,13 +308,14 @@ function ActionMenu({
 
     return (
         <div className="flex items-center gap-1 justify-center">
-            {status === "DISETUJUI" && (
+            {status === "MENUNGGU" && (
                 <>
                     <Button
                         variant="ghost"
                         size="icon-lg"
                         className="text-xs font-medium text-muted-foreground hover:text-amber-600 cursor-pointer"
                         onClick={handleNavigateToPrepare}
+                        title="Siapkan Barang"
                     >
                         <IconPackage size={18} />
                     </Button>
@@ -323,28 +323,8 @@ function ActionMenu({
                         variant="ghost"
                         size="icon-lg"
                         className="text-xs font-medium text-muted-foreground hover:text-destructive cursor-pointer"
-                        onClick={(e) => handleStatusChange(e, "Dibatalkan")}
-                    >
-                        <IconBan size={18} />
-                    </Button>
-                </>
-            )}
-
-            {status === "MENUNGGU" && (
-                <>
-                    <Button
-                        variant="ghost"
-                        size="icon-lg"
-                        className="text-xs font-medium text-muted-foreground hover:text-emerald-700 cursor-pointer"
-                        onClick={(e) => handleStatusChange(e, "Disetujui")}
-                    >
-                        <Check size={18} className="" />
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        size="icon-lg"
-                        className="text-xs font-medium text-muted-foreground hover:text-destructive cursor-pointer"
                         onClick={(e) => handleStatusChange(e, "Ditolak")}
+                        title="Tolak Request"
                     >
                         <IconX size={18} className="" />
                     </Button>

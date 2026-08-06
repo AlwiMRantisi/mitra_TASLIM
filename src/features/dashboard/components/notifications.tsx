@@ -2,7 +2,6 @@
 
 import * as React from "react"
 import { Bell, Check, Info, AlertTriangle, XCircle } from "lucide-react"
-import { invoke } from "@tauri-apps/api/core"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -23,14 +22,42 @@ type NotificationItem = {
   isRead: boolean
 }
 
+const getBaseUrl = () => {
+  const baseUrl = import.meta.env.URL || import.meta.env.VITE_URL || "http://172.168.9.139:3000/"
+  return baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl
+}
+
+const getHeaders = () => {
+  const token = localStorage.getItem("arxiva-auth-token")
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  }
+  if (token) {
+    headers["Authorization"] = `${token}`
+  }
+  return headers
+}
+
 export function Notifications() {
   const [open, setOpen] = React.useState(false)
   const [items, setItems] = React.useState<NotificationItem[]>([])
   
   const fetchNotifications = React.useCallback(async () => {
     try {
-      const data = await invoke<NotificationItem[]>("get_notifications")
-      setItems(data)
+      const res = await fetch(`${getBaseUrl()}/notifications`, {
+        method: "GET",
+        headers: getHeaders(),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        if (data.success && Array.isArray(data.data)) {
+          const mapped = data.data.map((n: any) => ({
+            ...n,
+            date: n.createdAt || n.date
+          }))
+          setItems(mapped)
+        }
+      }
     } catch (error) {
       console.error("Failed to fetch notifications:", error)
     }
@@ -47,8 +74,13 @@ export function Notifications() {
 
   const markAllAsRead = async () => {
     try {
-      await invoke("mark_all_notifications_read")
-      fetchNotifications()
+      const res = await fetch(`${getBaseUrl()}/notifications/read-all`, {
+        method: "PATCH",
+        headers: getHeaders(),
+      })
+      if (res.ok) {
+        fetchNotifications()
+      }
     } catch (error) {
       console.error("Failed to mark all as read:", error)
     }
@@ -56,8 +88,13 @@ export function Notifications() {
 
   const markAsRead = async (id: string) => {
     try {
-      await invoke("mark_notification_read", { id })
-      fetchNotifications()
+      const res = await fetch(`${getBaseUrl()}/notifications/${id}/read`, {
+        method: "PATCH",
+        headers: getHeaders(),
+      })
+      if (res.ok) {
+        fetchNotifications()
+      }
     } catch (error) {
       console.error("Failed to mark as read:", error)
     }

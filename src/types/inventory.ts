@@ -104,6 +104,7 @@ export type StorageLocation = {
   name: string;
   type: "Rak" | "Kardus" | "Pallet";
   isActive: boolean;
+  owner?: string;
   levels?: Level[];
   capacity?: number;
   usedCapacity?: number;

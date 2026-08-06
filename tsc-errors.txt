@@ -1,0 +1,53 @@
+src/app/barang-keluar/page.tsx(2,19): error TS6133: 'BadgeCheck' is declared but its value is never read.
+src/app/barang-keluar/page.tsx(2,31): error TS6133: 'Boxes' is declared but its value is never read.
+src/app/barang-keluar/page.tsx(11,3): error TS6133: 'CardDescription' is declared but its value is never read.
+src/app/barang-keluar/page.tsx(25,1): error TS6192: All imports in import declaration are unused.
+src/app/barang-keluar/page.tsx(171,10): error TS6133: 'inputMode' is declared but its value is never read.
+src/app/barang-keluar/page.tsx(171,21): error TS6133: 'setInputMode' is declared but its value is never read.
+src/app/mitra/page.tsx(14,3): error TS6133: 'Users' is declared but its value is never read.
+src/app/mitra/page.tsx(21,1): error TS6133: 'Card' is declared but its value is never read.
+src/app/mitra/page.tsx(357,13): error TS6133: 'hasDuplicateUsername' is declared but its value is never read.
+src/app/partner-request/new/page.tsx(6,3): error TS6133: 'FileText' is declared but its value is never read.
+src/app/partner-request/new/page.tsx(23,3): error TS6133: 'DialogHeader' is declared but its value is never read.
+src/app/partner-request/new/page.tsx(26,3): error TS6133: 'DialogFooter' is declared but its value is never read.
+src/app/partner-request/new/page.tsx(272,10): error TS6133: 'showPreviewModal' is declared but its value is never read.
+src/app/partner-request/new/page.tsx(272,28): error TS6133: 'setShowPreviewModal' is declared but its value is never read.
+src/app/pengaturan/page.tsx(11,3): error TS6133: 'User' is declared but its value is never read.
+src/app/request/page.tsx(1,31): error TS6133: 'useRef' is declared but its value is never read.
+src/app/request/page.tsx(4,18): error TS6133: 'EllipsisVertical' is declared but its value is never read.
+src/app/request/page.tsx(4,36): error TS6133: 'FileUp' is declared but its value is never read.
+src/app/request/page.tsx(4,44): error TS6133: 'FileDown' is declared but its value is never read.
+src/app/request/page.tsx(4,66): error TS6133: 'Loader2' is declared but its value is never read.
+src/app/request/page.tsx(4,75): error TS6133: 'PenTool' is declared but its value is never read.
+src/app/request/page.tsx(16,1): error TS6133: 'format' is declared but its value is never read.
+src/app/request/page.tsx(17,1): error TS6133: 'CalendarIcon' is declared but its value is never read.
+src/app/request/page.tsx(21,1): error TS6192: All imports in import declaration are unused.
+src/app/request/page.tsx(22,1): error TS6133: 'DigitalSignatureDialog' is declared but its value is never read.
+src/app/request/page.tsx(24,1): error TS6192: All imports in import declaration are unused.
+src/app/request/page.tsx(215,9): error TS6133: 'handleExportExcel' is declared but its value is never read.
+src/app/request/prepare/page.tsx(3,15): error TS6133: 'getBaseUrl' is declared but its value is never read.
+src/app/request/prepare/page.tsx(6,3): error TS6133: 'PackageCheck' is declared but its value is never read.
+src/app/request/prepare/page.tsx(9,3): error TS6133: 'Boxes' is declared but its value is never read.
+src/app/request/prepare/page.tsx(46,3): error TS6133: 'CardDescription' is declared but its value is never read.
+src/app/request/prepare/page.tsx(47,3): error TS6133: 'CardFooter' is declared but its value is never read.
+src/app/request/prepare/page.tsx(49,3): error TS6133: 'CardTitle' is declared but its value is never read.
+src/app/request/prepare/page.tsx(183,10): error TS6133: 'isSubmitting' is declared but its value is never read.
+src/app/request/prepare/page.tsx(263,9): error TS6133: 'totalRequested' is declared but its value is never read.
+src/app/tipe-material/page.tsx(4,61): error TS6133: 'PackageOpen' is declared but its value is never read.
+src/components/data-barang/BarangFilterBar.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+src/components/data-barang/BarangMobileCards.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+src/components/data-barang/BarangTable.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+src/components/data-barang/BarangTable.tsx(2,24): error TS6133: 'Edit' is declared but its value is never read.
+src/components/data-barang/BarangTable.tsx(2,30): error TS6133: 'Trash2' is declared but its value is never read.
+src/components/data-barang/BarangTable.tsx(19,3): error TS6133: 'DropdownMenuSeparator' is declared but its value is never read.
+src/components/data-barang/BarangTable.tsx(52,3): error TS6133: 'formatTanggal' is declared but its value is never read.
+src/components/data-barang/ExportExcelModal.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/components/data-barang/ExportExcelModal.tsx(14,1): error TS6192: All imports in import declaration are unused.
+src/components/ui/sidebar.tsx(21,3): error TS6133: 'Tooltip' is declared but its value is never read.
+src/components/ui/sidebar.tsx(23,3): error TS6133: 'TooltipTrigger' is declared but its value is never read.
+src/components/ui/sidebar.tsx(518,11): error TS6198: All destructured elements are unused.
+src/features/dashboard/components/LeaderboardCard.tsx(3,10): error TS6133: 'Trophy' is declared but its value is never read.
+src/features/dashboard/components/ProductivityTable.tsx(4,1): error TS6133: 'Activity' is declared but its value is never read.
+src/features/dashboard/components/RequestSection.tsx(2,42): error TS6133: 'CheckCircle2' is declared but its value is never read.
+src/features/transactions/components/request-detail-drawer.tsx(107,9): error TS6133: 'user' is declared but its value is never read.
+src/features/transactions/components/request-table.tsx(41,37): error TS6133: 'Check' is declared but its value is never read.

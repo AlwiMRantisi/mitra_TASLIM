@@ -45,7 +45,7 @@ export const calculateCapacityMap = (
   items.forEach(item => {
     if (!item.lokasiPenyimpanan) return;
     const st = (item.status || "").trim().toLowerCase();
-    if (st !== "diluar" && st !== "keluar") {
+    if (st !== "diluar" && st !== "keluar" && st !== "terdistribusi") {
       const locKey = item.lokasiPenyimpanan.trim();
       usedCapacityMap[locKey] = (usedCapacityMap[locKey] || 0) + 1;
     }

@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useParams, useNavigate } from "react-router-dom"
-import { api, getBaseUrl } from "@/lib/api"
+import { api } from "@/lib/api"
 import { toast } from "sonner"
 import {
-  PackageCheck,
+  
   Loader2,
   ScanLine,
-  Boxes,
+  
   X,
   GripVertical,
 } from "lucide-react"
@@ -43,10 +43,10 @@ import {
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardFooter,
+  
+  
   CardHeader,
-  CardTitle,
+  
 } from "@/components/ui/card"
 
 // ── Types ──────────────────────────────────────────────────────────────
@@ -180,7 +180,7 @@ export default function PreparePage() {
   const [scannedItems, setScannedItems] = useState<ScannedItem[]>([])
 
   const [isLoading, setIsLoading] = useState(true)
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [, setIsSubmitting] = useState(false)
 
   const inputRef = useRef<HTMLInputElement>(null)
   const kodeBarangRef = useRef("")
@@ -260,7 +260,6 @@ export default function PreparePage() {
     fetchData()
   }, [id, navigate])
 
-  const totalRequested = request?.requestItems.reduce((acc, ri) => acc + ri.quantity, 0) || 0
 
   const updateKodeBarang = useCallback((value: string | ((prev: string) => string)) => {
     const nextValue = typeof value === "function" ? value(kodeBarangRef.current) : value;

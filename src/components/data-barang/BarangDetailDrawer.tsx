@@ -23,6 +23,7 @@ import { Edit, Loader2, History, Info, Copy, Check } from "lucide-react"
 import { useIsMobile } from "@/hooks/use-mobile"
 import type { BarangUnit, StatusUnit, RiwayatUnit } from "@/types/inventory"
 import { toast } from "sonner"
+import { formatItemLocation } from "@/lib/status-helper"
 
 interface BarangDetailDrawerProps {
   isOpen: boolean
@@ -222,7 +223,7 @@ export function BarangDetailDrawer({
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <p className="text-muted-foreground">Lokasi Storage</p>
-                  <p className="text-foreground mt-0.5">{detailBarang.lokasiPenyimpanan}</p>
+                  <p className="text-foreground mt-0.5">{formatItemLocation(detailBarang.lokasiPenyimpanan, detailBarang.mitra)}</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Pemilik / Tempat</p>
@@ -345,7 +346,7 @@ export function BarangDetailDrawer({
                   </div>
                   <div>
                     <p className="text-muted-foreground font-medium">Lokasi Storage</p>
-                    <p className="font-medium text-foreground mt-0.5">{detailBarang.lokasiPenyimpanan}</p>
+                    <p className="font-medium text-foreground mt-0.5">{formatItemLocation(detailBarang.lokasiPenyimpanan, detailBarang.mitra)}</p>
                   </div>
                   <div>
                     <p className="text-muted-foreground font-medium">Pemilik / Tempat</p>

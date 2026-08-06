@@ -18,9 +18,9 @@ import {
 } from "@/components/ui/sheet"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
-  Tooltip,
+  
   TooltipContent,
-  TooltipTrigger,
+  
 } from "@/components/ui/tooltip"
 import { PanelLeftIcon } from "lucide-react"
 
@@ -515,7 +515,7 @@ const SidebarMenuButton = React.forwardRef<
     ref
   ) => {
     const Comp = asChild ? Slot.Root : "button"
-    const { isMobile, state } = useSidebar()
+    useSidebar()
 
     const button = (
       <Comp

@@ -104,7 +104,7 @@ export function RequestDetailDrawer({
   onClose: () => void
   onStatusChange?: (id: string, newStatus: string) => void
 }) {
-  const { user } = useAuth()
+  const {} = useAuth()
   const navigate = useNavigate()
   const [detailData, setDetailData] = useState<DashboardRequest | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -253,39 +253,6 @@ export function RequestDetailDrawer({
                     </TableBody>
                   </Table>
                 </ScrollShadowWrapper>
-              ) : displayItem.status?.toUpperCase() === 'DISETUJUI' ? (
-                <ScrollShadowWrapper>
-                  <Table>
-                    <TableHeader className="sticky top-0 z-20 bg-muted shadow-md">
-                      <TableRow className="hover:bg-transparent">
-                        <TableHead className="w-12 px-4">No</TableHead>
-                        <TableHead>Kategori</TableHead>
-                        <TableHead>Merek</TableHead>
-                        <TableHead className="text-right">Jumlah</TableHead>
-                        <TableHead className="text-right px-4">Satuan</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {displayItem.requestItems && displayItem.requestItems.length > 0 ? (
-                        displayItem.requestItems.map((ri, idx) => (
-                          <TableRow key={ri.id}>
-                            <TableCell className="text-muted-foreground px-4">{idx + 1}</TableCell>
-                            <TableCell className="font-medium">{ri.category}</TableCell>
-                            <TableCell>{ri.brand}</TableCell>
-                            <TableCell className="text-right font-medium">{ri.quantity}</TableCell>
-                            <TableCell className="text-right font-medium px-4">Unit</TableCell>
-                          </TableRow>
-                        ))
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
-                            Tidak ada item.
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </ScrollShadowWrapper>
               ) : displayItem.requestItems && displayItem.requestItems.length > 0 ? (
                 <>
                   <ScrollShadowWrapper>
@@ -328,18 +295,10 @@ export function RequestDetailDrawer({
           <div className="flex w-full gap-2">
             {['MENUNGGU'].includes(displayItem.status?.toUpperCase() || "") && (
               <>
-                <Button variant="default" className="flex-1 cursor-pointer" onClick={() => handleAction("Disetujui")}>Setujui</Button>
-                <Button variant="destructive" className="flex-1 cursor-pointer" onClick={() => handleAction("Ditolak", true)}>Batalkan Permintaan</Button>
+                <Button variant="default" className="flex-1 cursor-pointer" onClick={() => navigate(`/request/${displayItem.id}/prepare`)}>Siapkan Barang</Button>
+                <Button variant="destructive" className="flex-1 cursor-pointer" onClick={() => handleAction("Ditolak", true)}>Tolak Permintaan</Button>
               </>
             )}
-            {
-              ['DISETUJUI'].includes(displayItem.status?.toUpperCase() || "") && (
-                <>
-                  <Button variant="default" className="flex-1 cursor-pointer" onClick={() => handleAction("Siap")}>Siapkan</Button>
-                  <Button variant="destructive" className="flex-1 cursor-pointer" onClick={() => handleAction("Dibatalkan", true)}>Batalkan</Button>
-                </>
-              )
-            }
             {
               ['SIAP'].includes(displayItem.status?.toUpperCase() || "") && (
                 <>

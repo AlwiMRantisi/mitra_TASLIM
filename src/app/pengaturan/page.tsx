@@ -8,7 +8,7 @@ import {
   Cloud,
   Lock,
   Unlock,
-  User,
+  
   Settings,
   Save,
   CheckCircle2,

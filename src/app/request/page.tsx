@@ -1,34 +1,26 @@
-import { useState, useEffect, useRef, useMemo, useTransition } from "react"
+import { useState, useEffect,  useMemo, useTransition } from "react"
 import { DataTable } from "@/features/transactions/components/request-table"
 import { RequestDetailDrawer } from "@/features/transactions/components/request-detail-drawer"
-import { Search, EllipsisVertical, FileUp, FileDown, ListFilter, Loader2, PenTool } from "lucide-react"
+import { Search,    ListFilter } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
-import { saveExportFile } from "@/lib/export-file"
-import * as XLSX from "xlsx"
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Calendar } from "@/components/ui/calendar"
-import { format } from "date-fns"
-import { CalendarIcon } from "lucide-react"
+import {} from "date-fns"
+import {} from "lucide-react"
 import { DateRange } from "react-day-picker"
 import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/lib/auth"
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter, DrawerClose } from "@/components/ui/drawer"
-import { DigitalSignatureDialog } from "./components/DigitalSignatureDialog"
+// import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter, DrawerClose } from "@/components/ui/drawer"
+import {} from "./components/DigitalSignatureDialog"
 import { api } from "@/lib/api"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+
 import type { DashboardRequest } from "@/types/transaction"
 import { cn } from "@/lib/utils"
 
@@ -93,7 +85,6 @@ export default function DataTransaksiPage() {
   }
 
   const countMenunggu = localRequests.filter(req => req.status.toLowerCase() === "menunggu").length;
-  const countDisetujui = localRequests.filter(req => req.status.toLowerCase() === "disetujui").length;
   const countSiap = localRequests.filter(req => req.status.toLowerCase() === "siap").length;
 
   const handleStatusChange = async (id: string, newStatus: string) => {
@@ -185,7 +176,7 @@ export default function DataTransaksiPage() {
 
   // Pre-calculate tab data to prevent re-sorting on every render (e.g. when popover toggles)
   const tabData = useMemo(() => {
-    const tabs = ["Menunggu", "Disetujui", "Siap", "Diterima", "Selesai", "Ditolak"];
+    const tabs = ["Menunggu", "Siap", "Diterima", "Selesai", "Ditolak"];
     const result: Record<string, typeof filteredData> = {};
     
     tabs.forEach(status => {
@@ -200,7 +191,7 @@ export default function DataTransaksiPage() {
       const sortedData = [...finalData].sort((a, b) => {
         const timeA = new Date(a.requestedAt).getTime();
         const timeB = new Date(b.requestedAt).getTime();
-        const activeStatuses = ["menunggu", "disetujui", "siap"];
+        const activeStatuses = ["menunggu", "siap"];
         if (activeStatuses.includes(tabLower)) {
           return timeA - timeB; // FIFO
         }
@@ -213,73 +204,7 @@ export default function DataTransaksiPage() {
     return result;
   }, [filteredData]);
 
-  const handleExportExcel = async () => {
-    if (filteredData.length === 0) {
-      toast.error("Tidak ada data riwayat yang sesuai dengan filter untuk diekspor.")
-      return
-    }
 
-    try {
-      const headers = [
-        "No",
-        "Tanggal",
-        "No Request",
-        "Nama Pemohon",
-        "Tipe Partner",
-        "Status",
-        "Catatan",
-        "Jumlah Item"
-      ]
-
-      const rows = filteredData.map((item, index) => [
-        index + 1,
-        new Date(item.requestedAt).toLocaleDateString(),
-        item.requestNumber,
-        item.requesterName,
-        item.partnerCategory || "-",
-        item.status,
-        item.notes || "-",
-        item.itemsCount || 0
-      ])
-
-      const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows])
-      const workbook = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Riwayat Transaksi")
-      const buffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" })
-
-      const now = new Date()
-      const dateSuffix = [
-        now.getFullYear(),
-        String(now.getMonth() + 1).padStart(2, "0"),
-        String(now.getDate()).padStart(2, "0"),
-      ].join("-")
-      const categorySuffix = "semua-kategori"
-      const searchSuffix = searchTerm.trim()
-        ? `-pencarian-${searchTerm
-          .trim()
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, "-")
-          .replace(/^-|-$/g, "")
-          .slice(0, 40)}`
-        : ""
-      const exportResult = await saveExportFile({
-        fileName: `riwayat-${categorySuffix}${searchSuffix}-${dateSuffix}.xlsx`,
-        contents: buffer,
-      })
-
-      if (!exportResult.saved) return
-
-      toast.success(
-        `${filteredData.length} data riwayat berhasil diekspor sesuai filter aktif.`,
-        exportResult.path
-          ? { description: `Disimpan di: ${exportResult.path}` }
-          : undefined
-      )
-    } catch (error) {
-      console.error("Gagal mengekspor riwayat transaksi:", error)
-      toast.error("Gagal memproses ekspor riwayat transaksi.")
-    }
-  }
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8 animate-fade-in">
@@ -291,9 +216,6 @@ export default function DataTransaksiPage() {
             <TabsList className="**:data-[slot=badge]:size-5 **:data-[slot=badge]:rounded-full **:data-[slot=badge]:bg-muted-foreground/30 **:data-[slot=badge]:px-1 inline-flex h-auto w-full lg:w-auto">
               <TabsTrigger value="Menunggu" className="cursor-pointer">
                 Menunggu {countMenunggu > 0 && <Badge variant="secondary">{countMenunggu}</Badge>}
-              </TabsTrigger>
-              <TabsTrigger value="Disetujui" className="cursor-pointer">
-                Disetujui {countDisetujui > 0 && <Badge variant="secondary">{countDisetujui}</Badge>}
               </TabsTrigger>
               <TabsTrigger value="Siap" className="cursor-pointer">
                 Siap {countSiap > 0 && <Badge variant="secondary">{countSiap}</Badge>}
@@ -385,12 +307,12 @@ export default function DataTransaksiPage() {
           </div>
         </div>
 
-        {["Menunggu", "Disetujui", "Siap", "Diterima", "Selesai", "Ditolak"].map(status => {
+        {["Menunggu", "Siap", "Diterima", "Selesai", "Ditolak"].map(status => {
           const tabLower = status.toLowerCase()
 
           // Tentukan kolom mana yang disembunyikan berdasarkan tab
           let hiddenColumns: string[] = []
-          if (["menunggu", "disetujui"].includes(tabLower)) {
+          if (["menunggu"].includes(tabLower)) {
             hiddenColumns.push("document")
           }
           if (["selesai", "diterima", "ditolak"].includes(tabLower)) {

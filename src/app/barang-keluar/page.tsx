@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Archive, BadgeCheck, Boxes, PackageMinus, ScanLine, X, Loader2 } from "lucide-react";
-import { invoke } from "@tauri-apps/api/core";
+import { Archive, PackageMinus, ScanLine, X, Loader2 } from "lucide-react";
+
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -8,10 +8,6 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+// import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -31,6 +27,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { formatItemStatus } from "@/lib/status-helper"
 import { useAuth } from "@/lib/auth";
 import type { LokasiOption, InventoryItem, KodeBarangUpdate } from "@/types/inventory";
 import type { Partner } from "@/types/partner";
@@ -79,7 +76,7 @@ const normalizeText = (text?: string | null) => (text || "").trim().toLocaleLowe
 const normalizeOwner = (owner?: string | null) => normalizeText(owner || ADMIN_LOCATION);
 const isOutsideStatus = (status: string) => {
   const normalizedStatus = normalizeStatus(status);
-  return normalizedStatus === "keluar" || normalizedStatus === "diluar";
+  return normalizedStatus === "keluar" || normalizedStatus === "diluar" || normalizedStatus === "terdistribusi";
 };
 
 const getEntryDateTime = (item: InventoryItem) => {
@@ -137,7 +134,7 @@ const getFifoToastDescription = (olderItem: InventoryItem) =>
     olderItem.tanggalMasuk
   )}, lokasi ${olderItem.lokasiPenyimpanan || "-"}).`;
 
-function EmptyScanTableState() {
+function EmptyScanTableState({ role }: { role?: string }) {
   return (
     <div className="flex items-center justify-center px-6 py-12">
       <div className="flex max-w-md flex-col items-center gap-4 text-center">
@@ -145,9 +142,13 @@ function EmptyScanTableState() {
           <PackageMinus className="size-7" strokeWidth={1.8} />
         </div>
         <div className="space-y-1.5">
-          <p className="text-base font-semibold text-foreground">Belum ada barang keluar</p>
+          <p className="text-base font-semibold text-foreground">
+            {role === "mitra" ? "Belum ada item penggunaan" : "Belum ada barang keluar"}
+          </p>
           <p className="text-sm leading-relaxed text-muted-foreground">
-            Scan atau masukkan serial number dari form di sebelah kiri untuk menambahkan item ke sesi keluar.
+            {role === "mitra"
+              ? "Scan atau masukkan serial number material yang digunakan di lapangan."
+              : "Scan atau masukkan serial number dari form di sebelah kiri untuk menambahkan item ke sesi keluar."}
           </p>
         </div>
       </div>
@@ -167,7 +168,7 @@ function EmptyScanTableState() {
 export default function BarangKeluarPage() {
   const { user } = useAuth();
   const [kodeBarang, setKodeBarang] = useState("");
-  const [inputMode, setInputMode] = useState<"auto" | "manual">("auto");
+  const [] = useState<"auto" | "manual">("auto");
   const [barangKeluar, setBarangKeluar] = useState<BarangKeluarItem[]>([]);
   const [kuota, setKuota] = useState<Record<string, number>>({});
   const inputRef = useRef<HTMLInputElement>(null);
@@ -247,7 +248,7 @@ export default function BarangKeluarPage() {
               const actualUsed = (Array.isArray(items) ? items : []).filter((item: any) => {
                 if (!item.lokasiPenyimpanan) return false;
                 const st = (item.status || "").trim().toLowerCase();
-                return item.lokasiPenyimpanan.trim() === name.trim() && st !== "diluar" && st !== "keluar";
+                return item.lokasiPenyimpanan.trim() === name.trim() && st !== "diluar" && st !== "keluar" && st !== "terdistribusi";
               }).length;
               newKuota[name] = Math.max(0, lvl.capacity - actualUsed);
             });
@@ -255,7 +256,7 @@ export default function BarangKeluarPage() {
             const actualUsed = (Array.isArray(items) ? items : []).filter((item: any) => {
               if (!item.lokasiPenyimpanan) return false;
               const st = (item.status || "").trim().toLowerCase();
-              return item.lokasiPenyimpanan.trim() === loc.name.trim() && st !== "diluar" && st !== "keluar";
+              return item.lokasiPenyimpanan.trim() === loc.name.trim() && st !== "diluar" && st !== "keluar" && st !== "terdistribusi";
             }).length;
             newKuota[loc.name] = Math.max(0, (loc.capacity || 0) - actualUsed);
           }
@@ -268,8 +269,6 @@ export default function BarangKeluarPage() {
     };
     fetchItemsAndLocations();
   }, [user]);
-  const totalKuotaTersedia = Object.values(kuota).reduce((total, value) => total + value, 0);
-  const validItems = barangKeluar.filter((item) => item.status === "Valid").length;
 
   const updateKodeBarang = useCallback((value: KodeBarangUpdate) => {
     const nextValue = typeof value === "function" ? value(kodeBarangRef.current) : value;
@@ -606,15 +605,16 @@ export default function BarangKeluarPage() {
         const message = `${user.displayName} mengajukan permintaan ${requestCount} barang keluar.${keterangan ? ` Keterangan: ${keterangan}` : ""}`;
 
         try {
-          await invoke("add_notification", {
-            notification: {
-              id: notificationId,
+          await fetch(`${getBaseUrl()}/notifications`, {
+            method: "POST",
+            headers: getHeaders(),
+            body: JSON.stringify({
+              userId: user.id, // Or however you get the target admin's ID. Since backend requires userId, if this is for admin, it should ideally be the admin's ID, but for now we'll put the user's ID or whoever should receive it. If it's a global admin notification, maybe it should be handled in the backend, but we'll send the user.id here.
               title,
               message,
-              type: "info",
-              date: new Date().toISOString(),
-              isRead: false,
-            },
+              type: "REQUEST",
+              referenceId: notificationId
+            })
           });
         } catch (notificationError) {
           console.error("Gagal membuat notifikasi permintaan:", notificationError);
@@ -652,10 +652,20 @@ export default function BarangKeluarPage() {
   return (
     <div className="@container/main flex h-full select-none flex-col gap-4 py-4 md:gap-6 md:py-6">
       <div className="flex h-full flex-col gap-4 px-4 lg:px-6">
-        
+
+        {/* Page Header (Mitra) */}
+        {user?.role === "mitra" && (
+          <div className="flex flex-col gap-1">
+            <h1 className="text-lg font-medium">Penggunaan Material</h1>
+            <p className="text-sm text-muted-foreground">
+              Catat dan laporkan pemakaian material inventaris di lapangan.
+            </p>
+          </div>
+        )}
+
         {/* Smart Input Bar */}
         <Card className="shrink-0 border-primary/20 shadow-sm">
-          <CardContent className="flex flex-col gap-4 p-4 sm:p-5">
+          <CardContent className="flex flex-col gap-4 px-4 sm:px-5">
             <div className="flex flex-col items-end gap-4 sm:flex-row">
               <div className="w-full flex-1 space-y-1.5">
                 <Label htmlFor="smart-input" className="text-sm font-semibold">Scan Barcode / SN</Label>
@@ -664,8 +674,8 @@ export default function BarangKeluarPage() {
                   <Input
                     ref={inputRef}
                     id="smart-input"
-                    className="h-11 pl-9 font-mono text-base shadow-inner focus-visible:ring-primary/50"
-                    placeholder="Contoh: ZTEG12345678"
+                    className="h-8 pl-9 text-base shadow-inner focus-visible:ring-primary/50"
+                    placeholder="Scan atau masukkan serial number disini..."
                     value={kodeBarang}
                     onChange={(event) => updateKodeBarang(event.target.value)}
                     onKeyDown={(event) => {
@@ -676,7 +686,6 @@ export default function BarangKeluarPage() {
                     }}
                   />
                 </div>
-                <p className="text-xs text-muted-foreground">Sistem akan otomatis mendeteksi dari barcode scanner.</p>
               </div>
 
               {user?.role !== "mitra" ? (
@@ -707,10 +716,10 @@ export default function BarangKeluarPage() {
                 </div>
               ) : (
                 <div className="w-full space-y-1.5 sm:w-64">
-                  <Label htmlFor="keterangan-keluar" className="text-sm font-semibold">PA / Keterangan</Label>
+                  <Label htmlFor="keterangan-keluar" className="text-sm font-semibold">Nomor PA / Keterangan</Label>
                   <Input
                     id="keterangan-keluar"
-                    className="h-11"
+                    className="h-8"
                     value={keterangan}
                     onChange={(event) => {
                       const nextKeterangan = event.target.value;
@@ -733,7 +742,7 @@ export default function BarangKeluarPage() {
                 </div>
               )}
 
-              <Button className="h-11 w-full gap-2 sm:w-32" onClick={() => handleSubmit(kodeBarangRef.current)}>
+              <Button className="h-8 w-full gap-2 sm:w-32" onClick={() => handleSubmit(kodeBarangRef.current)}>
                 <PackageMinus className="size-4" />
                 Tambah
               </Button>
@@ -742,108 +751,93 @@ export default function BarangKeluarPage() {
         </Card>
 
         {/* Tabel Layar Penuh */}
-        <Card className="flex flex-1 flex-col overflow-hidden">
-          <CardHeader className="shrink-0 flex-row items-center justify-between border-b pb-4">
-            <CardTitle>Daftar Barang Keluar</CardTitle>
-            <Badge variant="outline" className="w-fit">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <h2 className="text-base font-medium">
+              {user?.role === "mitra" ? "Daftar Penggunaan Material" : "Daftar Distribusi Barang"}
+            </h2>
+            <Badge variant="outline">
               {barangKeluar.length} Item
             </Badge>
-          </CardHeader>
+          </div>
+          <Button
+            className="shrink-0 gap-2 cursor-pointer"
+            onClick={handleValidateAll}
+            disabled={barangKeluar.length === 0 || isSaving}
+          >
+            {isSaving ? <Loader2 className="size-4 animate-spin" /> : <Archive className="size-4" />}
+            {user?.role === "mitra" ? "Lapor Pemakaian" : "Simpan Distribusi Barang"}
+          </Button>
+        </div>
 
-          <CardContent className="relative flex-1 overflow-auto p-0">
-            <Table>
-              <TableHeader className="sticky top-0 z-10 bg-muted/50 backdrop-blur-md">
+        {/* Tabel Layar Penuh */}
+        <div className="flex-1 overflow-auto rounded-lg border">
+          <Table className="min-w-[900px]">
+            <TableHeader className="sticky top-0 z-10 bg-muted/50 backdrop-blur-md">
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="w-12 pl-4">No</TableHead>
+                <TableHead>Serial Number</TableHead>
+                <TableHead>Merek</TableHead>
+                <TableHead>Kategori</TableHead>
+                {user?.role !== "mitra" && <TableHead>Model Material</TableHead>}
+                {user?.role !== "mitra" && <TableHead>Asal Lokasi</TableHead>}
+                {user?.role !== "mitra" && <TableHead>Mitra</TableHead>}
+                {user?.role === "mitra" && <TableHead>Nomor PA / Keterangan</TableHead>}
+                <TableHead>{user?.role === "mitra" ? "Status" : "Status Validasi"}</TableHead>
+                <TableHead className="w-16 text-center">Aksi</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {barangKeluar.length === 0 ? (
                 <TableRow>
-                  <TableHead className="w-14">No</TableHead>
-                  <TableHead>Serial Number</TableHead>
-                  <TableHead>Merek</TableHead>
-                  <TableHead>Kategori</TableHead>
-                  <TableHead>Model Material</TableHead>
-                  <TableHead>Asal Lokasi</TableHead>
-                  {user?.role !== "mitra" && <TableHead>Mitra</TableHead>}
-                  {user?.role === "mitra" && <TableHead>PA / Keterangan</TableHead>}
-                  <TableHead>{user?.role === "mitra" ? "Status" : "Status Validasi"}</TableHead>
-                  <TableHead className="w-16 text-center">Aksi</TableHead>
+                  <TableCell colSpan={user?.role === "mitra" ? 7 : 9} className="h-[300px] p-0">
+                    <EmptyScanTableState role={user?.role} />
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {barangKeluar.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={9} className="h-[300px] p-0">
-                      <EmptyScanTableState />
+              ) : (
+                barangKeluar.map((item, index) => (
+                  <TableRow key={item.id} className="hover:bg-muted/40">
+                    <TableCell className="pl-4 text-sm text-muted-foreground">{index + 1}</TableCell>
+                    <TableCell className="font-mono text-sm font-medium">{item.nomor}</TableCell>
+                    <TableCell className="text-sm">{item.merek}</TableCell>
+                    <TableCell>
+                      <Badge variant="secondary" className="font-normal px-2.5 py-0.5">
+                        {item.kategori}
+                      </Badge>
+                    </TableCell>
+                    {user?.role !== "mitra" && <TableCell className="text-sm text-muted-foreground">{item.tipe || "-"}</TableCell>}
+                    {user?.role !== "mitra" && <TableCell className="text-sm">{item.lokasi}</TableCell>}
+                    {user?.role !== "mitra" && <TableCell className="text-sm font-medium">{item.mitra}</TableCell>}
+                    {user?.role === "mitra" && <TableCell className="text-sm">{item.keterangan}</TableCell>}
+                    <TableCell>
+                      <Badge
+                        variant="secondary"
+                        className="gap-1.5 font-normal px-2.5 py-0.5 border-none bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 dark:bg-emerald-500/20 dark:text-emerald-400"
+                      >
+                        <div
+                          className={`size-1.5 rounded-full ${user?.role === "mitra" ? "bg-emerald-500" : "bg-emerald-500"
+                            }`}
+                        />
+                        {formatItemStatus(item.status, user?.role)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        className="text-muted-foreground hover:text-destructive"
+                        onClick={() => handleDeleteItem(item.id)}
+                      >
+                        <X className="size-4" />
+                        <span className="sr-only">Hapus item</span>
+                      </Button>
                     </TableCell>
                   </TableRow>
-                ) : (
-                  barangKeluar.map((item, index) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-medium">{index + 1}</TableCell>
-                      <TableCell className="font-mono">{item.nomor}</TableCell>
-                      <TableCell>{item.merek}</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" className="font-normal px-2.5 py-0.5">
-                          {item.kategori}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{item.tipe || "-"}</TableCell>
-                      <TableCell>{item.lokasi}</TableCell>
-                      {user?.role !== "mitra" && <TableCell>{item.mitra}</TableCell>}
-                      {user?.role === "mitra" && <TableCell>{item.keterangan}</TableCell>}
-                      <TableCell>
-                        <Badge variant="secondary" className="gap-1.5 font-normal px-2.5 py-0.5">
-                          <div
-                            className={`size-1.5 rounded-full ${
-                              user?.role === "mitra" ? "bg-sky-500" : "bg-emerald-500"
-                            }`}
-                          />
-                          {user?.role === "mitra" ? "Diluar" : item.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          className="text-muted-foreground hover:text-destructive"
-                          onClick={() => handleDeleteItem(item.id)}
-                        >
-                          <X className="size-4" />
-                          <span className="sr-only">Hapus item</span>
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-
-          {/* Sticky Footer Metrics & Action */}
-          <CardFooter className="shrink-0 flex-col items-start justify-between gap-4 border-t bg-muted/20 p-4 sm:flex-row sm:items-center">
-            <div className="flex gap-6 text-sm">
-              <div className="flex flex-col">
-                <span className="text-muted-foreground">Total Scan</span>
-                <span className="text-lg font-semibold">{barangKeluar.length} <span className="text-sm font-normal text-muted-foreground">Unit</span></span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-muted-foreground">Validasi</span>
-                <span className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">{validItems} <span className="text-sm font-normal text-emerald-600/70 dark:text-emerald-400/70">Valid</span></span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-muted-foreground">Kuota Tersisa</span>
-                <span className="text-lg font-semibold">{totalKuotaTersedia} <span className="text-sm font-normal text-muted-foreground">Slot</span></span>
-              </div>
-            </div>
-            
-            <Button
-              className="w-full gap-2 sm:w-auto"
-              size="lg"
-              onClick={handleValidateAll}
-              disabled={barangKeluar.length === 0 || isSaving}
-            >
-              {isSaving ? <Loader2 className="size-4 animate-spin" /> : <Archive className="size-4" />}
-              Simpan Barang Keluar
-            </Button>
-          </CardFooter>
-        </Card>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
     </div>
   );
