@@ -62,6 +62,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { normalizePartnerList } from "@/lib/partner-options"
 
 /**
  * Helper: Mengembalikan Base URL untuk pemanggilan API.
@@ -94,13 +95,6 @@ import type { PartnerType, Partner } from "@/types/partner"
 const PARTNER_TYPES: PartnerType[] = ["AKTIVASI", "GANGGUAN"]
 const PAGE_SIZE_OPTIONS = [10, 25, 50] as const
 const normalizeIdentityCode = (value: string) => value.trim().toUpperCase()
-
-const slugifyName = (name: string) => {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "")
-}
 
 function EmptyMitraTableState({ isFiltered }: { isFiltered: boolean }) {
   return (
@@ -205,20 +199,9 @@ export default function MitraPage() {
       }
       const data = await response.json()
 
-      // Standarisasi field user & profile
-      const usersList = data.data || data.users || data
-      const partnersList: Partner[] = (Array.isArray(usersList) ? usersList : []).filter((u: any) => u.role === "MITRA").map((u: any) => ({
-        id: String(u.id),
-        code: u.profile?.code || u.code || "-",
-        name: u.profile?.nama || u.profile?.name || u.name || u.username || "",
-        partnerType: (u.profile?.partnerType || u.partnerType || "Supplier") as PartnerType,
-        contactPerson: u.profile?.contactPerson || u.contactPerson || "-",
-        phone: u.profile?.telepon || u.profile?.phone || u.phone || "-",
-        email: u.profile?.email || u.email || "-",
-        address: u.profile?.alamat || u.profile?.address || u.address || "-",
-        isActive: u.isAktif !== undefined ? u.isAktif : (u.isActive !== undefined ? u.isActive : true),
-        username: u.username || null,
-      }))
+      const partnersList = normalizePartnerList(data, {
+        requireMitraRole: true,
+      })
       setPartners(partnersList)
     } catch (error) {
       console.error("Gagal memuat data mitra:", error)
@@ -310,7 +293,7 @@ export default function MitraPage() {
     const errors: Record<string, string> = {}
     const normalizedName = formData.name.trim()
     const normalizedEmail = formData.email.trim()
-    const normalizedUsername = formData.username.trim()
+    const normalizedUsername = formData.username.trim().toLowerCase()
     const normalizedCode = normalizeIdentityCode(formData.code)
 
     if (
@@ -324,6 +307,16 @@ export default function MitraPage() {
     if (!normalizedName) {
       errors.name = "Nama mitra wajib diisi."
     }
+    if (!normalizedUsername) {
+      errors.username = "Username wajib diisi."
+    } else if (
+      normalizedUsername.length < 4 ||
+      normalizedUsername.length > 30 ||
+      !/^[a-z0-9_-]+$/.test(normalizedUsername)
+    ) {
+      errors.username =
+        "Username harus 4-30 karakter dan hanya berisi huruf kecil, angka, - atau _."
+    }
 
     // Validasi duplikasi Nama Mitra
     const hasDuplicateName = partners.some(
@@ -335,23 +328,13 @@ export default function MitraPage() {
       errors.name = "Nama mitra sudah terdaftar."
     }
 
-    // Auto-generate unique username for new partner
-    let finalUsername = normalizedUsername;
-    if (!editId) {
-      if (!finalUsername) {
-        finalUsername = slugifyName(normalizedName);
-      }
-      let counter = 1;
-      let baseUsername = finalUsername;
-      while (partners.some(p => p.username?.trim().toLowerCase() === finalUsername.toLowerCase())) {
-        finalUsername = `${baseUsername}${counter}`;
-        counter++;
-      }
-
-      // Ensure minimum 4 characters for backend
-      if (finalUsername.length < 4) {
-        finalUsername = finalUsername.padEnd(4, '0')
-      }
+    const hasDuplicateUsername = partners.some(
+      (partner) =>
+        partner.username?.trim().toLowerCase() === normalizedUsername.toLowerCase() &&
+        partner.id !== editId
+    )
+    if (hasDuplicateUsername) {
+      errors.username = "Username sudah digunakan."
     }
 
     if (Object.keys(errors).length > 0) {
@@ -359,6 +342,8 @@ export default function MitraPage() {
       toast.error("Periksa kembali data mitra.")
       return
     }
+
+    const finalUsername = normalizedUsername
 
     setIsSaving(true)
     try {
@@ -731,6 +716,27 @@ export default function MitraPage() {
                   <p className="text-xs text-destructive">{formErrors.code}</p>
                 )}
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="partner-username">Username</Label>
+              <Input
+                id="partner-username"
+                value={formData.username}
+                onChange={(event) => {
+                  setFormData((current) => ({
+                    ...current,
+                    username: event.target.value.toLowerCase(),
+                  }))
+                  setFormErrors((current) => ({ ...current, username: "" }))
+                }}
+                placeholder="contoh: telkom_tasik"
+                autoComplete="username"
+                className={formErrors.username ? "border-destructive" : ""}
+              />
+              {formErrors.username && (
+                <p className="text-xs text-destructive">{formErrors.username}</p>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">

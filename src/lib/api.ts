@@ -1,5 +1,7 @@
+import { mockRequest, isMockEnabled } from "@/lib/mock-api"
+
 export const getBaseUrl = () => {
-  const baseUrl = import.meta.env.URL || import.meta.env.VITE_URL || "http://172.168.9.139:3000/";
+  const baseUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_URL || import.meta.env.URL || "https://api-taslim.duckdns.org/";
   return baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
 };
 
@@ -23,6 +25,17 @@ class APIError extends Error {
 }
 
 async function request(endpoint: string, options: RequestInit = {}) {
+  // ── Mock intercept ──────────────────────────────────────────────────────────
+  if (isMockEnabled()) {
+    let body: unknown
+    if (options.body && typeof options.body === "string") {
+      try { body = JSON.parse(options.body) } catch { body = options.body }
+    }
+    const mocked = mockRequest(options.method ?? "GET", endpoint, body)
+    if (mocked !== null) return mocked
+  }
+  // ── Real API ────────────────────────────────────────────────────────────────
+
   const url = `${getBaseUrl()}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
   
   const config = {

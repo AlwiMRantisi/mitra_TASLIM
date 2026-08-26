@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from "react";
 import {
   Plus, Edit, Trash2, Power, Layers, Archive, MoreVertical,
   Search, Box, Loader2, QrCode, Package, SlidersHorizontal,
-  LayoutGrid, List
+  LayoutGrid, List, Shuffle
 } from "lucide-react";
 import QRCode from "qrcode";
 import { invoke, isTauri } from "@tauri-apps/api/core";
@@ -71,7 +71,7 @@ export default function LokasiBarangPage() {
   const [sheetMode, setSheetMode] = useState<SheetMode>("closed");
   const [activeItem, setActiveItem] = useState<{ parentId?: string; levelId?: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterType, setFilterType] = useState<"rak" | "kardus" | "pallet">("rak");
+  const [filterType, setFilterType] = useState<"rak" | "kardus" | "pallet" | "shuffle">("rak");
   const [sortBy, setSortBy] = useState<"util-desc" | "util-asc" | "name">("name");
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
 
@@ -148,19 +148,21 @@ export default function LokasiBarangPage() {
   }, []);
 
   const stats = useMemo(() => {
-    let totalRak = 0, totalKardus = 0, totalPallet = 0, maxCapacity = 0, usedCapacity = 0;
+    let totalRak = 0, totalKardus = 0, totalPallet = 0, totalShuffle = 0, maxCapacity = 0, usedCapacity = 0;
     locations.forEach(loc => {
       if (loc.type === "Rak") {
         totalRak++;
         loc.levels?.forEach(lvl => { maxCapacity += lvl.capacity; usedCapacity += lvl.usedCapacity; });
       } else if (loc.type === "Pallet") {
         totalPallet++; maxCapacity += loc.capacity || 0; usedCapacity += loc.usedCapacity || 0;
+      } else if (loc.type === "Shuffle") {
+        totalShuffle++; maxCapacity += loc.capacity || 0; usedCapacity += loc.usedCapacity || 0;
       } else {
         totalKardus++; maxCapacity += loc.capacity || 0; usedCapacity += loc.usedCapacity || 0;
       }
     });
     const utilizationPct = maxCapacity > 0 ? Math.round((usedCapacity / maxCapacity) * 100) : 0;
-    return { totalRak, totalKardus, totalPallet, maxCapacity, usedCapacity, utilizationPct };
+    return { totalRak, totalKardus, totalPallet, totalShuffle, maxCapacity, usedCapacity, utilizationPct };
   }, [locations]);
 
   const filteredAndSortedLocations = useMemo(() => {
@@ -211,9 +213,9 @@ export default function LokasiBarangPage() {
     if (item && item.parentId) {
       const loc = locations.find(l => l.id === item.parentId);
       if (loc) {
-        if (mode === "edit-rak" || mode === "edit-kardus" || mode === "edit-pallet") {
+        if (mode === "edit-rak" || mode === "edit-kardus" || mode === "edit-pallet" || mode === "edit-shuffle") {
           setLocName(loc.name);
-          if (loc.type === "Kardus" || loc.type === "Pallet") {
+          if (loc.type === "Kardus" || loc.type === "Pallet" || loc.type === "Shuffle") {
             setLocCapacity(loc.capacity?.toString() || "0");
             setLocBrand(loc.brandRule || "Campuran");
           }
@@ -313,6 +315,32 @@ export default function LokasiBarangPage() {
         if (!res.ok) {
           const e = await res.json().catch(() => ({}));
           throw new Error(e.message || "Gagal memperbarui pallet");
+        }
+      } else if (sheetMode === "add-shuffle") {
+        const payload = {
+          name: locName || "Shuffle Baru",
+          type: "Shuffle",
+          capacity: parseInt(locCapacity) || 0,
+          brandRule: locBrand
+        };
+        const res = await fetch(`${getBaseUrl()}/locations`, {
+          method: "POST",
+          headers: getHeaders(),
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+          const e = await res.json().catch(() => ({}));
+          throw new Error(e.message || "Gagal menambahkan shuffle");
+        }
+      } else if (sheetMode === "edit-shuffle" && activeItem?.parentId) {
+        const res = await fetch(`${getBaseUrl()}/locations/${activeItem.parentId}`, {
+          method: "PUT",
+          headers: getHeaders(),
+          body: JSON.stringify({ name: locName, capacity: parseInt(locCapacity) || 0, brandRule: locBrand })
+        });
+        if (!res.ok) {
+          const e = await res.json().catch(() => ({}));
+          throw new Error(e.message || "Gagal memperbarui shuffle");
         }
       } else if (sheetMode === "add-level" && activeItem?.parentId) {
         const res = await fetch(`${getBaseUrl()}/locations`, {
@@ -538,6 +566,24 @@ export default function LokasiBarangPage() {
         </div>
       </>
     );
+    if (sheetMode === "add-shuffle" || sheetMode === "edit-shuffle") return (
+      <>
+        <div className="space-y-2">
+          <Label className="text-xs font-semibold text-neutral-300">Nama Shuffle</Label>
+          <Input value={locName} onChange={e => setLocName(e.target.value)} placeholder="Contoh: Shuffle S-01" className="bg-neutral-900 border-neutral-800 focus-visible:ring-1 focus-visible:ring-neutral-700" />
+        </div>
+        {renderCapacityInput()}
+        <div className="space-y-2">
+          <Label className="text-xs font-semibold text-neutral-300">Aturan Merek</Label>
+          <Select value={locBrand} onValueChange={setLocBrand}>
+            <SelectTrigger className="justify-start bg-neutral-900 border-neutral-800 focus:ring-1 focus:ring-neutral-700"><SelectValue placeholder="Pilih Aturan" /></SelectTrigger>
+            <SelectContent className="bg-neutral-950 border-neutral-800 text-neutral-200">
+              {brands.map(b => <SelectItem key={b} value={b} className="focus:bg-neutral-800">{b}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+      </>
+    );
     if (sheetMode === "add-level" || sheetMode === "edit-level") return (
       <>
         <div className="space-y-2">
@@ -563,6 +609,7 @@ export default function LokasiBarangPage() {
     "add-rak": "Tambah Rak Baru", "edit-rak": "Edit Rak",
     "add-kardus": "Tambah Kardus Baru", "edit-kardus": "Edit Kardus",
     "add-pallet": "Tambah Pallet Baru", "edit-pallet": "Edit Pallet",
+    "add-shuffle": "Tambah Shuffle Baru", "edit-shuffle": "Edit Shuffle",
     "add-level": "Tambah Level Rak", "edit-level": "Edit Level Rak", "closed": "",
   };
 
@@ -629,6 +676,9 @@ export default function LokasiBarangPage() {
               </DropdownMenuItem>
               <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleOpenSheet("add-pallet")}>
                 <Package className="w-4 h-4 mr-2 text-emerald-400" /> Tambah Pallet
+              </DropdownMenuItem>
+              <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleOpenSheet("add-shuffle")}>
+                <Shuffle className="w-4 h-4 mr-2 text-purple-400" /> Tambah Shuffle
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -769,7 +819,7 @@ export default function LokasiBarangPage() {
               Jumlah lokasi aktif dan terdaftar berdasarkan kategori
             </CardDescription>
           </div>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             <div className="bg-neutral-950/40 border border-neutral-850 rounded-xl p-3 text-center transition-all duration-350 hover:border-neutral-800">
               <div className="p-1.5 bg-blue-500/10 rounded-lg w-fit mx-auto mb-2"><Layers className="w-4 h-4 text-blue-400" /></div>
               <div className="text-[10px] text-neutral-500 font-medium">Rak</div>
@@ -784,6 +834,11 @@ export default function LokasiBarangPage() {
               <div className="p-1.5 bg-emerald-500/10 rounded-lg w-fit mx-auto mb-2"><Package className="w-4 h-4 text-emerald-400" /></div>
               <div className="text-[10px] text-neutral-500 font-medium">Pallet</div>
               <div className="text-lg font-bold text-neutral-100 mt-0.5"><AnimatedNumber value={stats.totalPallet} /></div>
+            </div>
+            <div className="bg-neutral-950/40 border border-neutral-850 rounded-xl p-3 text-center transition-all duration-350 hover:border-neutral-800">
+              <div className="p-1.5 bg-purple-500/10 rounded-lg w-fit mx-auto mb-2"><Shuffle className="w-4 h-4 text-purple-400" /></div>
+              <div className="text-[10px] text-neutral-500 font-medium">Shuffle</div>
+              <div className="text-lg font-bold text-neutral-100 mt-0.5"><AnimatedNumber value={stats.totalShuffle} /></div>
             </div>
           </div>
         </Card>
@@ -810,7 +865,8 @@ export default function LokasiBarangPage() {
             {([
               { key: "rak", label: "Rak" },
               { key: "kardus", label: "Kardus" },
-              { key: "pallet", label: "Pallet" }
+              { key: "pallet", label: "Pallet" },
+              { key: "shuffle", label: "Shuffle" },
             ] as const).map(({ key, label }) => (
               <button
                 key={key}
@@ -1080,6 +1136,67 @@ export default function LokasiBarangPage() {
               );
             }
 
+            if (loc.type === "Shuffle") {
+              const { pct, barClass, textClass, label } = getProgressStyles(loc.usedCapacity || 0, loc.capacity || 0, "bg-purple-500");
+
+              return (
+                <Card
+                  key={loc.id}
+                  className={`border-neutral-800 bg-neutral-900/10 overflow-hidden flex flex-col relative group transition-all duration-300 hover:border-neutral-700/80 hover:bg-neutral-900/20 hover:shadow-md hover:shadow-black/20 cursor-pointer ${!isLocActive ? 'opacity-60 saturate-50' : ''}`}
+                  onClick={() => navigate(`/data-barang?search=${encodeURIComponent(loc.name)}`)}
+                >
+                  <CardContent className="p-4 flex flex-col gap-3">
+                    <div className="flex justify-between items-start">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 bg-purple-500/10 rounded-lg shrink-0"><Shuffle className="w-4 h-4 text-purple-400" /></div>
+                        <div>
+                          <CardTitle className="text-sm font-bold text-neutral-100 flex items-center gap-1.5">
+                            {loc.name}
+                            {!isLocActive && <span className="text-[10px] bg-neutral-850 text-neutral-500 border border-neutral-800 px-1.5 py-0.2 rounded-md font-medium">Nonaktif</span>}
+                          </CardTitle>
+                          <CardDescription className="text-[10px] text-neutral-500 mt-0.5">Penyimpanan Shuffle</CardDescription>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                        <span className="px-1.5 py-0.5 rounded bg-neutral-900 border border-neutral-850 text-[10px] text-neutral-400 font-medium">
+                          {loc.brandRule || "Campuran"}
+                        </span>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full hover:bg-neutral-800 text-neutral-400 cursor-pointer"><MoreVertical className="w-3.5 h-3.5" /></Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="bg-neutral-955 border-neutral-800 text-neutral-200">
+                            <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleOpenSheet("edit-shuffle", { parentId: loc.id })}><Edit className="w-3.5 h-3.5 mr-2" /> Edit Shuffle</DropdownMenuItem>
+                            <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleDownloadQrCode(loc.sheetUrl, loc.name)}><QrCode className="w-3.5 h-3.5 mr-2" /> Simpan QR Code</DropdownMenuItem>
+                            <DropdownMenuSeparator className="bg-neutral-800" />
+                            <DropdownMenuItem disabled={isToggling} className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleToggleLocation(loc.id)}><Power className="w-3.5 h-3.5 mr-2" /> {isLocActive ? "Nonaktifkan Shuffle" : "Aktifkan Shuffle"}</DropdownMenuItem>
+                            <DropdownMenuItem disabled={isDeleting} className="text-red-400 focus:bg-red-950/50 focus:text-red-400 cursor-pointer text-xs" onClick={() => requestDeleteLocation(loc.id, loc.name)}><Trash2 className="w-3.5 h-3.5 mr-2" /> Hapus Shuffle</DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5 mt-auto">
+                      <div className="flex justify-between items-center text-[10px] font-medium text-neutral-500">
+                        <span>Kapasitas</span>
+                        <span>
+                          <strong className="text-neutral-300">{loc.usedCapacity || 0}</strong>
+                          <span className="text-neutral-600 font-normal"> / {loc.capacity || 0} Unit</span>
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-1.5 bg-neutral-950 rounded-full overflow-hidden shadow-inner">
+                          <div className={`h-full rounded-full transition-all duration-500 ${barClass}`} style={{ width: `${pct}%` }} />
+                        </div>
+                        <span className={`text-[10px] font-bold w-7 text-right ${textClass}`}>{label}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            }
+
             return null;
           })}
           {filteredAndSortedLocations.length === 0 && (
@@ -1119,7 +1236,7 @@ export default function LokasiBarangPage() {
                   <TableRow key={loc.id} className="border-neutral-800/60 hover:bg-neutral-900/40">
                     <TableCell className="font-medium text-neutral-200">
                       <div className="flex items-center gap-2">
-                        {isRak ? <Layers className="w-4 h-4 text-blue-400" /> : loc.type === "Kardus" ? <Archive className="w-4 h-4 text-amber-400" /> : <Package className="w-4 h-4 text-emerald-400" />}
+                        {isRak ? <Layers className="w-4 h-4 text-blue-400" /> : loc.type === "Kardus" ? <Archive className="w-4 h-4 text-amber-400" /> : loc.type === "Shuffle" ? <Shuffle className="w-4 h-4 text-purple-400" /> : <Package className="w-4 h-4 text-emerald-400" />}
                         <span>{loc.name}</span>
                       </div>
                     </TableCell>
@@ -1163,7 +1280,7 @@ export default function LokasiBarangPage() {
                               </DropdownMenuItem>
                             </>
                           ) : (
-                            <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleOpenSheet(loc.type === "Kardus" ? "edit-kardus" : "edit-pallet", { parentId: loc.id })}>
+                            <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleOpenSheet(loc.type === "Kardus" ? "edit-kardus" : loc.type === "Shuffle" ? "edit-shuffle" : "edit-pallet", { parentId: loc.id })}>
                               <Edit className="w-3.5 h-3.5 mr-2" /> Edit {loc.type}
                             </DropdownMenuItem>
                           )}

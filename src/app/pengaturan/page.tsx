@@ -1,6 +1,8 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, type FormEvent } from "react"
 import { useAuth } from "@/lib/auth"
 import { toast } from "sonner"
+import { openUrl } from "@tauri-apps/plugin-opener"
+import { getBaseUrl } from "@/services/api.client"
 // import removed
 import {
   RefreshCw,
@@ -27,15 +29,78 @@ import { SidebarNav } from "./components/SidebarNav"
 
 // constant removed
 
-/**
- * Helper: Mengembalikan Base URL untuk pemanggilan API.
- * 
- * @returns {string} String URL API Backend.
- */
-const getBaseUrl = () => {
-  const baseUrl = import.meta.env.URL || import.meta.env.VITE_URL || "http://172.168.9.139:3000/";
-  return baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
-};
+type GoogleAuthResponse = {
+  url?: string
+  authUrl?: string
+  authorizationUrl?: string
+  redirectUrl?: string
+}
+
+const resolveGoogleAuthUrl = (data: GoogleAuthResponse) =>
+  data.url || data.authUrl || data.authorizationUrl || data.redirectUrl || ""
+
+const buildGoogleAuthUrl = (token: string) => {
+  const url = new URL(`${getBaseUrl()}/auth/google`)
+  url.searchParams.set("token", token)
+  return url.toString()
+}
+
+const readErrorMessage = async (response: Response) => {
+  const contentType = response.headers.get("content-type") || ""
+
+  if (contentType.includes("application/json")) {
+    const data = await response.json().catch(() => null)
+    return data?.message || data?.error || response.statusText
+  }
+
+  const text = await response.text().catch(() => "")
+  return text || response.statusText
+}
+
+const fetchGoogleAuthUrl = async (token: string) => {
+  let res: Response
+
+  try {
+    res = await fetch(`${getBaseUrl()}/auth/google`, {
+      headers: {
+        Accept: "application/json",
+        Authorization: token
+      },
+      redirect: "manual"
+    })
+  } catch (error) {
+    console.warn("Tidak dapat mengambil URL OAuth melalui fetch, membuka endpoint OAuth langsung:", error)
+    return ""
+  }
+
+  const contentType = res.headers.get("content-type") || ""
+  if (res.ok && contentType.includes("application/json")) {
+    const data = (await res.json()) as GoogleAuthResponse
+    return resolveGoogleAuthUrl(data)
+  }
+
+  if (res.status >= 300 && res.status < 400) {
+    return res.headers.get("Location") || res.headers.get("location") || ""
+  }
+
+  if (res.status === 404) {
+    throw new Error("Endpoint koneksi Google belum tersedia di backend (/auth/google).")
+  }
+
+  if (!res.ok && res.type !== "opaqueredirect") {
+    throw new Error(await readErrorMessage(res))
+  }
+
+  return ""
+}
+
+const openExternalUrl = async (url: string) => {
+  try {
+    await openUrl(url)
+  } catch {
+    window.location.assign(url)
+  }
+}
 
 /**
  * Komponen PengaturanPage
@@ -157,7 +222,7 @@ export default function PengaturanPage() {
    * Menyimpan konfigurasi ID Folder Drive ke backend.
    * Hanya Admin yang diizinkan untuk mengubah pengaturan sistem ini.
    */
-  const handleSaveDriveFolderId = async (e: React.FormEvent) => {
+  const handleSaveDriveFolderId = async (e: FormEvent) => {
     e.preventDefault();
     if (!isAdmin) {
       toast.error("Hanya Admin yang dapat menyimpan Folder ID.");
@@ -205,30 +270,24 @@ export default function PengaturanPage() {
       toast.error("Hanya Admin yang diizinkan untuk menghubungkan akun Google.");
       return;
     }
-    // Set cookie state to redirect back to settings after auth
-    document.cookie = "auth_redirect=/pengaturan; path=/";
-
-    // Inisiasi OAuth flow dengan backend (bukan Tauri invoke)
-    // Backend akan redirect ke halaman Google Consent
     setIsConnecting(true);
     try {
       const token = localStorage.getItem("arxiva-auth-token");
-      if (token) {
-        // Panggil endpoint yang akan mengembalikan URL OAuth Google
-        const res = await fetch(`${getBaseUrl()}/auth/google`, {
-          headers: { Authorization: token }
-        });
-        const data = await res.json();
-
-        if (data.url) {
-          // Buka URL di browser pengguna
-          window.location.href = data.url;
-        } else {
-          toast.error("Gagal mendapatkan URL otentikasi Google.");
-        }
+      if (!token) {
+        toast.error("Sesi login tidak ditemukan. Silakan login ulang.");
+        return;
       }
+
+      document.cookie = "auth_redirect=/pengaturan; path=/";
+      sessionStorage.setItem("auth_redirect", "/pengaturan");
+
+      const directAuthUrl = buildGoogleAuthUrl(token);
+      const authUrl = await fetchGoogleAuthUrl(token);
+
+      await openExternalUrl(authUrl || directAuthUrl);
     } catch (error) {
-      toast.error("Gagal memulai proses koneksi Google.");
+      console.error("Gagal memulai proses koneksi Google:", error);
+      toast.error(error instanceof Error ? error.message : "Gagal memulai proses koneksi Google.");
     } finally {
       setIsConnecting(false);
     }

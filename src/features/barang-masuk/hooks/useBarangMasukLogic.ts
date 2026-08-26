@@ -35,6 +35,8 @@ export function useBarangMasukLogic() {
 
   const inputRef = useRef<HTMLInputElement>(null);
   const kodeBarangRef = useRef("");
+  const isSubmittingRef = useRef(false);
+  const lastScanRef = useRef<{ code: string; time: number }>({ code: "", time: 0 });
 
   const session = useInboundSession();
 
@@ -107,28 +109,42 @@ export function useBarangMasukLogic() {
     const trimmedKode = kodeOverride.trim();
     if (!trimmedKode) return;
 
-    const isDuplicate = session.barangMasuk.some(
-      (item) => normalizeKodeBarang(item.nomor) === normalizeKodeBarang(trimmedKode)
-    );
-
-    if (isDuplicate) {
-      toast.error("Serial number sudah ada di sesi ini.", { description: trimmedKode });
-      updateKodeBarang("");
-      focusKodeBarangInput();
+    const now = Date.now();
+    // Cegah double input dari fast scanner / rapid submit
+    if (
+      isSubmittingRef.current ||
+      (lastScanRef.current.code.toUpperCase() === trimmedKode.toUpperCase() && now - lastScanRef.current.time < 500) ||
+      now - lastScanRef.current.time < 120
+    ) {
       return;
     }
 
-    const latestItems = await refreshItems();
-    const existingItem = latestItems.find(
-      (item) => normalizeKodeBarang(item.serialNumber) === normalizeKodeBarang(trimmedKode)
-    );
+    lastScanRef.current = { code: trimmedKode, time: now };
+    isSubmittingRef.current = true;
 
-    if (user?.role === "mitra" && !existingItem) {
-      toast.error("Barang belum terdaftar di KP.", { description: `${trimmedKode} harus didaftarkan oleh Admin terlebih dahulu.` });
-      updateKodeBarang("");
-      focusKodeBarangInput();
-      return;
-    }
+    // Reset buffer input secara sinkron seketika agar enter lanjutan tidak mengirim ulang SN lama
+    updateKodeBarang("");
+
+    try {
+      const isDuplicate = session.barangMasuk.some(
+        (item) => normalizeKodeBarang(item.nomor) === normalizeKodeBarang(trimmedKode)
+      );
+
+      if (isDuplicate) {
+        toast.error("Serial number sudah ada di sesi ini.", { description: trimmedKode });
+        return;
+      }
+
+      const latestItems = await refreshItems();
+      const existingItem = latestItems.find(
+        (item) => normalizeKodeBarang(item.serialNumber) === normalizeKodeBarang(trimmedKode)
+      );
+
+      if (user?.role === "mitra" && !existingItem) {
+        toast.error("Barang belum terdaftar di KP.", { description: `${trimmedKode} harus didaftarkan oleh Admin terlebih dahulu.` });
+        return;
+      }
+
 
     if (user?.role === "mitra" && existingItem && !isValidMitraInboundSource(existingItem, user.displayName || "")) {
       const status = existingItem.status || "tidak diketahui";
@@ -238,10 +254,15 @@ export function useBarangMasukLogic() {
       [recommendedLocation]: current[recommendedLocation] - 1,
     }));
 
-    updateKodeBarang("");
     setAsalBarangManual(false);
+  } catch (error) {
+    console.error("Error processing inbound item scan:", error);
+    toast.error("Terjadi kesalahan saat memproses scan barang.");
+  } finally {
+    isSubmittingRef.current = false;
     focusKodeBarangInput();
-  }, [
+  }
+}, [
     session,
     dbBrands,
     dbLocations,

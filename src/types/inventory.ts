@@ -102,7 +102,7 @@ export type Level = {
 export type StorageLocation = {
   id: string;
   name: string;
-  type: "Rak" | "Kardus" | "Pallet";
+  type: "Rak" | "Kardus" | "Pallet" | "Shuffle";
   isActive: boolean;
   owner?: string;
   levels?: Level[];

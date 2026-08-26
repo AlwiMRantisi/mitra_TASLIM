@@ -38,9 +38,18 @@ import { getBaseUrl } from "@/lib/api"
 import { openUrl } from "@tauri-apps/plugin-opener"
 import { useNavigate } from "react-router-dom"
 import type { DashboardRequest } from "@/types/transaction"
-import { PackageCheck, ArrowUpDown,  Edit } from "lucide-react"
+import { PackageCheck, ArrowUpDown, Edit, Loader2 } from "lucide-react"
 import { PengambilanQrModal } from "./PengambilanQrModal"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog"
 import {
     Select,
     SelectContent,
@@ -59,14 +68,23 @@ function ScrollShadowWrapper({ children, className }: { children: React.ReactNod
         if (scrollRef.current) {
             const { scrollTop, scrollHeight, clientHeight } = scrollRef.current
             setCanScrollTop(scrollTop > 0)
-            setCanScrollBottom(Math.ceil(scrollTop + clientHeight) < scrollHeight)
-
-            const thead = scrollRef.current.querySelector('thead')
-            if (thead) {
-                setHeaderHeight(thead.offsetHeight)
-            }
+            setCanScrollBottom(scrollTop + clientHeight < scrollHeight - 1)
         }
     }
+
+    React.useEffect(() => {
+        const updateHeight = () => {
+            if (scrollRef.current) {
+                const header = scrollRef.current.querySelector('thead')
+                if (header) {
+                    setHeaderHeight(header.offsetHeight)
+                }
+            }
+        }
+        updateHeight()
+        const timer = setTimeout(updateHeight, 50)
+        return () => clearTimeout(timer)
+    }, [])
 
     React.useEffect(() => {
         checkScroll()
@@ -105,14 +123,15 @@ function ScrollShadowWrapper({ children, className }: { children: React.ReactNod
 /** Meta yang dapat diakses oleh kolom tabel. Bukan `any` — fully typed. */
 export type TableMeta = {
     onRowClick?: (item: DashboardRequest) => void
-    onStatusChange?: (id: string, status: string) => void
+    onStatusChange?: (id: string, status: string, remarks?: string) => Promise<void> | void
+    onRequestReject?: (item: DashboardRequest, status: "Ditolak" | "Dibatalkan") => void
 }
 
 export type DataTableProps = {
     data: DashboardRequest[]
     className?: string
     onRowClick?: (item: DashboardRequest) => void
-    onStatusChange?: (id: string, status: string) => void
+    onStatusChange?: (id: string, status: string, remarks?: string) => Promise<void> | void
     /** ID kolom yang ingin disembunyikan. Contoh: ["requestItems"] */
     hiddenColumns?: string[]
 }
@@ -290,14 +309,6 @@ function ActionMenu({
 
     const navigate = useNavigate()
 
-    const handleStatusChange = React.useCallback(
-        (e: React.MouseEvent, newStatus: string) => {
-            e.stopPropagation()
-            meta?.onStatusChange?.(row.original.id, newStatus)
-        },
-        [meta, row.original.id]
-    )
-
     const handleNavigateToPrepare = React.useCallback(
         (e: React.MouseEvent) => {
             e.stopPropagation()
@@ -323,7 +334,14 @@ function ActionMenu({
                         variant="ghost"
                         size="icon-lg"
                         className="text-xs font-medium text-muted-foreground hover:text-destructive cursor-pointer"
-                        onClick={(e) => handleStatusChange(e, "Ditolak")}
+                        onClick={(e) => {
+                            e.stopPropagation()
+                            if (meta?.onRequestReject) {
+                                meta.onRequestReject(row.original, "Ditolak")
+                            } else {
+                                meta?.onStatusChange?.(row.original.id, "Ditolak")
+                            }
+                        }}
                         title="Tolak Request"
                     >
                         <IconX size={18} className="" />
@@ -337,7 +355,8 @@ function ActionMenu({
                         variant="ghost"
                         size="icon-lg"
                         className="text-xs font-medium text-muted-foreground hover:text-blue-600 cursor-pointer"
-                        onClick={(e) => e.stopPropagation()}
+                        onClick={handleNavigateToPrepare}
+                        title="Edit Alokasi"
                     >
                         <Edit strokeWidth={2} />
                     </Button>
@@ -345,7 +364,15 @@ function ActionMenu({
                         variant="ghost"
                         size="icon-lg"
                         className="text-xs font-medium text-muted-foreground hover:text-destructive cursor-pointer"
-                        onClick={(e) => handleStatusChange(e, "Dibatalkan")}
+                        onClick={(e) => {
+                            e.stopPropagation()
+                            if (meta?.onRequestReject) {
+                                meta.onRequestReject(row.original, "Dibatalkan")
+                            } else {
+                                meta?.onStatusChange?.(row.original.id, "Dibatalkan")
+                            }
+                        }}
+                        title="Batalkan Request"
                     >
                         <IconBan strokeWidth={2} />
                     </Button>
@@ -370,64 +397,84 @@ function createColumns(): ColumnDef<DashboardRequest>[] {
         },
         {
             accessorKey: "requestNumber",
-            header: "No. Permintaan",
-            cell: ({ row }) => (
-                <div className="font-medium text-primary uppercase">{row.original.requestNumber}</div>
-            ),
-        },
-        {
-            accessorKey: "requestedAt",
             header: ({ column }) => {
                 return (
                     <Button
                         variant="ghost"
                         onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                        className="p-0 hover:bg-transparent font-medium"
+                        className="px-0 hover:bg-transparent font-medium"
                     >
-                        Tanggal Permintaan
+                        No. Permintaan
                         <ArrowUpDown className="ml-2 h-4 w-4" />
                     </Button>
                 )
             },
             cell: ({ row }) => (
-                <div className="text-muted-foreground whitespace-nowrap">
-                    {new Date(row.original.requestedAt).toLocaleDateString("en-GB", DATE_FORMAT_OPTIONS)}
-                </div>
-            ),
-        },
-        {
-            accessorKey: "requesterName",
-            header: "Mitra",
-            cell: ({ row }) => (
-                <div className="text-foreground font-medium">{row.original.requesterName}</div>
-            ),
-        },
-        {
-            accessorKey: "partnerCategory",
-            header: "Kategori",
-            cell: ({ row }) => (
-                <Badge variant="outline" className="flex items-center text-muted-foreground whitespace-nowrap px-2 py-2.5 capitalize">
-                    {row.original.partnerCategory?.toLocaleLowerCase()}
-                </Badge>
-            ),
-        },
-        {
-            accessorKey: "itemsCount",
-            header: () => <div className="text-center">Jumlah</div>,
-            cell: ({ row }) => (
-                <div className="text-muted-foreground whitespace-nowrap text-center">
-                    {row.original.itemsCount}
-                </div>
+                <div className="font-medium whitespace-nowrap">{row.getValue("requestNumber")}</div>
             ),
         },
         {
             accessorKey: "status",
             header: () => <div className="text-center">Status</div>,
-            cell: ({ row }) => <div className="flex items-center justify-center"><StatusBadge status={row.original.status} /></div>,
+            cell: ({ row }) => <div className="flex items-center justify-center"><StatusBadge status={row.getValue("status")} /></div>,
+            filterFn: (row, id, value) => {
+                return value.includes(row.getValue(id))
+            },
         },
         {
-            accessorKey: "document",
-            header: () => <div className="text-center">Dokumen</div>,
+            accessorKey: "requesterName",
+            header: "Mitra",
+            cell: ({ row }) => {
+                return (
+                    <div className="text-muted-foreground truncate max-w-40" title={row.getValue("requesterName")}>
+                        {row.getValue("requesterName") || "-"}
+                    </div>
+                )
+            },
+        },
+        {
+            accessorKey: "notes",
+            header: "Keterangan",
+            cell: ({ row }) => {
+                const status = (row.original.status || "").toUpperCase()
+                const isRejected = status === "DITOLAK" || status === "DIBATALKAN"
+                const remarks = row.original.adminRemarks || row.original.notes
+                return (
+                    <div
+                        className={cn(
+                            "text-muted-foreground truncate max-w-48 text-xs",
+                            isRejected && remarks && "text-destructive font-medium"
+                        )}
+                        title={remarks || "-"}
+                    >
+                        {remarks || "-"}
+                    </div>
+                )
+            },
+        },
+        {
+            accessorKey: "requestedAt",
+            header: () => <div className="text-right">Tanggal Permintaan</div>,
+            cell: ({ row }) => (
+                <div className="text-right text-muted-foreground text-xs whitespace-nowrap">
+                    {new Date(row.getValue("requestedAt")).toLocaleDateString("en-GB", DATE_FORMAT_OPTIONS)}
+                </div>
+            ),
+        },
+        {
+            accessorKey: "itemsCount",
+            header: () => <div className="text-right">Jumlah</div>,
+            cell: ({ row }) => {
+                return (
+                    <div className="text-right font-medium text-xs whitespace-nowrap">
+                        {row.getValue("itemsCount") ? `${row.getValue("itemsCount")} Unit` : "-"}
+                    </div>
+                )
+            },
+        },
+        {
+            id: "bast",
+            header: () => <div className="text-center">BAST</div>,
             cell: ({ row, table }) => <BastActions row={row} table={table} />,
         },
         {
@@ -442,10 +489,41 @@ function createColumns(): ColumnDef<DashboardRequest>[] {
 // ─────────────────────────────────────────────
 
 export function DataTable({ data, className, onRowClick, onStatusChange, hiddenColumns = [] }: DataTableProps) {
+    const [rejectModalState, setRejectModalState] = React.useState<{
+        isOpen: boolean
+        request: DashboardRequest | null
+        status: "Ditolak" | "Dibatalkan"
+    }>({ isOpen: false, request: null, status: "Ditolak" })
+    const [rejectNotes, setRejectNotes] = React.useState("")
+    const [isSubmittingReject, setIsSubmittingReject] = React.useState(false)
+
+    const handleOpenReject = React.useCallback(
+        (item: DashboardRequest, status: "Ditolak" | "Dibatalkan") => {
+            setRejectModalState({ isOpen: true, request: item, status })
+            setRejectNotes("")
+        },
+        []
+    )
+
+    const handleConfirmReject = async () => {
+        if (!rejectModalState.request || !onStatusChange) return
+        setIsSubmittingReject(true)
+        try {
+            await onStatusChange(
+                rejectModalState.request.id,
+                rejectModalState.status,
+                rejectNotes.trim() || undefined
+            )
+            setRejectModalState({ isOpen: false, request: null, status: "Ditolak" })
+            setRejectNotes("")
+        } finally {
+            setIsSubmittingReject(false)
+        }
+    }
 
     const tableMeta: TableMeta = React.useMemo(
-        () => ({ onRowClick, onStatusChange }),
-        [onRowClick, onStatusChange]
+        () => ({ onRowClick, onStatusChange, onRequestReject: handleOpenReject }),
+        [onRowClick, onStatusChange, handleOpenReject]
     )
 
     const columns = React.useMemo(() => createColumns(), [])
@@ -511,6 +589,34 @@ export function DataTable({ data, className, onRowClick, onStatusChange, hiddenC
                     </TableBody>
                 </Table>
             </ScrollShadowWrapper>
+
+            {/* Reject Dialog */}
+            <Dialog open={rejectModalState.isOpen} onOpenChange={(open) => !isSubmittingReject && setRejectModalState(s => ({ ...s, isOpen: open }))}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>{rejectModalState.status === "Ditolak" ? "Tolak Permintaan" : "Batalkan Permintaan"}</DialogTitle>
+                        <DialogDescription>
+                            Berikan keterangan untuk {rejectModalState.status === "Ditolak" ? "penolakan" : "pembatalan"} permintaan {rejectModalState.request?.requestNumber}.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <Textarea
+                        placeholder="Masukkan keterangan (opsional)..."
+                        value={rejectNotes}
+                        onChange={(e) => setRejectNotes(e.target.value)}
+                    />
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setRejectModalState(s => ({ ...s, isOpen: false }))}>Batal</Button>
+                        <Button variant="destructive" onClick={handleConfirmReject} disabled={isSubmittingReject}>
+                            {isSubmittingReject ? (
+                                <>
+                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                    Memproses...
+                                </>
+                            ) : "Konfirmasi"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {/* Pagination Controls */}
             {data.length > 0 && (

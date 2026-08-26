@@ -1,0 +1,282 @@
+[
+  {
+    "id": "req-001",
+    "requestNumber": "REQ-20260801-0001",
+    "requesterId": "mitra-001",
+    "requester": {
+      "id": "mitra-001",
+      "username": "mitra_andi",
+      "profile": {
+        "nama": "Andi Wijaya",
+        "partnerType": "ISP",
+        "identityCode": "MTR-001"
+      }
+    },
+    "status": "Menunggu",
+    "notes": "Butuh untuk pemasangan baru di area Tasikmalaya Selatan.",
+    "adminRemarks": null,
+    "requestedAt": "2026-08-01T08:30:00.000Z",
+    "requestedDeliveryDate": null,
+    "itemsCount": 5,
+    "requestItems": [
+      {
+        "id": 1,
+        "quantity": 3,
+        "materialCategory": { "id": 1, "nama": "ONT" },
+        "brand": { "id": 1, "nama": "Huawei" },
+        "model": null,
+        "allocations": []
+      },
+      {
+        "id": 2,
+        "quantity": 2,
+        "materialCategory": { "id": 2, "nama": "DropWire" },
+        "brand": { "id": 2, "nama": "FiberHome" },
+        "model": null,
+        "allocations": []
+      }
+    ],
+    "deliveryDocument": null
+  },
+  {
+    "id": "req-002",
+    "requestNumber": "REQ-20260801-0002",
+    "requesterId": "mitra-002",
+    "requester": {
+      "id": "mitra-002",
+      "username": "mitra_budi",
+      "profile": {
+        "nama": "Budi Santoso",
+        "partnerType": "Teknisi",
+        "identityCode": "MTR-002"
+      }
+    },
+    "status": "Disetujui",
+    "notes": "Penggantian ONT rusak pelanggan existing.",
+    "adminRemarks": "Stok tersedia, segera ambil.",
+    "requestedAt": "2026-08-01T09:15:00.000Z",
+    "requestedDeliveryDate": "2026-08-05T00:00:00.000Z",
+    "itemsCount": 2,
+    "requestItems": [
+      {
+        "id": 3,
+        "quantity": 2,
+        "materialCategory": { "id": 1, "nama": "ONT" },
+        "brand": { "id": 3, "nama": "ZTE" },
+        "model": null,
+        "allocations": []
+      }
+    ],
+    "deliveryDocument": null
+  },
+  {
+    "id": "req-003",
+    "requestNumber": "REQ-20260731-0005",
+    "requesterId": "mitra-001",
+    "requester": {
+      "id": "mitra-001",
+      "username": "mitra_andi",
+      "profile": {
+        "nama": "Andi Wijaya",
+        "partnerType": "ISP",
+        "identityCode": "MTR-001"
+      }
+    },
+    "status": "Siap",
+    "notes": "Ekspansi jaringan blok C.",
+    "adminRemarks": "Material sudah disiapkan di gudang.",
+    "requestedAt": "2026-07-31T14:00:00.000Z",
+    "requestedDeliveryDate": "2026-08-03T00:00:00.000Z",
+    "itemsCount": 4,
+    "requestItems": [
+      {
+        "id": 4,
+        "quantity": 4,
+        "materialCategory": { "id": 2, "nama": "DropWire" },
+        "brand": { "id": 1, "nama": "Huawei" },
+        "model": null,
+        "allocations": [
+          {
+            "id": 101,
+            "item": {
+              "id": "item-aa1",
+              "paNumber": "PA-2024-001",
+              "serialNumber": "SN-DW-001",
+              "brand": { "nama": "Huawei" },
+              "model": null
+            }
+          },
+          {
+            "id": 102,
+            "item": {
+              "id": "item-aa2",
+              "paNumber": "PA-2024-002",
+              "serialNumber": "SN-DW-002",
+              "brand": { "nama": "Huawei" },
+              "model": null
+            }
+          },
+          {
+            "id": 103,
+            "item": {
+              "id": "item-aa3",
+              "paNumber": "PA-2024-003",
+              "serialNumber": "SN-DW-003",
+              "brand": { "nama": "Huawei" },
+              "model": null
+            }
+          },
+          {
+            "id": 104,
+            "item": {
+              "id": "item-aa4",
+              "paNumber": "PA-2024-004",
+              "serialNumber": "SN-DW-004",
+              "brand": { "nama": "Huawei" },
+              "model": null
+            }
+          }
+        ]
+      }
+    ],
+    "deliveryDocument": {
+      "kpSignedById": "admin-001",
+      "picSignedById": null,
+      "filePath": null,
+      "finalFilePath": null,
+      "driveFileId": null,
+      "driveViewUrl": null
+    }
+  },
+  {
+    "id": "req-004",
+    "requestNumber": "REQ-20260730-0003",
+    "requesterId": "mitra-003",
+    "requester": {
+      "id": "mitra-003",
+      "username": "mitra_citra",
+      "profile": {
+        "nama": "Citra Lestari",
+        "partnerType": "ISP",
+        "identityCode": "MTR-003"
+      }
+    },
+    "status": "Selesai",
+    "notes": "Kebutuhan rutin bulanan.",
+    "adminRemarks": "Sudah diserahterimakan.",
+    "requestedAt": "2026-07-30T10:00:00.000Z",
+    "requestedDeliveryDate": "2026-07-31T00:00:00.000Z",
+    "itemsCount": 3,
+    "requestItems": [
+      {
+        "id": 5,
+        "quantity": 3,
+        "materialCategory": { "id": 1, "nama": "ONT" },
+        "brand": { "id": 1, "nama": "Huawei" },
+        "model": null,
+        "allocations": [
+          {
+            "id": 201,
+            "item": {
+              "id": "item-bb1",
+              "paNumber": "PA-2024-010",
+              "serialNumber": "SN-ONT-010",
+              "brand": { "nama": "Huawei" },
+              "model": { "nama": "HG8145V5" }
+            }
+          },
+          {
+            "id": 202,
+            "item": {
+              "id": "item-bb2",
+              "paNumber": "PA-2024-011",
+              "serialNumber": "SN-ONT-011",
+              "brand": { "nama": "Huawei" },
+              "model": { "nama": "HG8145V5" }
+            }
+          },
+          {
+            "id": 203,
+            "item": {
+              "id": "item-bb3",
+              "paNumber": "PA-2024-012",
+              "serialNumber": "SN-ONT-012",
+              "brand": { "nama": "Huawei" },
+              "model": { "nama": "HG8145V5" }
+            }
+          }
+        ]
+      }
+    ],
+    "deliveryDocument": {
+      "kpSignedById": "admin-001",
+      "picSignedById": "mitra-003",
+      "filePath": "/bast/req-004.pdf",
+      "finalFilePath": "/bast/final/req-004.pdf",
+      "driveFileId": null,
+      "driveViewUrl": null
+    }
+  },
+  {
+    "id": "req-005",
+    "requestNumber": "REQ-20260729-0002",
+    "requesterId": "mitra-002",
+    "requester": {
+      "id": "mitra-002",
+      "username": "mitra_budi",
+      "profile": {
+        "nama": "Budi Santoso",
+        "partnerType": "Teknisi",
+        "identityCode": "MTR-002"
+      }
+    },
+    "status": "Ditolak",
+    "notes": "ONT untuk 5 pelanggan baru.",
+    "adminRemarks": "Stok ONT ZTE sedang habis. Hubungi admin untuk jadwal ulang.",
+    "requestedAt": "2026-07-29T11:30:00.000Z",
+    "requestedDeliveryDate": null,
+    "itemsCount": 5,
+    "requestItems": [
+      {
+        "id": 6,
+        "quantity": 5,
+        "materialCategory": { "id": 1, "nama": "ONT" },
+        "brand": { "id": 3, "nama": "ZTE" },
+        "model": null,
+        "allocations": []
+      }
+    ],
+    "deliveryDocument": null
+  },
+  {
+    "id": "req-006",
+    "requestNumber": "REQ-20260728-0001",
+    "requesterId": "mitra-003",
+    "requester": {
+      "id": "mitra-003",
+      "username": "mitra_citra",
+      "profile": {
+        "nama": "Citra Lestari",
+        "partnerType": "ISP",
+        "identityCode": "MTR-003"
+      }
+    },
+    "status": "Dibatalkan",
+    "notes": "Permintaan awal sebelum revisi.",
+    "adminRemarks": null,
+    "requestedAt": "2026-07-28T09:00:00.000Z",
+    "requestedDeliveryDate": null,
+    "itemsCount": 1,
+    "requestItems": [
+      {
+        "id": 7,
+        "quantity": 1,
+        "materialCategory": { "id": 2, "nama": "DropWire" },
+        "brand": { "id": 2, "nama": "FiberHome" },
+        "model": null,
+        "allocations": []
+      }
+    ],
+    "deliveryDocument": null
+  }
+]

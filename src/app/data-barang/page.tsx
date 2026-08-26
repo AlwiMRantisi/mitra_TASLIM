@@ -46,16 +46,18 @@ import { BarangFormModal } from "@/components/data-barang/BarangFormModal"
 import { ExportExcelModal } from "@/components/data-barang/ExportExcelModal"
 import { formatItemStatus, formatItemLocation } from "@/lib/status-helper"
 import { saveExportFile } from "@/lib/export-file"
+import { normalizePartnerList } from "@/lib/partner-options"
 import * as XLSX from "xlsx"
 
 import type { StatusUnit, BarangUnit, StorageLocationOption } from "@/types/inventory"
+import type { Partner } from "@/types/partner"
 import type { DeleteDialogState } from "@/types/ui"
 
 const STATUS_OPTIONS: StatusUnit[] = ["Tersedia", "Terdistribusi", "Rusak", "Hilang"]
 const ADMIN_LOCATION = "KP Tasikmalaya"
 
 const getBaseUrl = () => {
-  const baseUrl = import.meta.env.URL || import.meta.env.VITE_URL || "http://172.168.9.139:3000/"
+  const baseUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_URL || import.meta.env.URL || "https://api-taslim.duckdns.org/";
   return baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl
 }
 
@@ -85,8 +87,10 @@ export default function DataBarangPage() {
   const [filterStatus, setFilterStatus] = useState("all")
   const [filterCategory, setFilterCategory] = useState("all")
   const [filterBrand, setFilterBrand] = useState("all")
+  const [filterMitra, setFilterMitra] = useState("all")
   const [categories, setCategories] = useState<string[]>([])
   const [brands, setBrands] = useState<string[]>([])
+  const [partners, setPartners] = useState<Partner[]>([])
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
 
@@ -118,13 +122,14 @@ export default function DataBarangPage() {
     tanggalKeluar: "",
   })
 
-  // Load auxiliary data (Categories & Locations) once
+  // Load auxiliary data (Categories, Locations & Partners) once
   useEffect(() => {
     const fetchAuxiliary = async () => {
       try {
-        const [resCat, resLoc] = await Promise.all([
+        const [resCat, resLoc, resUsers] = await Promise.all([
           fetch(`${getBaseUrl()}/categories`, { method: "GET", headers: getHeaders() }),
           fetch(`${getBaseUrl()}/locations`, { method: "GET", headers: getHeaders() }),
+          fetch(`${getBaseUrl()}/users`, { method: "GET", headers: getHeaders() }),
         ])
 
         if (resCat.ok) {
@@ -159,13 +164,23 @@ export default function DataBarangPage() {
             setDbLocations(locs)
           }
         }
+
+        if (resUsers.ok) {
+          const rawUsers = await resUsers.json()
+          const partnerList = normalizePartnerList(rawUsers, {
+            activeOnly: true,
+            requireMitraRole: true,
+          })
+          setPartners(partnerList)
+        }
       } catch (err) {
-        console.error("Gagal memuat kategori/lokasi:", err)
+        console.error("Gagal memuat kategori/lokasi/mitra:", err)
       }
     }
 
     fetchAuxiliary()
-  }, [])
+  }, [user])
+
 
   // Load main paginated items list
   const loadItems = async () => {
@@ -178,6 +193,7 @@ export default function DataBarangPage() {
       if (filterStatus !== "all") params.append("status", filterStatus)
       if (filterCategory !== "all") params.append("kategori", filterCategory)
       if (filterBrand !== "all") params.append("merek", filterBrand)
+      if (filterMitra !== "all") params.append("mitra", filterMitra)
 
       const res = await fetch(`${getBaseUrl()}/items?${params.toString()}`, {
         method: "GET",
@@ -187,21 +203,43 @@ export default function DataBarangPage() {
       if (!res.ok) throw new Error("Gagal memuat data barang")
 
       const result = await res.json()
-      if (result && Array.isArray(result.data)) {
-        setBarangList(result.data)
-        setTotalItems(result.pagination?.totalItems || result.data.length)
-        setTotalPages(result.pagination?.totalPages || 1)
+      let rawList: BarangUnit[] = []
+      let total = 0
+      let pages = 1
 
-        const extractedBrands = Array.from(
-          new Set(result.data.map((item: BarangUnit) => item.merek).filter(Boolean))
-        ) as string[]
-        if (extractedBrands.length > 0) {
-          setBrands((prev) => Array.from(new Set([...prev, ...extractedBrands])))
-        }
-      } else {
-        setBarangList(Array.isArray(result) ? result : [])
-        setTotalItems(Array.isArray(result) ? result.length : 0)
-        setTotalPages(1)
+      if (result && Array.isArray(result.data)) {
+        rawList = result.data
+        total = result.pagination?.totalItems || result.data.length
+        pages = result.pagination?.totalPages || 1
+      } else if (Array.isArray(result)) {
+        rawList = result
+        total = result.length
+        pages = 1
+      }
+
+      // Client-side fallback filter untuk memastikan filter mitra selalu akurat
+      if (filterMitra !== "all") {
+        const normFilter = filterMitra.trim().toLowerCase()
+        rawList = rawList.filter((item: BarangUnit) => {
+          const itemMitra = (item.mitra || "").trim().toLowerCase()
+          if (normFilter === "kp tasikmalaya" || normFilter === "kp") {
+            return !itemMitra || itemMitra === "kp" || itemMitra === "kp tasikmalaya"
+          }
+          return itemMitra === normFilter || (item.mitra && item.mitra.toLowerCase().includes(normFilter))
+        })
+        total = rawList.length
+        pages = Math.max(1, Math.ceil(total / pageSize))
+      }
+
+      setBarangList(rawList)
+      setTotalItems(total)
+      setTotalPages(pages)
+
+      const extractedBrands = Array.from(
+        new Set(rawList.map((item: BarangUnit) => item.merek).filter(Boolean))
+      ) as string[]
+      if (extractedBrands.length > 0) {
+        setBrands((prev) => Array.from(new Set([...prev, ...extractedBrands])))
       }
     } catch (error) {
       console.error("Gagal memuat data:", error)
@@ -213,12 +251,13 @@ export default function DataBarangPage() {
 
   useEffect(() => {
     loadItems()
-  }, [user, currentPage, pageSize, searchTerm, filterStatus, filterCategory, filterBrand])
+  }, [user, currentPage, pageSize, searchTerm, filterStatus, filterCategory, filterBrand, filterMitra])
 
   // Reset page to 1 when filters change
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchTerm, filterStatus, filterCategory, filterBrand, pageSize])
+  }, [searchTerm, filterStatus, filterCategory, filterBrand, filterMitra, pageSize])
+
 
   const handleOpenDetail = (barang: BarangUnit) => {
     setDetailBarang(barang)
@@ -438,7 +477,12 @@ export default function DataBarangPage() {
     return date.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })
   }
 
-  const isFiltered = searchTerm.trim().length > 0 || filterStatus !== "all" || filterCategory !== "all" || filterBrand !== "all"
+  const isFiltered =
+    searchTerm.trim().length > 0 ||
+    filterStatus !== "all" ||
+    filterCategory !== "all" ||
+    filterBrand !== "all" ||
+    filterMitra !== "all"
 
   return (
     <div className="p-6 h-full flex flex-col gap-6 text-neutral-100 mx-auto w-full">
@@ -488,6 +532,22 @@ export default function DataBarangPage() {
                 ))}
               </SelectContent>
             </Select>
+            {user?.role !== "mitra" && (
+              <Select value={filterMitra} onValueChange={setFilterMitra}>
+                <SelectTrigger className={`w-36 rounded-sm bg-card border-border text-foreground ${filterMitra === 'all' ? 'border-dashed text-muted-foreground' : ''}`}>
+                  <SelectValue placeholder="Mitra" />
+                </SelectTrigger>
+                <SelectContent className="bg-card border-border text-foreground max-h-64">
+                  <SelectItem value="all">Semua Mitra / KP</SelectItem>
+                  <SelectItem value="KP Tasikmalaya">KP Tasikmalaya</SelectItem>
+                  {partners.map((partner) => (
+                    <SelectItem key={partner.id} value={partner.name}>
+                      {partner.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
         </div>
         <div className="flex justify-end gap-2 w-full lg:w-auto">
@@ -504,7 +564,8 @@ export default function DataBarangPage() {
         </div>
       </div>
 
-      <div className="rounded-sm border border-border bg-muted/50 overflow-hidden">
+      <div className="rounded-sm border border-border bg-muted/50 overflow-auto">
+
         <Table>
           <TableHeader className="bg-muted/80">
             <TableRow className="border-border hover:bg-transparent">

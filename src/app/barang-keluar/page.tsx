@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/table";
 import { formatItemStatus } from "@/lib/status-helper"
 import { useAuth } from "@/lib/auth";
+import { normalizePartnerList } from "@/lib/partner-options";
 import type { LokasiOption, InventoryItem, KodeBarangUpdate } from "@/types/inventory";
 import type { Partner } from "@/types/partner";
 import type { BarangKeluarItem } from "@/types/transaction";
@@ -39,7 +40,7 @@ import type { BarangKeluarItem } from "@/types/transaction";
  * @returns {string} String URL API Backend.
  */
 const getBaseUrl = () => {
-  const baseUrl = import.meta.env.URL || import.meta.env.VITE_URL || "http://172.168.9.139:3000/";
+  const baseUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_URL || import.meta.env.URL || "https://api-taslim.duckdns.org/";
   return baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
 };
 
@@ -170,14 +171,18 @@ export default function BarangKeluarPage() {
   const [kodeBarang, setKodeBarang] = useState("");
   const [] = useState<"auto" | "manual">("auto");
   const [barangKeluar, setBarangKeluar] = useState<BarangKeluarItem[]>([]);
-  const [kuota, setKuota] = useState<Record<string, number>>({});
+  const [, setKuota] = useState<Record<string, number>>({});
   const inputRef = useRef<HTMLInputElement>(null);
   const kodeBarangRef = useRef("");
+  const isSubmittingRef = useRef(false);
+  const lastScanRef = useRef<{ code: string; time: number }>({ code: "", time: 0 });
+  const lastEnterTimeRef = useRef<number>(0);
   const [dbItems, setDbItems] = useState<InventoryItem[]>([]);
   const [dbPartners, setDbPartners] = useState<Partner[]>([]);
   const [selectedPartnerId, setSelectedPartnerId] = useState("");
   const [keterangan, setKeterangan] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+
 
   useEffect(() => {
     const fetchItemsAndLocations = async () => {
@@ -206,24 +211,15 @@ export default function BarangKeluarPage() {
         } else {
           const resPartners = await fetch(`${getBaseUrl()}/users`, { method: "GET", headers: getHeaders() });
           const rawPartners = await resPartners.json();
-          const usersList = rawPartners.data || rawPartners.users || rawPartners;
-          const partners: Partner[] = (Array.isArray(usersList) ? usersList : []).filter((u: any) => u.role === "MITRA").map((u: any) => ({
-            id: String(u.id),
-            code: u.profile?.code || u.code || "-",
-            name: u.profile?.nama || u.profile?.name || u.name || u.username || "",
-            partnerType: u.profile?.partnerType || u.partnerType || "Supplier",
-            contactPerson: u.profile?.contactPerson || u.contactPerson || "-",
-            phone: u.profile?.telepon || u.profile?.phone || u.phone || "-",
-            email: u.profile?.email || u.email || "-",
-            address: u.profile?.alamat || u.profile?.address || u.address || "-",
-            isActive: u.isAktif !== undefined ? u.isAktif : (u.isActive !== undefined ? u.isActive : true),
-            username: u.username || null,
-          }));
-          const activePartners = partners.filter((partner) => partner.isActive);
+          const activePartners = normalizePartnerList(rawPartners, {
+            activeOnly: true,
+            requireMitraRole: true,
+          });
           setDbPartners(activePartners);
-          if (activePartners.length === 1) {
-            setSelectedPartnerId(activePartners[0].id);
-          }
+          setSelectedPartnerId((current) => {
+            if (activePartners.length === 1) return activePartners[0].id;
+            return current && activePartners.some((partner) => partner.id === current) ? current : "";
+          });
         }
 
         const resLoc = await fetch(`${getBaseUrl()}/locations`, { method: "GET", headers: getHeaders() });
@@ -295,98 +291,104 @@ export default function BarangKeluarPage() {
     const trimmedKode = kodeOverride.trim();
     if (!trimmedKode) return;
 
-    const selectedPartner =
-      user?.role === "mitra"
-        ? null
-        : dbPartners.find((partner) => partner.id === selectedPartnerId);
-    const targetMitraName =
-      user?.role === "mitra" ? user.displayName : selectedPartner?.name;
-
-    if (!targetMitraName) {
-      toast.error("Pilih mitra tujuan sebelum menambahkan barang keluar.");
-      focusKodeBarangInput();
+    const now = Date.now();
+    // Cegah double scan cepat / submit berulang
+    if (
+      isSubmittingRef.current ||
+      (lastScanRef.current.code.toUpperCase() === trimmedKode.toUpperCase() && now - lastScanRef.current.time < 500) ||
+      now - lastScanRef.current.time < 120
+    ) {
       return;
     }
 
-    if (user?.role === "mitra" && !keterangan.trim()) {
-      toast.error("PA / keterangan wajib diisi sebelum menambahkan barang keluar.");
-      focusKodeBarangInput();
-      return;
-    }
+    lastScanRef.current = { code: trimmedKode, time: now };
+    isSubmittingRef.current = true;
 
-    const isDuplicate = barangKeluar.some(
-      (item) => normalizeKodeBarang(item.nomor) === normalizeKodeBarang(trimmedKode)
-    );
-
-    if (isDuplicate) {
-      toast.error("Serial number sudah ada di sesi ini.", {
-        description: trimmedKode,
-      });
-      updateKodeBarang("");
-      focusKodeBarangInput();
-      return;
-    }
-
-    // Periksa apakah kode yang discan ada di data master (SQLite)
-    const matchedItem = dbItems.find(
-      (item) => normalizeKodeBarang(item.serialNumber) === normalizeKodeBarang(trimmedKode)
-    );
-
-    if (!matchedItem) {
-      toast.error("Data serial number tidak ditemukan.", {
-        description: trimmedKode,
-      });
-      updateKodeBarang("");
-      focusKodeBarangInput();
-      return;
-    }
-
-    if (isOutsideStatus(matchedItem.status)) {
-      toast.error("Barang ini sudah berada di luar dan tidak dapat dikeluarkan kembali.", {
-        description: `Status saat ini: ${matchedItem.status}`,
-      });
-      updateKodeBarang("");
-      focusKodeBarangInput();
-      return;
-    }
-
-    const queuedSerialNumbers = getQueuedSerialNumbers(barangKeluar);
-    const olderFifoItem = findOlderFifoItem(dbItems, matchedItem, queuedSerialNumbers);
-
-    if (olderFifoItem) {
-      toast.error("FIFO aktif: keluarkan barang yang lebih lama terlebih dahulu.", {
-        description: getFifoToastDescription(olderFifoItem),
-      });
-      updateKodeBarang("");
-      focusKodeBarangInput();
-      return;
-    }
-
-    const originalLoc = matchedItem.lokasiPenyimpanan || "-";
-
-    const newItem: BarangKeluarItem = {
-      id: Date.now(),
-      nomor: trimmedKode,
-      merek: matchedItem.merek || "-",
-      kategori: matchedItem.kategori || "-",
-      tipe: matchedItem.tipe || undefined,
-      lokasi: originalLoc as LokasiOption,
-      mitra: targetMitraName,
-      keterangan: user?.role === "mitra" ? keterangan.trim() : "",
-      status: "Valid",
-    };
-
-    setBarangKeluar((current) => [newItem, ...current]);
-    // Tambah kuota lokasi karena barang keluar
-    setKuota((current) => ({
-      ...current,
-      [originalLoc]: (current[originalLoc as LokasiOption] || 0) + 1,
-    }));
-
+    // Reset buffer input secara sinkron seketika
     updateKodeBarang("");
 
-    // Auto-focus kembali ke input setelah submit
-    focusKodeBarangInput();
+    try {
+      const selectedPartner =
+        user?.role === "mitra"
+          ? null
+          : dbPartners.find((partner) => partner.id === selectedPartnerId);
+      const targetMitraName =
+        user?.role === "mitra" ? user.displayName : selectedPartner?.name;
+
+      if (!targetMitraName) {
+        toast.error("Pilih mitra tujuan sebelum menambahkan barang keluar.");
+        return;
+      }
+
+      if (user?.role === "mitra" && !keterangan.trim()) {
+        toast.error("PA / keterangan wajib diisi sebelum menambahkan barang keluar.");
+        return;
+      }
+
+      const isDuplicate = barangKeluar.some(
+        (item) => normalizeKodeBarang(item.nomor) === normalizeKodeBarang(trimmedKode)
+      );
+
+      if (isDuplicate) {
+        toast.error("Serial number sudah ada di sesi ini.", {
+          description: trimmedKode,
+        });
+        return;
+      }
+
+      // Periksa apakah kode yang discan ada di data master (SQLite)
+      const matchedItem = dbItems.find(
+        (item) => normalizeKodeBarang(item.serialNumber) === normalizeKodeBarang(trimmedKode)
+      );
+
+      if (!matchedItem) {
+        toast.error("Data serial number tidak ditemukan.", {
+          description: trimmedKode,
+        });
+        return;
+      }
+
+      if (isOutsideStatus(matchedItem.status)) {
+        toast.error("Barang ini sudah berada di luar dan tidak dapat dikeluarkan kembali.", {
+          description: `Status saat ini: ${matchedItem.status}`,
+        });
+        return;
+      }
+
+      const queuedSerialNumbers = getQueuedSerialNumbers(barangKeluar);
+      const olderFifoItem = findOlderFifoItem(dbItems, matchedItem, queuedSerialNumbers);
+
+      if (olderFifoItem) {
+        toast.error("FIFO aktif: keluarkan barang yang lebih lama terlebih dahulu.", {
+          description: getFifoToastDescription(olderFifoItem),
+        });
+        return;
+      }
+
+      const originalLoc = matchedItem.lokasiPenyimpanan || "-";
+
+      const newItem: BarangKeluarItem = {
+        id: Date.now(),
+        nomor: trimmedKode,
+        merek: matchedItem.merek || "-",
+        kategori: matchedItem.kategori || "-",
+        tipe: matchedItem.tipe || undefined,
+        lokasi: originalLoc as LokasiOption,
+        mitra: targetMitraName,
+        keterangan: user?.role === "mitra" ? keterangan.trim() : "",
+        status: "Valid",
+      };
+
+      setBarangKeluar((current) => [newItem, ...current]);
+      // Tambah kuota lokasi karena barang keluar
+      setKuota((current) => ({
+        ...current,
+        [originalLoc]: (current[originalLoc as LokasiOption] || 0) + 1,
+      }));
+    } finally {
+      isSubmittingRef.current = false;
+      focusKodeBarangInput();
+    }
   }, [
     barangKeluar,
     dbItems,
@@ -394,7 +396,6 @@ export default function BarangKeluarPage() {
     focusKodeBarangInput,
     kodeBarang,
     keterangan,
-    kuota,
     selectedPartnerId,
     updateKodeBarang,
     user,
@@ -426,7 +427,14 @@ export default function BarangKeluarPage() {
       inputRef.current?.focus();
 
       if (event.key === "Enter") {
-        handleSubmit(kodeBarangRef.current);
+        const now = Date.now();
+        if (now - lastEnterTimeRef.current < 200) return;
+        lastEnterTimeRef.current = now;
+
+        const currentCode = kodeBarangRef.current;
+        if (currentCode && currentCode.trim()) {
+          handleSubmit(currentCode);
+        }
         return;
       }
 

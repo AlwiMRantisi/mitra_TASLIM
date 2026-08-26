@@ -87,17 +87,37 @@ export default function DataTransaksiPage() {
   const countMenunggu = localRequests.filter(req => req.status.toLowerCase() === "menunggu").length;
   const countSiap = localRequests.filter(req => req.status.toLowerCase() === "siap").length;
 
-  const handleStatusChange = async (id: string, newStatus: string) => {
+  const handleStatusChange = async (id: string, newStatus: string, remarks?: string) => {
     try {
-      await api.put(`/requests/${id}/status`, { status: newStatus.toUpperCase() });
+      const payload: Record<string, any> = { status: newStatus.toUpperCase() };
+      if (remarks) {
+        payload.adminRemarks = remarks;
+        payload.remarks = remarks;
+        payload.notes = remarks;
+      }
+      await api.put(`/requests/${id}/status`, payload);
+      if (remarks) {
+        await api.put(`/requests/${id}`, { adminRemarks: remarks, notes: remarks }).catch(() => {});
+      }
 
       setLocalRequests(prev => prev.map(req => {
         if (req.id === id) {
-          return { ...req, status: newStatus }
+          return {
+            ...req,
+            status: newStatus,
+            adminRemarks: remarks || req.adminRemarks,
+            notes: remarks || req.notes
+          }
         }
         return req
       }))
-      toast.success(`Status transaksi berhasil diubah menjadi ${newStatus}`)
+      toast.success(
+        newStatus === "Ditolak"
+          ? "Permintaan berhasil ditolak dengan catatan"
+          : newStatus === "Dibatalkan"
+            ? "Permintaan berhasil dibatalkan dengan catatan"
+            : `Status transaksi berhasil diubah menjadi ${newStatus}`
+      )
     } catch (error: any) {
       toast.error(error.message || "Gagal mengubah status transaksi")
     }

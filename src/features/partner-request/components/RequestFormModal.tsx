@@ -144,8 +144,8 @@ export function RequestFormModal({ isOpen, onClose, onSuccess }: RequestFormModa
     } catch {
       setCategories([])
       setBrands([])
-      setDropdownError("Gagal memuat data kategori / merek. Silakan coba lagi.")
-      toast.error("Gagal memuat data kategori / merek. Silakan coba lagi.")
+      setDropdownError("Gagal memuat data dropdown. Silakan coba lagi.")
+      toast.error("Gagal memuat data dropdown. Silakan coba lagi.")
     } finally {
       setLoadingDropdowns(false)
     }
@@ -258,13 +258,13 @@ export function RequestFormModal({ isOpen, onClose, onSuccess }: RequestFormModa
         <DialogHeader className="px-6 py-4 border-b">
           <DialogTitle className="text-xl">Ajukan Permintaan Material</DialogTitle>
           <DialogDescription>
-            Tambahkan satu atau lebih item material yang dibutuhkan.
+            Tambahkan satu atau lebih item material yang dibutuhkan ke KP.
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto px-6 py-6 custom-scrollbar">
           <form id="request-form" onSubmit={handleSubmit} className="flex flex-col gap-8">
-            
+
             {/* Item List */}
             <div className="flex flex-col gap-4">
               {loadingDropdowns ? (
@@ -385,7 +385,7 @@ export function RequestFormModal({ isOpen, onClose, onSuccess }: RequestFormModa
               <Label htmlFor="notes" className="text-sm font-semibold">Catatan (opsional)</Label>
               <Textarea
                 id="notes"
-                placeholder="Tambahkan catatan atau keterangan tambahan untuk admin..."
+                placeholder="Tambahkan catatan atau keterangan tambahan untuk KP..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={3}

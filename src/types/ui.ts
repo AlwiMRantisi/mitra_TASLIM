@@ -15,8 +15,10 @@ export type SheetMode =
   | "add-rak"
   | "add-kardus"
   | "add-pallet"
+  | "add-shuffle"
   | "edit-rak"
   | "edit-kardus"
   | "edit-pallet"
+  | "edit-shuffle"
   | "add-level"
   | "edit-level";

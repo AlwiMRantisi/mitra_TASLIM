@@ -122,7 +122,15 @@ const data = {
           icon: (
             <ClipboardList />
           ),
-          isActive: true,
+          isActive: false,
+        },
+        {
+          title: "Permintaan Antar Mitra",
+          url: "/peminjaman-mitra",
+          icon: (
+            <Handshake />
+          ),
+          isActive: false,
         },
         {
           title: "Penggunaan Barang",

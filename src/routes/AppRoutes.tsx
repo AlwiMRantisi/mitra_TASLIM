@@ -16,6 +16,7 @@ import LoginPage from "@/app/login/page";
 import PengaturanPage from "@/app/pengaturan/page";
 import MobileSignPage from "@/app/mobile-sign/page";
 import PartnerRequestPage from "@/app/partner-request/page";
+import PeminjamanMitraPage from "@/app/peminjaman-mitra/page";
 import { useAuth } from "@/lib/auth";
 
 function IndexRoute() {
@@ -55,6 +56,14 @@ export function AppRoutes() {
 					element={
 						<ProtectedRoute mitraOnly>
 							<PartnerRequestPage />
+						</ProtectedRoute>
+					}
+				/>
+				<Route
+					path="peminjaman-mitra"
+					element={
+						<ProtectedRoute mitraOnly>
+							<PeminjamanMitraPage />
 						</ProtectedRoute>
 					}
 				/>

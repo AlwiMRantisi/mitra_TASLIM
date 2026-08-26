@@ -22,9 +22,9 @@ export const useBarcodeScanner = ({
   updateKodeBarang,
   onSubmit,
 }: UseBarcodeScannerProps) => {
-  
   // Gunakan refs untuk state dan callback agar event listener tidak perlu di-rebind terus-menerus
   const callbacksRef = useRef({ onSubmit, updateKodeBarang });
+  const lastEnterTimeRef = useRef<number>(0);
 
   useEffect(() => {
     callbacksRef.current = { onSubmit, updateKodeBarang };
@@ -52,7 +52,17 @@ export const useBarcodeScanner = ({
       inputRef.current?.focus();
 
       if (event.key === "Enter") {
-        void callbacksRef.current.onSubmit(kodeBarangRef.current);
+        const now = Date.now();
+        // Cegah double Enter dari hardware scanner (CRLF) yang dikirim dalam waktu < 200ms
+        if (now - lastEnterTimeRef.current < 200) {
+          return;
+        }
+        lastEnterTimeRef.current = now;
+
+        const currentCode = kodeBarangRef.current;
+        if (currentCode && currentCode.trim()) {
+          void callbacksRef.current.onSubmit(currentCode);
+        }
         return;
       }
 
@@ -71,3 +81,4 @@ export const useBarcodeScanner = ({
     };
   }, [inputRef, kodeBarangRef]); // Hanya bergantung pada ref yang stabil
 };
+

@@ -184,6 +184,8 @@ export default function PreparePage() {
 
   const inputRef = useRef<HTMLInputElement>(null)
   const kodeBarangRef = useRef("")
+  const lastScanRef = useRef<{ code: string; time: number }>({ code: "", time: 0 })
+  const lastEnterTimeRef = useRef<number>(0)
 
   // Fetch Data
   useEffect(() => {
@@ -291,7 +293,14 @@ export default function PreparePage() {
       inputRef.current?.focus();
 
       if (event.key === "Enter") {
-        void handleScanSubmit(kodeBarangRef.current);
+        const now = Date.now();
+        if (now - lastEnterTimeRef.current < 200) return;
+        lastEnterTimeRef.current = now;
+
+        const currentCode = kodeBarangRef.current;
+        if (currentCode && currentCode.trim()) {
+          void handleScanSubmit(currentCode);
+        }
         return;
       }
       if (event.key === "Backspace") {
@@ -310,11 +319,22 @@ export default function PreparePage() {
     const sn = kodeOverride.trim()
     if (!sn) return
 
+    const now = Date.now();
+    if (
+      (lastScanRef.current.code.toUpperCase() === sn.toUpperCase() && now - lastScanRef.current.time < 500) ||
+      now - lastScanRef.current.time < 120
+    ) {
+      return;
+    }
+    lastScanRef.current = { code: sn, time: now };
+
+    // Reset input buffer secara sinkron seketika
+    updateKodeBarang("")
+
     // 1. Cek apakah sudah discan di sesi ini
     const isDuplicate = scannedItems.some(si => normalize(si.inventoryItem.serialNumber) === normalize(sn))
     if (isDuplicate) {
       toast.error("Barang sudah discan di sesi ini", { description: sn })
-      updateKodeBarang("")
       focusKodeBarangInput()
       return
     }
@@ -323,7 +343,6 @@ export default function PreparePage() {
     const item = inventoryItems.find(i => normalize(i.serialNumber) === normalize(sn))
     if (!item) {
       toast.error("Barang tidak ditemukan atau tidak tersedia", { description: sn })
-      updateKodeBarang("")
       focusKodeBarangInput()
       return
     }
@@ -332,9 +351,9 @@ export default function PreparePage() {
     setScannedItems(prev => [{ inventoryItem: item }, ...prev])
     toast.success("Berhasil ditambahkan")
 
-    updateKodeBarang("")
     focusKodeBarangInput()
   }, [kodeBarang, scannedItems, inventoryItems, updateKodeBarang, focusKodeBarangInput])
+
 
   const sensors = useSensors(
     useSensor(PointerSensor),

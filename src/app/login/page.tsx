@@ -82,7 +82,7 @@ export default function LoginPage() {
             <div className="mb-3 flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary md:hidden">
               <PackageSearch className="size-6" />
             </div>
-            <CardTitle className="text-2xl">Masuk ke Arxiva</CardTitle>
+            <CardTitle className="text-2xl">Masuk ke Taslim</CardTitle>
             <CardDescription>
               Gunakan akun Admin atau Mitra yang telah terdaftar.
             </CardDescription>
