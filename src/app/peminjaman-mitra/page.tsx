@@ -41,9 +41,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { api } from "@/lib/api"
+import { api, getBaseUrl } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { normalizePartnerList } from "@/lib/partner-options"
+import { openUrl } from "@tauri-apps/plugin-opener"
+import { DigitalSignatureDialog } from "@/app/request/components/DigitalSignatureDialog"
 
 const PAGE_SIZE = 10
 
@@ -55,6 +57,9 @@ type StatusKey =
   | "diterima"
   | "ditolak"
   | "dibatalkan"
+  | "menunggu_persetujuan"
+  | "menunggu_scan_pemberi"
+  | "menunggu_scan_penerima"
 
 const STATUS_STYLE: Record<StatusKey, string> = {
   menunggu: "text-neutral-400 bg-neutral-500/20 border-0",
@@ -64,6 +69,9 @@ const STATUS_STYLE: Record<StatusKey, string> = {
   diterima: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20",
   ditolak: "text-destructive bg-red-500/10 border-0",
   dibatalkan: "text-destructive bg-red-500/10 border-0",
+  menunggu_persetujuan: "text-violet-400 bg-violet-500/10 border-violet-500/20",
+  menunggu_scan_pemberi: "text-orange-400 bg-orange-500/10 border-orange-500/20",
+  menunggu_scan_penerima: "text-cyan-400 bg-cyan-500/10 border-cyan-500/20",
 }
 
 const STATUS_LABEL: Record<StatusKey, string> = {
@@ -74,6 +82,56 @@ const STATUS_LABEL: Record<StatusKey, string> = {
   diterima: "Diterima",
   ditolak: "Ditolak",
   dibatalkan: "Dibatalkan",
+  menunggu_persetujuan: "Menunggu Persetujuan Admin",
+  menunggu_scan_pemberi: "Menunggu Scan Pemberi",
+  menunggu_scan_penerima: "Menunggu Scan Penerima",
+}
+
+const resolveApprovalStatus = (rec: RawRecord): StatusKey => {
+  const rawValue = readFirstText(
+    rec.status,
+    rec.state,
+    rec.approvalStatus,
+    rec.approval_status,
+    rec.approvalState,
+    rec.adminApprovalStatus,
+    rec.admin_status
+  )
+
+  const normalized = normalizeKey(rawValue)
+  const providerScanned = Boolean(
+    rec.providerScannedAt ||
+      rec.provider_scanned_at ||
+      rec.providerScanAt ||
+      rec.providerScanned ||
+      rec.provider_scanned ||
+      ["provider_scanned", "provider scanned", "pemberi scan", "pemberi_scan"].includes(normalized)
+  )
+  const receiverScanned = Boolean(
+    rec.receiverScannedAt ||
+      rec.receiver_scanned_at ||
+      rec.receiverScanAt ||
+      rec.receiverScanned ||
+      rec.receiver_scanned ||
+      ["receiver_scanned", "receiver scanned", "penerima scan", "penerima_scan"].includes(normalized)
+  )
+  const isApproved = Boolean(rec.isApproved || rec.approved || rec.adminApproved || ["approved", "disetujui", "approved_by_admin"].includes(normalized))
+  const isRejected = Boolean(rec.isRejected || rec.rejected || rec.adminRejected || ["rejected", "ditolak"].includes(normalized))
+
+  if (["ditolak", "rejected", "tolak", "declined"].includes(normalized)) return "ditolak"
+  if (["dibatalkan", "cancelled", "canceled", "cancel"].includes(normalized)) return "dibatalkan"
+  if (receiverScanned || ["selesai", "completed", "done", "received", "diterima"].includes(normalized)) return "selesai"
+  if (providerScanned || ["provider_scan", "pemberi_scan", "pemberi scan"].includes(normalized)) return "menunggu_scan_penerima"
+  if (isApproved || ["disetujui", "approved", "setuju", "accepted", "approved_by_admin", "acc"].includes(normalized)) return "menunggu_scan_pemberi"
+  if (["menunggu", "pending", "waiting", "waiting approval", "menunggu persetujuan", "pending approval"].includes(normalized)) {
+    return "menunggu_persetujuan"
+  }
+  if (["siap", "ready", "siap serah terima"].includes(normalized)) return "siap"
+  if (["diterima", "received", "accepted_by_receiver"].includes(normalized)) return "diterima"
+
+  if (isRejected) return "ditolak"
+
+  return "menunggu_persetujuan"
 }
 
 type RawRecord = Record<string, unknown>
@@ -101,6 +159,48 @@ const unwrapList = (value: unknown) => {
     if (Array.isArray(nested)) return nested
   }
   return []
+}
+
+const normalizePartnerRecord = (value: unknown): Record<string, unknown> => {
+  const record = asRecord(value)
+  const profile = asRecord(record.profile)
+  const partner = asRecord(record.partner)
+
+  return {
+    ...record,
+    ...profile,
+    ...partner,
+    id: readFirstText(record.id, record.partnerId, profile.id, partner.id),
+    partnerId: readFirstText(record.partnerId, record.partner_id, profile.partnerId, partner.partnerId),
+    identityCode: readFirstText(record.identityCode, record.identity_code, profile.identityCode, partner.identityCode),
+    name: readFirstText(record.name, record.fullName, profile.name, profile.fullName, partner.name),
+    displayName: readFirstText(record.displayName, record.display_name, profile.displayName, profile.display_name, partner.displayName),
+    username: readFirstText(record.username, profile.username, partner.username),
+    partnerName: readFirstText(record.partnerName, record.partner_name, profile.partnerName, partner.partnerName, record.name, profile.name, partner.name),
+  }
+}
+
+const findUserMatch = (users: RawRecord[], candidates: unknown[]) => {
+  const normalizedCandidates = candidates
+    .map((candidate) => normalizeKey(candidate))
+    .filter(Boolean)
+
+  if (normalizedCandidates.length === 0) return null
+
+  return users.find((user) => {
+    const normalizedUser = normalizePartnerRecord(user)
+    const userKeys = [
+      normalizedUser.id,
+      normalizedUser.partnerId,
+      normalizedUser.identityCode,
+      normalizedUser.username,
+      normalizedUser.displayName,
+      normalizedUser.name,
+      normalizedUser.partnerName,
+    ].map(normalizeKey).filter(Boolean)
+
+    return normalizedCandidates.some((candidate) => userKeys.includes(candidate))
+  }) ?? null
 }
 
 const readFirstText = (...values: unknown[]) => {
@@ -131,6 +231,8 @@ type RequestItem = {
 type InterPartnerRequest = {
   id: string
   requestNumber: string
+  requesterPartnerId: string
+  providerPartnerId: string
   requesterName: string
   providerName: string
   itemsCount: number
@@ -139,6 +241,11 @@ type InterPartnerRequest = {
   notes?: string
   requestedAt: string
   requestItems: RequestItem[]
+  deliveryDocument?: {
+    kpSignedById?: string | null
+    picSignedById?: string | null
+    driveViewUrl?: string | null
+  } | null
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -166,12 +273,10 @@ function InterPartnerRequestModal({
   isOpen,
   onClose,
   onSuccess,
-  allRequests = [],
 }: {
   isOpen: boolean
   onClose: () => void
   onSuccess: () => void
-  allRequests?: InterPartnerRequest[]
 }) {
   const { user } = useAuth()
   const [targetPartnerId, setTargetPartnerId] = useState("")
@@ -188,7 +293,6 @@ function InterPartnerRequestModal({
     setLoadingDropdowns(true)
     try {
       const [partnersRes, catRes, brandRes] = await Promise.all([
-        // Langsung ke /users — endpoint yang terkonfirmasi ada di backend ini
         api.get("/users").catch(() => ({ data: [] })),
         api.get("/categories").catch(() => ({ data: [] })),
         api.get("/brands").catch(() => ({ data: [] })),
@@ -206,31 +310,7 @@ function InterPartnerRequestModal({
           code: partner.code,
         }))
 
-      let pOptions = normalizeForCurrentUser(partnersRes.data)
-
-      // Fallback: cache localStorage
-      if (pOptions.length === 0) {
-        try {
-          const cached = localStorage.getItem("arxiva_partners_cache")
-          if (cached) {
-            pOptions = normalizeForCurrentUser(JSON.parse(cached))
-          }
-        } catch { /* ignore */ }
-      } else {
-        try {
-          localStorage.setItem("arxiva_partners_cache", JSON.stringify(partnersRes.data))
-        } catch { /* ignore */ }
-      }
-
-      // Fallback: ekstrak dari riwayat request
-      if (pOptions.length === 0 && allRequests.length > 0) {
-        const uniqueMap = new Map<string, { id: string; name: string }>()
-        allRequests.forEach((req) => {
-          if (req.providerName) uniqueMap.set(req.providerName, { id: req.providerName, name: req.providerName })
-          if (req.requesterName) uniqueMap.set(req.requesterName, { id: req.requesterName, name: req.requesterName })
-        })
-        pOptions = normalizeForCurrentUser(Array.from(uniqueMap.values()))
-      }
+      const pOptions = normalizeForCurrentUser(partnersRes.data)
 
       const cOptions: CategoryOption[] = unwrapList(catRes.data).map((c) => {
         const rec = asRecord(c)
@@ -250,7 +330,7 @@ function InterPartnerRequestModal({
     } finally {
       setLoadingDropdowns(false)
     }
-  }, [allRequests, user])
+  }, [user])
 
   useEffect(() => {
     if (isOpen) fetchDropdowns()
@@ -437,33 +517,100 @@ function InterPartnerRequestModal({
 // ─── Main Page Component ────────────────────────────────────────────────────
 
 export default function PeminjamanMitraPage() {
+  const { user } = useAuth()
+
   const [allRequests, setAllRequests] = useState<InterPartnerRequest[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [signDialogOpen, setSignDialogOpen] = useState(false)
+  const [signingRequestId, setSigningRequestId] = useState<string | null>(null)
+  const [openingPdfId, setOpeningPdfId] = useState<string | null>(null)
 
   const fetchRequests = useCallback(async () => {
     setIsLoading(true)
     setLoadError(null)
 
     try {
-      // /peminjaman-mitra tidak ada di backend — gunakan /requests langsung
-      const res = await api.get("/requests").catch(() => api.get("/requests?type=inter-partner"))
-      const rawList = unwrapList(res.data)
+      const [requestsRes, usersRes] = await Promise.all([
+        api.get("/requests?type=inter-partner").catch(() => api.get("/requests")),
+        api.get("/users").catch(() => ({ data: [] })),
+      ])
 
-      const normalized: InterPartnerRequest[] = rawList.map((raw, idx) => {
+      const rawList = unwrapList(requestsRes.data)
+      const users = unwrapList(usersRes.data).map(normalizePartnerRecord)
+
+      const normalized: InterPartnerRequest[] = rawList
+        .filter((raw) => {
+          const rec = asRecord(raw)
+          return rec.isInterPartner === true || rec.type === "inter-partner" || rec.requestType === "inter-partner"
+        })
+        .map((raw, idx) => {
         const rec = asRecord(raw)
         const req = asRecord(rec.requester || rec.requesterParty)
         const prov = asRecord(rec.provider || rec.providerParty)
         const rawItems = Array.isArray(rec.items || rec.requestItems) ? (rec.items || rec.requestItems) as unknown[] : []
+        const rawDoc = asRecord(rec.deliveryDocument)
+
+        const requesterMatch = findUserMatch(users, [
+          rec.requesterId,
+          rec.requesterPartnerId,
+          raw.requesterId,
+          raw.requesterPartnerId,
+          req.id,
+          req.partnerId,
+          req.identityCode,
+          req.username,
+          req.name,
+          req.partnerName,
+          req.displayName,
+        ])
+
+        const providerMatch = findUserMatch(users, [
+          rec.providerPartnerId,
+          rec.providerId,
+          raw.providerId,
+          raw.providerPartnerId,
+          prov.id,
+          prov.partnerId,
+          prov.identityCode,
+          prov.username,
+          prov.name,
+          prov.partnerName,
+          prov.displayName,
+        ])
+
+        const requesterName = readFirstText(
+          requesterMatch?.partnerName,
+          requesterMatch?.name,
+          requesterMatch?.displayName,
+          requesterMatch?.username,
+          req.partnerName,
+          req.name,
+          req.username,
+          "Mitra Peminta"
+        )
+
+        const providerName = readFirstText(
+          providerMatch?.partnerName,
+          providerMatch?.name,
+          providerMatch?.displayName,
+          providerMatch?.username,
+          prov.partnerName,
+          prov.name,
+          prov.username,
+          "Mitra Pemberi"
+        )
 
         return {
           id: readFirstText(rec.id, rec._id, String(idx)),
           requestNumber: readFirstText(rec.requestNumber, rec.nomorRequest, `REQ-MITRA-${idx + 1}`),
-          requesterName: readFirstText(req.partnerName, req.name, req.username, "Mitra Peminta"),
-          providerName: readFirstText(prov.partnerName, prov.name, prov.username, "Mitra Pemberi"),
+          requesterPartnerId: readFirstText(rec.requesterPartnerId, rec.requesterId, req.partnerId, req.id, req.identityCode),
+          providerPartnerId: readFirstText(rec.providerPartnerId, rec.providerId, prov.partnerId, prov.id, prov.identityCode),
+          requesterName,
+          providerName,
           itemsCount: rawItems.length || readNumber(rec.itemsCount, 1),
           itemsDetail: rawItems
             .map((it) => {
@@ -471,8 +618,8 @@ export default function PeminjamanMitraPage() {
               return `${readFirstText(itemRec.itemName, itemRec.category, "Barang")} x${readNumber(itemRec.quantity, 1)}`
             })
             .join(", ") || "Item Permintaan",
-          status: readFirstText(rec.status, "menunggu"),
-          notes: readFirstText(rec.purpose, rec.notes),
+          status: resolveApprovalStatus(rec),
+          notes: readFirstText(rec.purpose, rec.notes, rec.adminRemarks),
           requestedAt: readFirstText(rec.requestedAt, rec.createdAt),
           requestItems: rawItems.map((it, i) => {
             const itemRec = asRecord(it)
@@ -484,6 +631,14 @@ export default function PeminjamanMitraPage() {
               unit: readFirstText(itemRec.unit, "Unit"),
             }
           }),
+          deliveryDocument:
+            rec.deliveryDocument != null
+              ? {
+                  kpSignedById: rawDoc.kpSignedById ? String(rawDoc.kpSignedById) : null,
+                  picSignedById: rawDoc.picSignedById ? String(rawDoc.picSignedById) : null,
+                  driveViewUrl: rawDoc.driveViewUrl ? String(rawDoc.driveViewUrl) : null,
+                }
+              : null,
         }
       })
 
@@ -495,6 +650,144 @@ export default function PeminjamanMitraPage() {
       setIsLoading(false)
     }
   }, [])
+
+  const handleAdminDecision = useCallback(async (requestId: string, decision: "approve" | "reject") => {
+    if (!user || user.role !== "admin") return
+
+    try {
+      const payload = {
+        status: decision === "approve" ? "APPROVED" : "REJECTED",
+      }
+
+      await api.put(`/requests/${requestId}/status`, payload).catch(() =>
+        api.put(`/requests/${requestId}`, payload)
+      )
+
+      setAllRequests((prev) =>
+        prev.map((req) =>
+          req.id === requestId
+            ? {
+                ...req,
+                status: decision === "approve" ? "menunggu_scan_pemberi" : "ditolak",
+              }
+            : req
+        )
+      )
+
+      toast.success(
+        decision === "approve"
+          ? "Permintaan berhasil disetujui. Mitra pemberi sekarang wajib melakukan scan barang."
+          : "Permintaan antar mitra berhasil ditolak."
+      )
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Gagal mengubah status persetujuan"
+      toast.error(msg)
+    }
+  }, [user])
+
+  const handleProviderScan = useCallback(async (requestId: string) => {
+    try {
+      const payload = {
+        status: "PEMBERI_SCAN",
+        providerScannedAt: new Date().toISOString(),
+      }
+
+      await api.put(`/requests/${requestId}/status`, payload).catch(() =>
+        api.put(`/requests/${requestId}`, payload)
+      )
+
+      setAllRequests((prev) =>
+        prev.map((req) =>
+          req.id === requestId
+            ? {
+                ...req,
+                status: "menunggu_scan_penerima",
+              }
+            : req
+        )
+      )
+
+      toast.success("Scan oleh mitra pemberi selesai. Mitra penerima menunggu validasi akhir.")
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Gagal menyimpan scan pemberi"
+      toast.error(msg)
+    }
+  }, [])
+
+  const handleReceiverScan = useCallback(async (requestId: string) => {
+    try {
+      const payload = {
+        status: "SELESAI",
+        receiverScannedAt: new Date().toISOString(),
+      }
+
+      await api.put(`/requests/${requestId}/status`, payload).catch(() =>
+        api.put(`/requests/${requestId}`, payload)
+      )
+
+      setAllRequests((prev) =>
+        prev.map((req) =>
+          req.id === requestId
+            ? {
+                ...req,
+                status: "selesai",
+              }
+            : req
+        )
+      )
+
+      toast.success("Validasi akhir oleh mitra penerima berhasil dilakukan.")
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Gagal menyimpan validasi akhir"
+      toast.error(msg)
+    }
+  }, [])
+
+  const handleOpenBastPdf = useCallback(async (requestId: string, useSignedPdf = false) => {
+    setOpeningPdfId(requestId)
+    try {
+      const token = localStorage.getItem("arxiva-auth-token") || ""
+      const endpoint = useSignedPdf ? `/requests/${requestId}/pdf-signed` : `/requests/${requestId}/pdf-draft`
+      const url = `${getBaseUrl()}${endpoint}?token=${token}`
+      await openUrl(url)
+    } catch {
+      toast.error("Gagal membuka PDF BAST")
+    } finally {
+      setOpeningPdfId(null)
+    }
+  }, [])
+
+  const handleOpenSignDialog = useCallback((requestId: string) => {
+    setSigningRequestId(requestId)
+    setSignDialogOpen(true)
+  }, [])
+
+  const handleSignComplete = useCallback(async () => {
+    if (!signingRequestId) return
+
+    try {
+      await api.post(`/requests/${signingRequestId}/sign`)
+      toast.success("Dokumen BAST berhasil ditandatangani")
+      setSignDialogOpen(false)
+      setSigningRequestId(null)
+      setAllRequests((prev) =>
+        prev.map((req) =>
+          req.id === signingRequestId
+            ? {
+                ...req,
+                deliveryDocument: {
+                  ...req.deliveryDocument,
+                  picSignedById: user?.id ?? "signed",
+                },
+              }
+            : req
+        )
+      )
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Gagal menandatangani dokumen BAST"
+      toast.error(msg)
+    }
+  }, [signingRequestId, user?.id])
 
   useEffect(() => {
     fetchRequests()
@@ -563,12 +856,14 @@ export default function PeminjamanMitraPage() {
               <TableHead className="text-neutral-400">Peminta → Pemberi</TableHead>
               <TableHead className="text-neutral-400">Barang</TableHead>
               <TableHead className="text-center text-neutral-400">Status</TableHead>
+              <TableHead className="text-center text-neutral-400">BAST</TableHead>
+              {user?.role === "admin" && <TableHead className="text-center text-neutral-400">Persetujuan</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow className="border-neutral-800 hover:bg-transparent">
-                <TableCell colSpan={6} className="h-32 text-center">
+                <TableCell colSpan={user?.role === "admin" ? 8 : 7} className="h-32 text-center">
                   <div className="flex items-center justify-center gap-2 text-neutral-500">
                     <Loader2 className="h-5 w-5 animate-spin text-neutral-600" />
                     <span>Memuat data permintaan antar mitra...</span>
@@ -577,7 +872,7 @@ export default function PeminjamanMitraPage() {
               </TableRow>
             ) : loadError ? (
               <TableRow className="border-neutral-800 hover:bg-transparent">
-                <TableCell colSpan={6} className="h-48 text-center">
+                <TableCell colSpan={user?.role === "admin" ? 8 : 7} className="h-48 text-center">
                   <div className="flex flex-col items-center gap-3 text-neutral-500">
                     <AlertTriangle className="h-10 w-10 text-destructive/70" />
                     <p className="text-sm font-medium">{loadError}</p>
@@ -589,7 +884,7 @@ export default function PeminjamanMitraPage() {
               </TableRow>
             ) : paginatedRequests.length === 0 ? (
               <TableRow className="border-neutral-800 hover:bg-transparent">
-                <TableCell colSpan={6} className="h-48 text-center">
+                <TableCell colSpan={user?.role === "admin" ? 8 : 7} className="h-48 text-center">
                   <div className="flex flex-col items-center gap-3 text-neutral-500">
                     <ClipboardList className="h-10 w-10 text-neutral-600 mb-2" />
                     <p className="text-sm font-medium">Belum ada permintaan antar mitra</p>
@@ -600,32 +895,116 @@ export default function PeminjamanMitraPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              paginatedRequests.map((req, idx) => (
-                <TableRow key={req.id} className="border-neutral-800 hover:bg-neutral-900/80">
-                  <TableCell className="pl-4 text-neutral-400">
-                    {(currentPage - 1) * PAGE_SIZE + idx + 1}
-                  </TableCell>
-                  <TableCell className="text-sm font-medium text-neutral-200 font-mono">
-                    {req.requestNumber}
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap text-neutral-400">
-                    {formatDate(req.requestedAt)}
-                  </TableCell>
-                  <TableCell className="text-sm text-neutral-200">
-                    <span>{req.requesterName}</span>
-                    <span className="text-neutral-500 mx-1.5">→</span>
-                    <span className="text-neutral-400">{req.providerName}</span>
-                  </TableCell>
-                  <TableCell className="max-w-[260px] text-neutral-400 text-sm">
-                    <span className="block truncate" title={req.itemsDetail}>
-                      {req.itemsDetail}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <StatusBadge status={req.status} />
-                  </TableCell>
-                </TableRow>
-              ))
+              paginatedRequests.map((req, idx) => {
+                const statusUpper = String(req.status || "").toUpperCase()
+                const hasBast = ["SIAP", "SELESAI", "DITERIMA", "MENUNGGU_SCAN_PEMBERI", "MENUNGGU_SCAN_PENERIMA"].includes(statusUpper)
+                const canSign = statusUpper === "SIAP" && !req.deliveryDocument?.picSignedById
+                const isSigned = !!req.deliveryDocument?.picSignedById
+                const isWaitingProviderScan = normalizeKey(req.status) === "menunggu_scan_pemberi"
+                const isWaitingReceiverScan = normalizeKey(req.status) === "menunggu_scan_penerima"
+                const isCurrentProvider = Boolean(
+                  user?.partnerId &&
+                  (
+                    normalizeKey(user.partnerId) === normalizeKey(req.providerPartnerId) ||
+                    normalizeKey(user.identityCode) === normalizeKey(req.providerPartnerId)
+                  )
+                )
+                const isCurrentReceiver = Boolean(
+                  user?.partnerId &&
+                  (
+                    normalizeKey(user.partnerId) === normalizeKey(req.requesterPartnerId) ||
+                    normalizeKey(user.identityCode) === normalizeKey(req.requesterPartnerId)
+                  )
+                )
+                const canProviderScan = user?.role === "mitra" && isCurrentProvider && isWaitingProviderScan
+                const canReceiverScan = user?.role === "mitra" && isCurrentReceiver && isWaitingReceiverScan
+
+                return (
+                  <TableRow key={req.id} className="border-neutral-800 hover:bg-neutral-900/80">
+                    <TableCell className="pl-4 text-neutral-400">
+                      {(currentPage - 1) * PAGE_SIZE + idx + 1}
+                    </TableCell>
+                    <TableCell className="text-sm font-medium text-neutral-200 font-mono">
+                      {req.requestNumber}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-neutral-400">
+                      {formatDate(req.requestedAt)}
+                    </TableCell>
+                    <TableCell className="text-sm text-neutral-200">
+                      <span>{req.requesterName}</span>
+                      <span className="text-neutral-500 mx-1.5">→</span>
+                      <span className="text-neutral-400">{req.providerName}</span>
+                    </TableCell>
+                    <TableCell className="max-w-[260px] text-neutral-400 text-sm">
+                      <span className="block truncate" title={req.itemsDetail}>
+                        {req.itemsDetail}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <StatusBadge status={req.status} />
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {canProviderScan ? (
+                        <Button size="sm" variant="default" onClick={() => handleProviderScan(req.id)}>
+                          Scan Pemberi
+                        </Button>
+                      ) : canReceiverScan ? (
+                        <Button size="sm" variant="default" onClick={() => handleReceiverScan(req.id)}>
+                          Scan Validasi Akhir
+                        </Button>
+                      ) : hasBast ? (
+                        <div className="flex items-center justify-center gap-2">
+                          {!isSigned ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleOpenBastPdf(req.id, false)}
+                              disabled={openingPdfId === req.id}
+                            >
+                              {openingPdfId === req.id ? "..." : "BAST Draft"}
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleOpenBastPdf(req.id, true)}
+                              disabled={openingPdfId === req.id}
+                            >
+                              {openingPdfId === req.id ? "..." : "Lihat BAST"}
+                            </Button>
+                          )}
+                          {canSign && (
+                            <Button size="sm" variant="default" onClick={() => handleOpenSignDialog(req.id)}>
+                              TTD
+                            </Button>
+                          )}
+                          {!canSign && isSigned && (
+                            <span className="text-[10px] text-emerald-400">Signed</span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    {user?.role === "admin" && (
+                      <TableCell className="text-center">
+                        {normalizeKey(req.status) === "menunggu_persetujuan" || normalizeKey(req.status) === "menunggu" ? (
+                          <div className="flex items-center justify-center gap-2">
+                            <Button size="sm" variant="default" onClick={() => handleAdminDecision(req.id, "approve")}>
+                              Setujui
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => handleAdminDecision(req.id, "reject")}>
+                              Tolak
+                            </Button>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                    )}
+                  </TableRow>
+                )
+              })
             )}
           </TableBody>
         </Table>
@@ -663,11 +1042,21 @@ export default function PeminjamanMitraPage() {
         </div>
       )}
 
+      <DigitalSignatureDialog
+        open={signDialogOpen}
+        onOpenChange={(open) => {
+          setSignDialogOpen(open)
+          if (!open) setSigningRequestId(null)
+        }}
+        title="Tanda Tangan Digital BAST"
+        description="Berikan tanda tangan Anda sebagai pihak penerima untuk dokumen BAST permintaan antar mitra ini."
+        onSignComplete={handleSignComplete}
+      />
+
       <InterPartnerRequestModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSuccess={fetchRequests}
-        allRequests={allRequests}
       />
     </div>
   )
