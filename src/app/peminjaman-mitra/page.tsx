@@ -14,7 +14,6 @@ import {
   Trash2,
   ArrowRightLeft,
 } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -44,221 +43,23 @@ import {
 import { api, getBaseUrl } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { normalizePartnerList } from "@/lib/partner-options"
+import {
+  PeminjamanMitraService,
+  isPendingApproval,
+  unwrapList,
+  readFirstText,
+  readNumber,
+  resolveStatusKey,
+  normalizeKey,
+} from "@/services/peminjamanMitraService"
 import { openUrl } from "@tauri-apps/plugin-opener"
 import { DigitalSignatureDialog } from "@/app/request/components/DigitalSignatureDialog"
+import { InterPartnerScanModal } from "@/app/peminjaman-mitra/components/InterPartnerScanModal"
+import { InterPartnerStatusBadge } from "@/app/peminjaman-mitra/components/InterPartnerStatusBadge"
+import { ApproveRejectModal } from "@/app/peminjaman-mitra/components/ApproveRejectModal"
+import type { InterPartnerRequest } from "@/app/peminjaman-mitra/types"
 
 const PAGE_SIZE = 10
-
-type StatusKey =
-  | "menunggu"
-  | "disetujui"
-  | "siap"
-  | "selesai"
-  | "diterima"
-  | "ditolak"
-  | "dibatalkan"
-  | "menunggu_persetujuan"
-  | "menunggu_scan_pemberi"
-  | "menunggu_scan_penerima"
-
-const STATUS_STYLE: Record<StatusKey, string> = {
-  menunggu: "text-neutral-400 bg-neutral-500/20 border-0",
-  disetujui: "text-blue-500 bg-blue-500/10 border-blue-500/20",
-  siap: "text-amber-500 bg-amber-500/10 border-amber-500/20",
-  selesai: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20",
-  diterima: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20",
-  ditolak: "text-destructive bg-red-500/10 border-0",
-  dibatalkan: "text-destructive bg-red-500/10 border-0",
-  menunggu_persetujuan: "text-violet-400 bg-violet-500/10 border-violet-500/20",
-  menunggu_scan_pemberi: "text-orange-400 bg-orange-500/10 border-orange-500/20",
-  menunggu_scan_penerima: "text-cyan-400 bg-cyan-500/10 border-cyan-500/20",
-}
-
-const STATUS_LABEL: Record<StatusKey, string> = {
-  menunggu: "Menunggu",
-  disetujui: "Disetujui",
-  siap: "Siap Serah Terima",
-  selesai: "Selesai",
-  diterima: "Diterima",
-  ditolak: "Ditolak",
-  dibatalkan: "Dibatalkan",
-  menunggu_persetujuan: "Menunggu Persetujuan Admin",
-  menunggu_scan_pemberi: "Menunggu Scan Pemberi",
-  menunggu_scan_penerima: "Menunggu Scan Penerima",
-}
-
-const resolveApprovalStatus = (rec: RawRecord): StatusKey => {
-  const rawValue = readFirstText(
-    rec.status,
-    rec.state,
-    rec.approvalStatus,
-    rec.approval_status,
-    rec.approvalState,
-    rec.adminApprovalStatus,
-    rec.admin_status
-  )
-
-  const normalized = normalizeKey(rawValue)
-  const providerScanned = Boolean(
-    rec.providerScannedAt ||
-      rec.provider_scanned_at ||
-      rec.providerScanAt ||
-      rec.providerScanned ||
-      rec.provider_scanned ||
-      ["provider_scanned", "provider scanned", "pemberi scan", "pemberi_scan"].includes(normalized)
-  )
-  const receiverScanned = Boolean(
-    rec.receiverScannedAt ||
-      rec.receiver_scanned_at ||
-      rec.receiverScanAt ||
-      rec.receiverScanned ||
-      rec.receiver_scanned ||
-      ["receiver_scanned", "receiver scanned", "penerima scan", "penerima_scan"].includes(normalized)
-  )
-  const isApproved = Boolean(rec.isApproved || rec.approved || rec.adminApproved || ["approved", "disetujui", "approved_by_admin"].includes(normalized))
-  const isRejected = Boolean(rec.isRejected || rec.rejected || rec.adminRejected || ["rejected", "ditolak"].includes(normalized))
-
-  if (["ditolak", "rejected", "tolak", "declined"].includes(normalized)) return "ditolak"
-  if (["dibatalkan", "cancelled", "canceled", "cancel"].includes(normalized)) return "dibatalkan"
-  if (receiverScanned || ["selesai", "completed", "done", "received", "diterima"].includes(normalized)) return "selesai"
-  if (providerScanned || ["provider_scan", "pemberi_scan", "pemberi scan"].includes(normalized)) return "menunggu_scan_penerima"
-  if (isApproved || ["disetujui", "approved", "setuju", "accepted", "approved_by_admin", "acc"].includes(normalized)) return "menunggu_scan_pemberi"
-  if (["menunggu", "pending", "waiting", "waiting approval", "menunggu persetujuan", "pending approval"].includes(normalized)) {
-    return "menunggu_persetujuan"
-  }
-  if (["siap", "ready", "siap serah terima"].includes(normalized)) return "siap"
-  if (["diterima", "received", "accepted_by_receiver"].includes(normalized)) return "diterima"
-
-  if (isRejected) return "ditolak"
-
-  return "menunggu_persetujuan"
-}
-
-type RawRecord = Record<string, unknown>
-
-const asRecord = (value: unknown): RawRecord =>
-  value && typeof value === "object" && !Array.isArray(value) ? (value as RawRecord) : {}
-
-const normalizeText = (value: unknown) => {
-  if (value === null || value === undefined || typeof value === "object") return ""
-  return String(value).trim()
-}
-
-const normalizeKey = (value: unknown) => normalizeText(value).toLowerCase()
-
-const getStatusKey = (status: unknown): StatusKey => {
-  const key = normalizeKey(status) as StatusKey
-  return key in STATUS_STYLE ? key : "menunggu"
-}
-
-const unwrapList = (value: unknown) => {
-  if (Array.isArray(value)) return value
-  const payload = asRecord(value)
-  for (const key of ["data", "requests", "items", "results"]) {
-    const nested = payload[key]
-    if (Array.isArray(nested)) return nested
-  }
-  return []
-}
-
-const normalizePartnerRecord = (value: unknown): Record<string, unknown> => {
-  const record = asRecord(value)
-  const profile = asRecord(record.profile)
-  const partner = asRecord(record.partner)
-
-  return {
-    ...record,
-    ...profile,
-    ...partner,
-    id: readFirstText(record.id, record.partnerId, profile.id, partner.id),
-    partnerId: readFirstText(record.partnerId, record.partner_id, profile.partnerId, partner.partnerId),
-    identityCode: readFirstText(record.identityCode, record.identity_code, profile.identityCode, partner.identityCode),
-    name: readFirstText(record.name, record.fullName, profile.name, profile.fullName, partner.name),
-    displayName: readFirstText(record.displayName, record.display_name, profile.displayName, profile.display_name, partner.displayName),
-    username: readFirstText(record.username, profile.username, partner.username),
-    partnerName: readFirstText(record.partnerName, record.partner_name, profile.partnerName, partner.partnerName, record.name, profile.name, partner.name),
-  }
-}
-
-const findUserMatch = (users: RawRecord[], candidates: unknown[]) => {
-  const normalizedCandidates = candidates
-    .map((candidate) => normalizeKey(candidate))
-    .filter(Boolean)
-
-  if (normalizedCandidates.length === 0) return null
-
-  return users.find((user) => {
-    const normalizedUser = normalizePartnerRecord(user)
-    const userKeys = [
-      normalizedUser.id,
-      normalizedUser.partnerId,
-      normalizedUser.identityCode,
-      normalizedUser.username,
-      normalizedUser.displayName,
-      normalizedUser.name,
-      normalizedUser.partnerName,
-    ].map(normalizeKey).filter(Boolean)
-
-    return normalizedCandidates.some((candidate) => userKeys.includes(candidate))
-  }) ?? null
-}
-
-const readFirstText = (...values: unknown[]) => {
-  for (const value of values) {
-    const text = normalizeText(value)
-    if (text) return text
-  }
-  return ""
-}
-
-const readNumber = (value: unknown, fallback = 0) => {
-  const num = typeof value === "number" ? value : Number(value)
-  return Number.isFinite(num) ? num : fallback
-}
-
-type PartnerOption = { id: string; name: string; code?: string }
-type CategoryOption = { id: number | string; name: string }
-type BrandOption = { id: number | string; name: string }
-
-type RequestItem = {
-  id: number
-  category: string
-  brand: string
-  quantity: number
-  unit: string
-}
-
-type InterPartnerRequest = {
-  id: string
-  requestNumber: string
-  requesterPartnerId: string
-  providerPartnerId: string
-  requesterName: string
-  providerName: string
-  itemsCount: number
-  itemsDetail: string
-  status: string
-  notes?: string
-  requestedAt: string
-  requestItems: RequestItem[]
-  deliveryDocument?: {
-    kpSignedById?: string | null
-    picSignedById?: string | null
-    driveViewUrl?: string | null
-  } | null
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const key = getStatusKey(status)
-  const styleClass = STATUS_STYLE[key]
-  const label = STATUS_LABEL[key] || normalizeText(status) || "-"
-
-  return (
-    <Badge variant="outline" className={`flex items-center justify-center gap-1 px-2 py-1 ${styleClass}`}>
-      <span>{label}</span>
-    </Badge>
-  )
-}
 
 // ─── Modal Form Permintaan Antar Mitra ──────────────────────────────────────
 
@@ -268,6 +69,10 @@ type ItemRow = {
   brandId: string
   quantity: string
 }
+
+type PartnerOption = { id: string; name: string; code?: string }
+type CategoryOption = { id: number | string; name: string }
+type BrandOption = { id: number | string; name: string }
 
 function InterPartnerRequestModal({
   isOpen,
@@ -280,6 +85,7 @@ function InterPartnerRequestModal({
 }) {
   const { user } = useAuth()
   const [targetPartnerId, setTargetPartnerId] = useState("")
+  const [partnerSearch, setPartnerSearch] = useState("")
   const [items, setItems] = useState<ItemRow[]>([{ id: Date.now(), categoryId: "", brandId: "", quantity: "1" }])
   const [notes, setNotes] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -313,12 +119,12 @@ function InterPartnerRequestModal({
       const pOptions = normalizeForCurrentUser(partnersRes.data)
 
       const cOptions: CategoryOption[] = unwrapList(catRes.data).map((c) => {
-        const rec = asRecord(c)
+        const rec = c as Record<string, unknown>
         return { id: rec.id as number | string, name: readFirstText(rec.name, rec.nama) }
       })
 
       const bOptions: BrandOption[] = unwrapList(brandRes.data).map((b) => {
-        const rec = asRecord(b)
+        const rec = b as Record<string, unknown>
         return { id: rec.id as number | string, name: readFirstText(rec.name, rec.nama) }
       })
 
@@ -331,6 +137,18 @@ function InterPartnerRequestModal({
       setLoadingDropdowns(false)
     }
   }, [user])
+
+  const filteredPartners = useMemo(() => {
+    const q = partnerSearch.trim().toLowerCase()
+    if (!q) return partners
+
+    return partners.filter((partner) => {
+      const haystack = `${partner.name} ${partner.code ?? ""}`.toLowerCase()
+      return haystack.includes(q)
+    })
+  }, [partners, partnerSearch])
+
+  const selectedPartner = partners.find((partner) => partner.id === targetPartnerId)
 
   useEffect(() => {
     if (isOpen) fetchDropdowns()
@@ -400,26 +218,48 @@ function InterPartnerRequestModal({
 
         <div className="flex-1 overflow-y-auto px-6 py-6 custom-scrollbar">
           <form id="inter-partner-form" onSubmit={handleSubmit} className="flex flex-col gap-6">
-            
             {/* Target Partner Selection */}
             <div className="flex flex-col gap-1.5">
               <Label className="text-sm font-semibold">Pilih Mitra Tujuan (Pemberi)</Label>
-              <Select value={targetPartnerId} onValueChange={setTargetPartnerId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Pilih Mitra..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {partners.length > 0 ? (
-                    partners.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name} {p.code ? `(${p.code})` : ""}
-                      </SelectItem>
-                    ))
-                  ) : (
-                    <div className="px-2 py-1.5 text-sm text-muted-foreground">Tidak ada data mitra</div>
-                  )}
-                </SelectContent>
-              </Select>
+
+              <Input
+                placeholder="Cari mitra tujuan..."
+                value={partnerSearch}
+                onChange={(e) => setPartnerSearch(e.target.value)}
+                className="mb-2"
+              />
+
+              <div className="max-h-56 overflow-y-auto rounded-md border border-neutral-800 bg-neutral-950/50">
+                {filteredPartners.length > 0 ? (
+                  filteredPartners.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => {
+                        setTargetPartnerId(p.id)
+                        setPartnerSearch(p.name)
+                      }}
+                      className={`flex w-full items-center justify-between px-3 py-2 text-left transition-colors ${
+                        targetPartnerId === p.id
+                          ? "bg-primary/10 text-primary"
+                          : "hover:bg-neutral-800/80 text-neutral-200"
+                      }`}
+                    >
+                      <span className="font-medium">{p.name}</span>
+                      {p.code ? <span className="text-xs text-muted-foreground">{p.code}</span> : null}
+                    </button>
+                  ))
+                ) : (
+                  <div className="px-3 py-2 text-sm text-muted-foreground">Tidak ada mitra yang cocok</div>
+                )}
+              </div>
+
+              {selectedPartner && (
+                <div className="mt-2 text-xs text-emerald-400">
+                  Dipilih: {selectedPartner.name}
+                  {selectedPartner.code ? ` (${selectedPartner.code})` : ""}
+                </div>
+              )}
             </div>
 
             {/* Items */}
@@ -518,6 +358,7 @@ function InterPartnerRequestModal({
 
 export default function PeminjamanMitraPage() {
   const { user } = useAuth()
+  const isAdmin = user?.role === "admin"
 
   const [allRequests, setAllRequests] = useState<InterPartnerRequest[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -529,119 +370,25 @@ export default function PeminjamanMitraPage() {
   const [signingRequestId, setSigningRequestId] = useState<string | null>(null)
   const [openingPdfId, setOpeningPdfId] = useState<string | null>(null)
 
+  // State untuk ApproveRejectModal
+  const [approvalState, setApprovalState] = useState<{
+    open: boolean
+    decision: "approve" | "reject"
+    request: InterPartnerRequest | null
+  }>({ open: false, decision: "approve", request: null })
+  const [submittingDecision, setSubmittingDecision] = useState(false)
+
+  const [scanTarget, setScanTarget] = useState<{
+    request: InterPartnerRequest
+    party: "provider" | "receiver"
+  } | null>(null)
+
   const fetchRequests = useCallback(async () => {
     setIsLoading(true)
     setLoadError(null)
 
     try {
-      const [requestsRes, usersRes] = await Promise.all([
-        api.get("/requests?type=inter-partner").catch(() => api.get("/requests")),
-        api.get("/users").catch(() => ({ data: [] })),
-      ])
-
-      const rawList = unwrapList(requestsRes.data)
-      const users = unwrapList(usersRes.data).map(normalizePartnerRecord)
-
-      const normalized: InterPartnerRequest[] = rawList
-        .filter((raw) => {
-          const rec = asRecord(raw)
-          return rec.isInterPartner === true || rec.type === "inter-partner" || rec.requestType === "inter-partner"
-        })
-        .map((raw, idx) => {
-        const rec = asRecord(raw)
-        const req = asRecord(rec.requester || rec.requesterParty)
-        const prov = asRecord(rec.provider || rec.providerParty)
-        const rawItems = Array.isArray(rec.items || rec.requestItems) ? (rec.items || rec.requestItems) as unknown[] : []
-        const rawDoc = asRecord(rec.deliveryDocument)
-
-        const requesterMatch = findUserMatch(users, [
-          rec.requesterId,
-          rec.requesterPartnerId,
-          raw.requesterId,
-          raw.requesterPartnerId,
-          req.id,
-          req.partnerId,
-          req.identityCode,
-          req.username,
-          req.name,
-          req.partnerName,
-          req.displayName,
-        ])
-
-        const providerMatch = findUserMatch(users, [
-          rec.providerPartnerId,
-          rec.providerId,
-          raw.providerId,
-          raw.providerPartnerId,
-          prov.id,
-          prov.partnerId,
-          prov.identityCode,
-          prov.username,
-          prov.name,
-          prov.partnerName,
-          prov.displayName,
-        ])
-
-        const requesterName = readFirstText(
-          requesterMatch?.partnerName,
-          requesterMatch?.name,
-          requesterMatch?.displayName,
-          requesterMatch?.username,
-          req.partnerName,
-          req.name,
-          req.username,
-          "Mitra Peminta"
-        )
-
-        const providerName = readFirstText(
-          providerMatch?.partnerName,
-          providerMatch?.name,
-          providerMatch?.displayName,
-          providerMatch?.username,
-          prov.partnerName,
-          prov.name,
-          prov.username,
-          "Mitra Pemberi"
-        )
-
-        return {
-          id: readFirstText(rec.id, rec._id, String(idx)),
-          requestNumber: readFirstText(rec.requestNumber, rec.nomorRequest, `REQ-MITRA-${idx + 1}`),
-          requesterPartnerId: readFirstText(rec.requesterPartnerId, rec.requesterId, req.partnerId, req.id, req.identityCode),
-          providerPartnerId: readFirstText(rec.providerPartnerId, rec.providerId, prov.partnerId, prov.id, prov.identityCode),
-          requesterName,
-          providerName,
-          itemsCount: rawItems.length || readNumber(rec.itemsCount, 1),
-          itemsDetail: rawItems
-            .map((it) => {
-              const itemRec = asRecord(it)
-              return `${readFirstText(itemRec.itemName, itemRec.category, "Barang")} x${readNumber(itemRec.quantity, 1)}`
-            })
-            .join(", ") || "Item Permintaan",
-          status: resolveApprovalStatus(rec),
-          notes: readFirstText(rec.purpose, rec.notes, rec.adminRemarks),
-          requestedAt: readFirstText(rec.requestedAt, rec.createdAt),
-          requestItems: rawItems.map((it, i) => {
-            const itemRec = asRecord(it)
-            return {
-              id: readNumber(itemRec.id, i),
-              category: readFirstText(itemRec.categoryName, itemRec.category, "-"),
-              brand: readFirstText(itemRec.brandName, itemRec.brand, "-"),
-              quantity: readNumber(itemRec.quantity, 1),
-              unit: readFirstText(itemRec.unit, "Unit"),
-            }
-          }),
-          deliveryDocument:
-            rec.deliveryDocument != null
-              ? {
-                  kpSignedById: rawDoc.kpSignedById ? String(rawDoc.kpSignedById) : null,
-                  picSignedById: rawDoc.picSignedById ? String(rawDoc.picSignedById) : null,
-                  driveViewUrl: rawDoc.driveViewUrl ? String(rawDoc.driveViewUrl) : null,
-                }
-              : null,
-        }
-      })
-
+      const normalized = await PeminjamanMitraService.getInterPartnerRequests()
       setAllRequests(normalized)
     } catch (err) {
       console.error("Gagal memuat permintaan antar mitra:", err)
@@ -651,97 +398,66 @@ export default function PeminjamanMitraPage() {
     }
   }, [])
 
-  const handleAdminDecision = useCallback(async (requestId: string, decision: "approve" | "reject") => {
-    if (!user || user.role !== "admin") return
+  const handleAdminDecision = useCallback(
+    async (requestId: string, decision: "approve" | "reject", rejectionNotes?: string) => {
+      if (!isAdmin || !requestId) return
+      setSubmittingDecision(true)
+      try {
+        await PeminjamanMitraService.updateApproval(requestId, decision, rejectionNotes)
 
-    try {
-      const payload = {
-        status: decision === "approve" ? "APPROVED" : "REJECTED",
-      }
-
-      await api.put(`/requests/${requestId}/status`, payload).catch(() =>
-        api.put(`/requests/${requestId}`, payload)
-      )
-
-      setAllRequests((prev) =>
-        prev.map((req) =>
-          req.id === requestId
-            ? {
-                ...req,
-                status: decision === "approve" ? "menunggu_scan_pemberi" : "ditolak",
-              }
-            : req
+        setAllRequests((prev) =>
+          prev.map((req) =>
+            req.id === requestId
+              ? {
+                  ...req,
+                  status: decision === "approve" ? "menunggu_scan_pemberi" : "ditolak",
+                  notes: decision === "reject" && rejectionNotes ? rejectionNotes : req.notes,
+                }
+              : req
+          )
         )
-      )
 
-      toast.success(
-        decision === "approve"
-          ? "Permintaan berhasil disetujui. Mitra pemberi sekarang wajib melakukan scan barang."
-          : "Permintaan antar mitra berhasil ditolak."
-      )
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Gagal mengubah status persetujuan"
-      toast.error(msg)
-    }
-  }, [user])
-
-  const handleProviderScan = useCallback(async (requestId: string) => {
-    try {
-      const payload = {
-        status: "PEMBERI_SCAN",
-        providerScannedAt: new Date().toISOString(),
-      }
-
-      await api.put(`/requests/${requestId}/status`, payload).catch(() =>
-        api.put(`/requests/${requestId}`, payload)
-      )
-
-      setAllRequests((prev) =>
-        prev.map((req) =>
-          req.id === requestId
-            ? {
-                ...req,
-                status: "menunggu_scan_penerima",
-              }
-            : req
+        toast.success(
+          decision === "approve"
+            ? "Permintaan berhasil disetujui. Mitra pemberi sekarang wajib melakukan scan barang."
+            : "Permintaan antar mitra berhasil ditolak."
         )
-      )
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Gagal mengubah status persetujuan"
+        toast.error(msg)
+      } finally {
+        setSubmittingDecision(false)
+        setApprovalState((prev) => ({ ...prev, open: false, request: null }))
+      }
+    },
+    [isAdmin]
+  )
 
-      toast.success("Scan oleh mitra pemberi selesai. Mitra penerima menunggu validasi akhir.")
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Gagal menyimpan scan pemberi"
-      toast.error(msg)
-    }
+  const handleProviderScan = useCallback((request: InterPartnerRequest) => {
+    setScanTarget({ request, party: "provider" })
   }, [])
 
-  const handleReceiverScan = useCallback(async (requestId: string) => {
-    try {
-      const payload = {
-        status: "SELESAI",
-        receiverScannedAt: new Date().toISOString(),
-      }
+  const handleReceiverScan = useCallback((request: InterPartnerRequest) => {
+    setScanTarget({ request, party: "receiver" })
+  }, [])
 
-      await api.put(`/requests/${requestId}/status`, payload).catch(() =>
-        api.put(`/requests/${requestId}`, payload)
-      )
+  const handleScanSuccess = useCallback(
+    (party: "provider" | "receiver") => {
+      if (!scanTarget) return
+      const targetRequestId = scanTarget.request.id
 
       setAllRequests((prev) =>
-        prev.map((req) =>
-          req.id === requestId
-            ? {
-                ...req,
-                status: "selesai",
-              }
-            : req
-        )
+        prev.map((req) => {
+          if (req.id !== targetRequestId) return req
+          return {
+            ...req,
+            status: party === "provider" ? "menunggu_scan_penerima" : "selesai",
+          }
+        })
       )
-
-      toast.success("Validasi akhir oleh mitra penerima berhasil dilakukan.")
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Gagal menyimpan validasi akhir"
-      toast.error(msg)
-    }
-  }, [])
+    },
+    [scanTarget]
+  )
 
   const handleOpenBastPdf = useCallback(async (requestId: string, useSignedPdf = false) => {
     setOpeningPdfId(requestId)
@@ -793,17 +509,46 @@ export default function PeminjamanMitraPage() {
     fetchRequests()
   }, [fetchRequests])
 
+  // Akses: admin melihat semua, mitra hanya melihat yang melibatkan dia.
+  const isMine = useCallback(
+    (r: InterPartnerRequest): boolean => {
+      if (!user) return false
+      const providerMatches = Boolean(
+        user.partnerId &&
+          (normalizeKey(user.partnerId) === normalizeKey(r.providerPartnerId) ||
+            normalizeKey(user.identityCode) === normalizeKey(r.providerPartnerId) ||
+            normalizeKey(user.displayName) === normalizeKey(r.providerName) ||
+            normalizeKey(user.username) === normalizeKey(r.providerName))
+      )
+      const requesterMatches = Boolean(
+        user.partnerId &&
+          (normalizeKey(user.partnerId) === normalizeKey(r.requesterPartnerId) ||
+            normalizeKey(user.identityCode) === normalizeKey(r.requesterPartnerId) ||
+            normalizeKey(user.displayName) === normalizeKey(r.requesterName) ||
+            normalizeKey(user.username) === normalizeKey(r.requesterName))
+      )
+      return providerMatches || requesterMatches
+    },
+    [user]
+  )
+
   const filteredRequests = useMemo(() => {
     const q = searchTerm.trim().toLowerCase()
-    if (!q) return allRequests
-    return allRequests.filter(
+    const baseList = allRequests.filter((r) => {
+      if (user?.role === "admin") return true
+      if (user?.role !== "mitra") return true
+      return isMine(r)
+    })
+
+    if (!q) return baseList
+    return baseList.filter(
       (r) =>
         r.requestNumber.toLowerCase().includes(q) ||
         r.requesterName.toLowerCase().includes(q) ||
         r.providerName.toLowerCase().includes(q) ||
         r.itemsDetail.toLowerCase().includes(q)
     )
-  }, [allRequests, searchTerm])
+  }, [allRequests, searchTerm, user, isMine])
 
   const totalPages = Math.max(1, Math.ceil(filteredRequests.length / PAGE_SIZE))
   const paginatedRequests = filteredRequests.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
@@ -840,10 +585,12 @@ export default function PeminjamanMitraPage() {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <Button className="shrink-0 gap-2 cursor-pointer" onClick={() => setIsModalOpen(true)}>
-          <FilePlus className="h-4 w-4" />
-          Ajukan Permintaan Mitra
-        </Button>
+        {user?.role === "mitra" && (
+          <Button className="shrink-0 gap-2 cursor-pointer" onClick={() => setIsModalOpen(true)}>
+            <FilePlus className="h-4 w-4" />
+            Ajukan Permintaan Mitra
+          </Button>
+        )}
       </div>
 
       <div className="rounded-sm border border-neutral-800 bg-neutral-900/50 overflow-hidden">
@@ -857,13 +604,13 @@ export default function PeminjamanMitraPage() {
               <TableHead className="text-neutral-400">Barang</TableHead>
               <TableHead className="text-center text-neutral-400">Status</TableHead>
               <TableHead className="text-center text-neutral-400">BAST</TableHead>
-              {user?.role === "admin" && <TableHead className="text-center text-neutral-400">Persetujuan</TableHead>}
+              {isAdmin && <TableHead className="text-center text-neutral-400">Persetujuan</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow className="border-neutral-800 hover:bg-transparent">
-                <TableCell colSpan={user?.role === "admin" ? 8 : 7} className="h-32 text-center">
+                <TableCell colSpan={isAdmin ? 8 : 7} className="h-32 text-center">
                   <div className="flex items-center justify-center gap-2 text-neutral-500">
                     <Loader2 className="h-5 w-5 animate-spin text-neutral-600" />
                     <span>Memuat data permintaan antar mitra...</span>
@@ -872,7 +619,7 @@ export default function PeminjamanMitraPage() {
               </TableRow>
             ) : loadError ? (
               <TableRow className="border-neutral-800 hover:bg-transparent">
-                <TableCell colSpan={user?.role === "admin" ? 8 : 7} className="h-48 text-center">
+                <TableCell colSpan={isAdmin ? 8 : 7} className="h-48 text-center">
                   <div className="flex flex-col items-center gap-3 text-neutral-500">
                     <AlertTriangle className="h-10 w-10 text-destructive/70" />
                     <p className="text-sm font-medium">{loadError}</p>
@@ -884,43 +631,50 @@ export default function PeminjamanMitraPage() {
               </TableRow>
             ) : paginatedRequests.length === 0 ? (
               <TableRow className="border-neutral-800 hover:bg-transparent">
-                <TableCell colSpan={user?.role === "admin" ? 8 : 7} className="h-48 text-center">
+                <TableCell colSpan={isAdmin ? 8 : 7} className="h-48 text-center">
                   <div className="flex flex-col items-center gap-3 text-neutral-500">
                     <ClipboardList className="h-10 w-10 text-neutral-600 mb-2" />
                     <p className="text-sm font-medium">Belum ada permintaan antar mitra</p>
-                    <Button size="sm" onClick={() => setIsModalOpen(true)} className="gap-1.5">
-                      <FilePlus className="h-4 w-4" /> Buat Permintaan
-                    </Button>
+                    {user?.role === "mitra" && (
+                      <Button size="sm" onClick={() => setIsModalOpen(true)} className="gap-1.5">
+                        <FilePlus className="h-4 w-4" /> Buat Permintaan
+                      </Button>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>
             ) : (
               paginatedRequests.map((req, idx) => {
-                const statusUpper = String(req.status || "").toUpperCase()
+                const statusKey = resolveStatusKey(req.status)
+                const statusUpper = statusKey.toUpperCase()
                 const hasBast = ["SIAP", "SELESAI", "DITERIMA", "MENUNGGU_SCAN_PEMBERI", "MENUNGGU_SCAN_PENERIMA"].includes(statusUpper)
-                const canSign = statusUpper === "SIAP" && !req.deliveryDocument?.picSignedById
+                const canSign = statusKey === "siap" && !req.deliveryDocument?.picSignedById
                 const isSigned = !!req.deliveryDocument?.picSignedById
-                const isWaitingProviderScan = normalizeKey(req.status) === "menunggu_scan_pemberi"
-                const isWaitingReceiverScan = normalizeKey(req.status) === "menunggu_scan_penerima"
+                const isWaitingProviderScan = statusKey === "menunggu_scan_pemberi"
+                const isWaitingReceiverScan = statusKey === "menunggu_scan_penerima"
                 const isCurrentProvider = Boolean(
                   user?.partnerId &&
-                  (
-                    normalizeKey(user.partnerId) === normalizeKey(req.providerPartnerId) ||
-                    normalizeKey(user.identityCode) === normalizeKey(req.providerPartnerId)
-                  )
+                    (normalizeKey(user.partnerId) === normalizeKey(req.providerPartnerId) ||
+                      normalizeKey(user.identityCode) === normalizeKey(req.providerPartnerId))
                 )
                 const isCurrentReceiver = Boolean(
                   user?.partnerId &&
-                  (
-                    normalizeKey(user.partnerId) === normalizeKey(req.requesterPartnerId) ||
-                    normalizeKey(user.identityCode) === normalizeKey(req.requesterPartnerId)
-                  )
+                    (normalizeKey(user.partnerId) === normalizeKey(req.requesterPartnerId) ||
+                      normalizeKey(user.identityCode) === normalizeKey(req.requesterPartnerId))
                 )
                 const canProviderScan = user?.role === "mitra" && isCurrentProvider && isWaitingProviderScan
                 const canReceiverScan = user?.role === "mitra" && isCurrentReceiver && isWaitingReceiverScan
 
+                const clickToScan = canProviderScan && user?.role === "mitra"
+
                 return (
-                  <TableRow key={req.id} className="border-neutral-800 hover:bg-neutral-900/80">
+                  <TableRow
+                    key={req.id}
+                    className={`border-neutral-800 hover:bg-neutral-900/80 ${clickToScan ? "cursor-pointer" : ""}`}
+                    onClick={() => {
+                      if (clickToScan) handleProviderScan(req)
+                    }}
+                  >
                     <TableCell className="pl-4 text-neutral-400">
                       {(currentPage - 1) * PAGE_SIZE + idx + 1}
                     </TableCell>
@@ -941,15 +695,15 @@ export default function PeminjamanMitraPage() {
                       </span>
                     </TableCell>
                     <TableCell className="text-center">
-                      <StatusBadge status={req.status} />
+                      <InterPartnerStatusBadge status={req.status} />
                     </TableCell>
                     <TableCell className="text-center">
                       {canProviderScan ? (
-                        <Button size="sm" variant="default" onClick={() => handleProviderScan(req.id)}>
+                        <Button size="sm" variant="default" onClick={() => handleProviderScan(req)}>
                           Scan Pemberi
                         </Button>
                       ) : canReceiverScan ? (
-                        <Button size="sm" variant="default" onClick={() => handleReceiverScan(req.id)}>
+                        <Button size="sm" variant="default" onClick={() => handleReceiverScan(req)}>
                           Scan Validasi Akhir
                         </Button>
                       ) : hasBast ? (
@@ -986,14 +740,22 @@ export default function PeminjamanMitraPage() {
                         <span className="text-xs text-muted-foreground">-</span>
                       )}
                     </TableCell>
-                    {user?.role === "admin" && (
+                    {isAdmin && (
                       <TableCell className="text-center">
-                        {normalizeKey(req.status) === "menunggu_persetujuan" || normalizeKey(req.status) === "menunggu" ? (
+                        {isPendingApproval(req.status) ? (
                           <div className="flex items-center justify-center gap-2">
-                            <Button size="sm" variant="default" onClick={() => handleAdminDecision(req.id, "approve")}>
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={() => setApprovalState({ open: true, decision: "approve", request: req })}
+                            >
                               Setujui
                             </Button>
-                            <Button size="sm" variant="outline" onClick={() => handleAdminDecision(req.id, "reject")}>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setApprovalState({ open: true, decision: "reject", request: req })}
+                            >
                               Tolak
                             </Button>
                           </div>
@@ -1042,6 +804,23 @@ export default function PeminjamanMitraPage() {
         </div>
       )}
 
+      <ApproveRejectModal
+        open={approvalState.open}
+        onOpenChange={(open) => {
+          if (!open) setApprovalState((prev) => ({ ...prev, open: false, request: null }))
+        }}
+        decision={approvalState.decision}
+        requestNumber={approvalState.request?.requestNumber ?? ""}
+        requesterName={approvalState.request?.requesterName ?? ""}
+        providerName={approvalState.request?.providerName ?? ""}
+        isSubmitting={submittingDecision}
+        onConfirm={(rejectionNotes) => {
+          if (approvalState.request) {
+            void handleAdminDecision(approvalState.request.id, approvalState.decision, rejectionNotes)
+          }
+        }}
+      />
+
       <DigitalSignatureDialog
         open={signDialogOpen}
         onOpenChange={(open) => {
@@ -1051,6 +830,34 @@ export default function PeminjamanMitraPage() {
         title="Tanda Tangan Digital BAST"
         description="Berikan tanda tangan Anda sebagai pihak penerima untuk dokumen BAST permintaan antar mitra ini."
         onSignComplete={handleSignComplete}
+      />
+
+      <InterPartnerScanModal
+        open={scanTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setScanTarget(null)
+        }}
+        requestId={scanTarget?.request.id ?? ""}
+        requestNumber={scanTarget?.request.requestNumber ?? ""}
+        party={scanTarget?.party ?? "provider"}
+        title={
+          scanTarget?.party === "provider"
+            ? "Scan Barang oleh Mitra Pemberi"
+            : "Scan Barang oleh Mitra Penerima"
+        }
+        description={
+          scanTarget?.party === "provider"
+            ? "Scan serial number setiap barang yang akan dikirim kepada mitra peminjam."
+            : "Scan serial number setiap barang yang diterima untuk validasi akhir."
+        }
+        items={
+          scanTarget?.request.requestItems.length
+            ? scanTarget.request.requestItems
+            : []
+        }
+        onSuccess={() => {
+          if (scanTarget) handleScanSuccess(scanTarget.party)
+        }}
       />
 
       <InterPartnerRequestModal

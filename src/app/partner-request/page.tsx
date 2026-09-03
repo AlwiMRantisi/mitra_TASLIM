@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/table"
 import { api, getBaseUrl } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
+import { isInterPartnerRequest } from "@/services/peminjamanMitraService"
 import { openUrl } from "@tauri-apps/plugin-opener"
 import { DigitalSignatureDialog } from "@/app/request/components/DigitalSignatureDialog"
 import { RequestFormModal } from "@/features/partner-request/components/RequestFormModal"
@@ -302,6 +303,7 @@ export default function PartnerRequestHistoryPage() {
       const res = await api.get("/requests")
       const rawRequests = unwrapRequestList(res.data)
       const myRequests = rawRequests
+        .filter((raw) => !isInterPartnerRequest(raw))
         .map((raw) => ({ raw, request: normalizeRequest(raw) }))
         .filter(({ raw, request }) => requestBelongsToUser(raw, request, user))
         .map(({ request }) => request)

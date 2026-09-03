@@ -20,6 +20,7 @@ import { useAuth } from "@/lib/auth"
 // import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter, DrawerClose } from "@/components/ui/drawer"
 import {} from "./components/DigitalSignatureDialog"
 import { api } from "@/lib/api"
+import { isInterPartnerRequest } from "@/services/peminjamanMitraService"
 
 import type { DashboardRequest } from "@/types/transaction"
 import { cn } from "@/lib/utils"
@@ -129,7 +130,15 @@ export default function DataTransaksiPage() {
   const fetchRequests = async () => {
     try {
       const res = await api.get(`/requests`);
-      const data: DashboardRequest[] = res.data;
+      const rawData = res.data;
+      const rawList: unknown[] = Array.isArray(rawData)
+        ? rawData
+        : Array.isArray((rawData as { data?: unknown })?.data)
+          ? ((rawData as { data: unknown[] }).data)
+          : [];
+      const data = rawList
+        .filter((raw) => !isInterPartnerRequest(raw))
+        .map((raw) => raw as DashboardRequest);
 
       // Jika user adalah mitra, sembunyikan request mitra lain
       setLocalRequests(

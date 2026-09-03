@@ -44,6 +44,14 @@ const data = {
           isActive: false,
         },
         {
+          title: "Permintaan Antar Mitra",
+          url: "/peminjaman-mitra",
+          icon: (
+            <Handshake />
+          ),
+          isActive: false,
+        },
+        {
           title: "Request",
           url: "/request",
           icon: (

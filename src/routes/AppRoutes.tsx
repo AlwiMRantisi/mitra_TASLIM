@@ -62,7 +62,7 @@ export function AppRoutes() {
 				<Route
 					path="peminjaman-mitra"
 					element={
-						<ProtectedRoute mitraOnly>
+						<ProtectedRoute allowedRoles={["admin", "mitra"]}>
 							<PeminjamanMitraPage />
 						</ProtectedRoute>
 					}
