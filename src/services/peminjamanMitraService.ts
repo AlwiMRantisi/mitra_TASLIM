@@ -9,6 +9,13 @@
  *   PUT    /requests/:id/status          → approve / reject oleh ADMIN (fallback /requests/:id)
  *   PUT    /peminjaman-mitra/:id/scan    → simpan hasil scan SN per pihak
  *
+ * Backend memakai Prisma: response API mengembalikan field camelCase
+ * (requesterId, providerPartnerId, donorSerialNumber) dengan relasi berupa
+ * objek nested (requester, provider, requestItems[].category/brand,
+ * deliveryDocument). Normalisasi di bawah ini tetap toleran terhadap variasi
+ * penamaan lain (snake_case & ekspansi tambahan) demi ketahanan terhadap
+ * perubahan bentuk backend.
+ *
  * Seluruh normalisasi dan resolusi nama mitra dipusatkan di sini agar
  * halaman (page) dan komponen tidak menduplikasi logika.
  */
@@ -147,15 +154,45 @@ export const isPendingApproval = (status: string): boolean =>
 
 // ─── Request normalization ────────────────────────────────────────────────────
 
+export type NameMap = Record<string, string>;
+
+const lookupName = (map: NameMap, value: unknown): string =>
+  map[normalizeKey(value)] ?? "";
+
 const normalizeItem = (
   raw: unknown,
-  index: number
+  index: number,
+  categories: NameMap,
+  brands: NameMap
 ): InterPartnerRequest["requestItems"][number] => {
   const item = asRecord(raw);
+  const categoryObj = asRecord(item.category);
+  const materialCategory = asRecord(item.materialCategory);
+  const brandObj = asRecord(item.brand);
+
+  // Prisma: relasi include mengembalikan objek nested (category/brand) maupun
+  // scalar id (categoryId/brandId). Resolusi nama juga via peta /categories & /brands.
+  const flatCategory = lookupName(categories, item.categoryId ?? item.category_id);
+  const flatBrand = lookupName(brands, item.brandId ?? item.brand_id);
+
   return {
-    id: readNumber(item.id, index),
-    category: readFirstText(item.categoryName, item.category, "-"),
-    brand: readFirstText(item.brandName, item.brand, "-"),
+    id: readFirstText(item.id, String(index)),
+    category: readFirstText(
+      item.categoryName,
+      item.category,
+      readFirstText(categoryObj.name, categoryObj.nama),
+      materialCategory.name,
+      materialCategory.nama,
+      flatCategory,
+      "-"
+    ),
+    brand: readFirstText(
+      item.brandName,
+      item.brand,
+      readFirstText(brandObj.name, brandObj.nama),
+      flatBrand,
+      "-"
+    ),
     quantity: readNumber(item.quantity, 1),
     unit: readFirstText(item.unit, "Unit"),
   };
@@ -168,19 +205,24 @@ const normalizeItem = (
 export const normalizeRequest = (
   raw: unknown,
   index: number,
-  users: Record<string, unknown>[] = []
+  users: Record<string, unknown>[] = [],
+  categories: NameMap = {},
+  brands: NameMap = {}
 ): InterPartnerRequest => {
   const rec = asRecord(raw);
   const req = asRecord(rec.requester || rec.requesterParty);
   const prov = asRecord(rec.provider || rec.providerParty);
 
-  const rawItems = Array.isArray(rec.items || rec.requestItems)
-    ? ((rec.items || rec.requestItems) as unknown[])
+  const rawItems = Array.isArray(rec.items || rec.requestItems || rec.request_items)
+    ? ((rec.items || rec.requestItems || rec.request_items) as unknown[])
     : [];
-  const requestItems = rawItems.map(normalizeItem);
+  const requestItems = rawItems.map((it, i) => normalizeItem(it, i, categories, brands));
 
   const requesterMatch = findUserMatch(users, [
     rec.requesterId,
+    rec.requesterPartnerId,
+    rec.requester_id,
+    rec.requester_partner_id,
     rec.requesterPartnerId,
     req.id,
     req.partnerId,
@@ -194,6 +236,8 @@ export const normalizeRequest = (
   const providerMatch = findUserMatch(users, [
     rec.providerPartnerId,
     rec.providerId,
+    rec.provider_partner_id,
+    rec.provider_id,
     prov.id,
     prov.partnerId,
     prov.identityCode,
@@ -208,11 +252,12 @@ export const normalizeRequest = (
     requesterMatch?.name,
     requesterMatch?.displayName,
     requesterMatch?.username,
+    rec.requesterName,
+    rec.requester_name,
     req.partnerName,
     req.name,
     req.displayName,
     req.username,
-    rec.requesterName,
     "Mitra Peminta"
   );
 
@@ -221,19 +266,20 @@ export const normalizeRequest = (
     providerMatch?.name,
     providerMatch?.displayName,
     providerMatch?.username,
+    rec.providerName,
+    rec.provider_name,
     prov.partnerName,
     prov.name,
     prov.displayName,
     prov.username,
-    rec.providerName,
     "Mitra Pemberi"
   );
 
   return {
     id: readFirstText(rec.id, rec._id, String(index)),
-    requestNumber: readFirstText(rec.requestNumber, rec.nomorRequest, `REQ-MITRA-${index + 1}`),
-    requesterPartnerId: readFirstText(rec.requesterPartnerId, rec.requesterId, req.partnerId, req.id, req.identityCode),
-    providerPartnerId: readFirstText(rec.providerPartnerId, rec.providerId, prov.partnerId, prov.id, prov.identityCode),
+    requestNumber: readFirstText(rec.requestNumber, rec.request_number, rec.nomorRequest, `REQ-MITRA-${index + 1}`),
+    requesterPartnerId: readFirstText(rec.requesterPartnerId, rec.requesterId, rec.requester_partner_id, rec.requester_id, req.partnerId, req.id, req.identityCode),
+    providerPartnerId: readFirstText(rec.providerPartnerId, rec.providerId, rec.provider_partner_id, rec.provider_id, prov.partnerId, prov.id, prov.identityCode),
     requesterName,
     providerName,
     itemsCount: requestItems.length || readNumber(rec.itemsCount, 1),
@@ -241,20 +287,29 @@ export const normalizeRequest = (
       requestItems
         .map((it) => `${it.category}${it.brand && it.brand !== "-" ? ` / ${it.brand}` : ""} x${it.quantity}`)
         .join(", ") ||
-      readFirstText(rec.itemsDetail) ||
+      readFirstText(rec.itemsDetail, rec.items_detail) ||
       "Item Permintaan",
     status: resolveStatusKey(rec.status ?? rec.approvalStatus ?? rec.state ?? "menunggu_persetujuan"),
-    notes: readFirstText(rec.purpose, rec.notes, rec.adminRemarks),
-    requestedAt: readFirstText(rec.requestedAt, rec.createdAt),
+    notes: readFirstText(rec.purpose, rec.notes, rec.adminRemarks, rec.admin_remarks),
+    requestedAt: readFirstText(rec.requestedAt, rec.requested_at, rec.createdAt, rec.created_at),
     requestItems,
-    deliveryDocument:
-      rec.deliveryDocument != null
-        ? {
-            kpSignedById: readFirstText(asRecord(rec.deliveryDocument).kpSignedById) || null,
-            picSignedById: readFirstText(asRecord(rec.deliveryDocument).picSignedById) || null,
-            driveViewUrl: readFirstText(asRecord(rec.deliveryDocument).driveViewUrl) || null,
-          }
-        : null,
+    deliveryDocument: normalizeDeliveryDocument(
+      rec.deliveryDocument || rec.delivery_document || rec.deliveryDoc || null
+    ),
+  };
+};
+
+const normalizeDeliveryDocument = (
+  value: unknown
+): InterPartnerRequest["deliveryDocument"] => {
+  if (value === null || value === undefined) return null;
+  const doc = asRecord(value);
+  return {
+    kpSignedById:
+      readFirstText(doc.kpSignedById, doc.kp_signed_by_id) || null,
+    picSignedById:
+      readFirstText(doc.picSignedById, doc.pic_signed_by_id) || null,
+    driveViewUrl: readFirstText(doc.driveViewUrl, doc.drive_view_url) || null,
   };
 };
 
@@ -270,6 +325,17 @@ export const normalizeRequest = (
  */
 export const isInterPartnerRequest = (raw: unknown): boolean => {
   const rec = asRecord(raw);
+
+  // Flag langsung: is_inter_partner / isInterPartner
+  for (const key of ["is_inter_partner", "isInterPartner"]) {
+    const value = rec[key];
+    if (value === true) return true;
+    if (typeof value === "string" && normalizeKey(value) !== "") {
+      if (["true", "1", "ya", "yes"].includes(normalizeKey(value))) return true;
+    }
+    // Backend boolean false eksplisit → bukan inter-partner
+    if (value === false) return false;
+  }
 
   const providerFields = [
     "providerPartnerId",
@@ -341,40 +407,61 @@ export const PeminjamanMitraService = {
    * Nama mitra di-resolve dari daftar /users.
    */
   async getInterPartnerRequests(): Promise<InterPartnerRequest[]> {
-    const [requestsRes, usersRes] = await Promise.all([
+    const [requestsRes, usersRes, catRes, brandRes] = await Promise.all([
       api.get("/requests?type=inter-partner").catch(() => api.get("/requests")),
       api.get("/users").catch(() => ({ data: [] })),
+      api.get("/categories").catch(() => ({ data: [] })),
+      api.get("/brands").catch(() => ({ data: [] })),
     ]);
 
     const rawList = unwrapList(requestsRes.data);
     const users = unwrapList(usersRes.data).map(normalizePartnerRecord);
 
+    // Peta kategori & merek untuk resolusi nama dari id (struktur relasional)
+    const categories: NameMap = {};
+    unwrapList(catRes.data).forEach((c) => {
+      const rec = asRecord(c);
+      const key = readFirstText(rec.id, rec._id);
+      const name = readFirstText(rec.name, rec.nama);
+      if (key && name) categories[normalizeKey(key)] = name;
+    });
+
+    const brands: NameMap = {};
+    unwrapList(brandRes.data).forEach((b) => {
+      const rec = asRecord(b);
+      const key = readFirstText(rec.id, rec._id);
+      const name = readFirstText(rec.name, rec.nama);
+      if (key && name) brands[normalizeKey(key)] = name;
+    });
+
     return rawList
       .filter((raw) => isInterPartnerRequest(raw))
-      .map((raw, idx) => normalizeRequest(raw, idx, users));
+      .map((raw, idx) => normalizeRequest(raw, idx, users, categories, brands));
   },
 
   /**
    * Approve / reject permintaan antar mitra oleh ADMIN.
-   * Endpoint: PUT /requests/:id/status dengan status "APPROVED" | "REJECTED".
-   * Fallback: PUT /requests/:id.
+   * Endpoint: PUT /requests/:id/status dengan status tabel requests (menunggu_scan_pemberi / ditolak).
+   * Fallback: PUT /requests/:id. Keduanya mengirim status & catatan relasional.
    */
   async updateApproval(
     id: string,
     decision: "approve" | "reject",
     rejectionNotes?: string
   ): Promise<void> {
-    const status = decision === "approve" ? "APPROVED" : "REJECTED";
-    const payload: Record<string, unknown> = { status };
-    if (decision === "reject" && rejectionNotes) {
-      payload.rejectionNotes = rejectionNotes;
-      payload.adminRemarks = rejectionNotes;
-      payload.notes = rejectionNotes;
+    const status = decision === "approve" ? "menunggu_scan_pemberi" : "ditolak";
+    const payload: Record<string, unknown> = {
+      status,
+    };
+    if (decision === "reject") {
+      payload.rejectionNotes = rejectionNotes ?? "";
+      payload.adminRemarks = rejectionNotes ?? "";
+      payload.notes = rejectionNotes ?? "";
     }
 
     await api
       .put(`/requests/${id}/status`, payload)
-      .catch(() => api.put(`/requests/${id}`, { status }));
+      .catch(() => api.put(`/requests/${id}`, payload));
   },
 
   /**
